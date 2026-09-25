@@ -209,6 +209,18 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
             OR simpeg.biodata.nama LIKE ? 
             OR simpeg.instansi.instansi LIKE ?
           )
+        ORDER BY 
+          CASE 
+            WHEN simpeg.jabatan.jabatan LIKE "%BUPATI%" THEN 0
+            WHEN simpeg.jabatan.jabatan LIKE "%SEKRETARIS DAERAH%" THEN 1
+            WHEN simpeg.jabatan.esselon IS NULL OR simpeg.jabatan.esselon = "" OR simpeg.jabatan.esselon = "-" THEN 99
+            ELSE CAST(simpeg.jabatan.esselon AS UNSIGNED)
+          END ASC,
+          CASE
+            WHEN simpeg.jabatan.level IS NULL OR simpeg.jabatan.level = "" OR simpeg.jabatan.level = "null" THEN 99
+            ELSE CAST(simpeg.jabatan.level AS UNSIGNED)
+          END ASC,
+          simpeg.biodata.nama ASC
         LIMIT ?;
       `;
 
@@ -370,7 +382,24 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
         WHERE ${whereStr}
         GROUP BY egov.users.id
-        ORDER BY simpeg.biodata.nama ASC
+        ORDER BY 
+          CASE 
+            WHEN simpeg.jabatan.jabatan LIKE "%BUPATI%" THEN 0
+            WHEN simpeg.jabatan.jabatan LIKE "%SEKRETARIS DAERAH%" THEN 1
+            WHEN simpeg.jabatan.esselon IS NULL OR simpeg.jabatan.esselon = "" OR simpeg.jabatan.esselon = "-" THEN 99
+            ELSE CAST(simpeg.jabatan.esselon AS UNSIGNED)
+          END ASC,
+          CASE
+            WHEN simpeg.jabatan.level IS NULL OR simpeg.jabatan.level = "" OR simpeg.jabatan.level = "null" THEN 99
+            ELSE CAST(simpeg.jabatan.level AS UNSIGNED)
+          END ASC,
+          simpeg.instansi.instansi ASC,
+          CASE 
+            WHEN simpeg.biodata.gol IS NOT NULL AND simpeg.biodata.gol != "" THEN CAST(simpeg.biodata.gol AS UNSIGNED)
+            ELSE 0
+          END DESC,
+          simpeg.biodata.nama ASC,
+          egov.users.username ASC
         LIMIT ?, ?;
       `;
 
@@ -431,6 +460,43 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
   /**
    * Mengambil daftar Sub Unit Kerja dari SIMPEG berdasarkan Instansi (READ-ONLY)
    */
+  /**
+   * Mengambil daftar NIP dari SIMPEG berdasarkan Instansi dan/atau Sub Unit Kerja (READ-ONLY)
+   */
+  async getNipsByInstansi(instansiId?: string, unitKerjaId?: string): Promise<string[]> {
+    if (!this.pool || !this.isConnected) {
+      return [];
+    }
+    try {
+      const whereClauses: string[] = ['simpeg.biodata.nip IS NOT NULL'];
+      const params: any[] = [];
+
+      if (instansiId && instansiId !== 'all') {
+        whereClauses.push('simpeg.instansi.id = ?');
+        params.push(instansiId);
+      }
+
+      if (unitKerjaId && unitKerjaId !== 'all') {
+        whereClauses.push('simpeg.unit_kerja.id = ?');
+        params.push(unitKerjaId);
+      }
+
+      const sql = `
+        SELECT DISTINCT simpeg.biodata.nip
+        FROM simpeg.biodata
+        LEFT JOIN simpeg.unit_kerja ON simpeg.biodata.unit_kerja = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE ${whereClauses.join(' AND ')};
+      `;
+
+      const [rows] = await this.pool.query<any[]>(sql, params);
+      return (rows || []).map((r) => String(r.nip));
+    } catch (error) {
+      this.logger.error('Error saat getNipsByInstansi:', error.message);
+      return [];
+    }
+  }
+
   async getUnitKerjaList(instansiId?: string): Promise<{ id: string; unitKerja: string; instansiId: string }[]> {
     if (!this.pool || !this.isConnected) {
       return [];

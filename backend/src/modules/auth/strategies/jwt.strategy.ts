@@ -27,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         email: true,
         namaLengkap: true,
         role: true,
+        roles: true,
         status: true,
         opdId: true,
         subUnitId: true,
@@ -43,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       email: user.email,
       namaLengkap: user.namaLengkap,
       role: user.role as any,
+      roles: (user.roles && user.roles.length > 0) ? (user.roles as any) : [user.role as any],
       opdId: user.opdId,
       subUnitId: user.subUnitId,
     };

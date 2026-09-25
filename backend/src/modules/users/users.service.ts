@@ -25,31 +25,56 @@ export class UsersService {
    * Menampilkan daftar pengguna SIMANTAP terpaginasi
    */
   async findAll(query: QueryUserDto) {
-    const { page = 1, limit = 10, search, role, opdId, status, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      role,
+      opdId,
+      instansiId,
+      unitKerjaId,
+      status,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = query;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const andConditions: any[] = [];
 
     if (search) {
-      where.OR = [
-        { nip: { contains: search, mode: 'insensitive' } },
-        { namaLengkap: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { jabatan: { contains: search, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { nip: { contains: search, mode: 'insensitive' } },
+          { namaLengkap: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { jabatan: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     if (role) {
-      where.role = role;
+      andConditions.push({
+        OR: [
+          { role: role },
+          { roles: { has: role } },
+        ],
+      });
     }
 
     if (opdId) {
-      where.opdId = opdId;
+      andConditions.push({ opdId });
+    }
+
+    if ((instansiId && instansiId !== 'all') || (unitKerjaId && unitKerjaId !== 'all')) {
+      const nips = await this.egovService.getNipsByInstansi(instansiId, unitKerjaId);
+      andConditions.push({ nip: { in: nips } });
     }
 
     if (status && status !== 'ALL') {
-      where.status = status;
+      andConditions.push({ status });
     }
+
+    const where: any = andConditions.length > 0 ? { AND: andConditions } : {};
 
     const [total, data] = await Promise.all([
       this.prisma.user.count({ where }),
@@ -65,6 +90,7 @@ export class UsersService {
           jabatan: true,
           email: true,
           role: true,
+          roles: true,
           status: true,
           lastLoginAt: true,
           createdAt: true,
@@ -131,6 +157,16 @@ export class UsersService {
   async setRole(dto: SetRoleDto, adminId?: string) {
     const cleanNip = dto.nip.trim();
 
+    let assignedRoles: RoleEnum[] = [];
+    if (dto.roles && dto.roles.length > 0) {
+      assignedRoles = Array.from(new Set(dto.roles));
+    } else if (dto.role) {
+      assignedRoles = [dto.role];
+    } else {
+      assignedRoles = [RoleEnum.ADMIN_PPK];
+    }
+    const primaryRole = assignedRoles[0];
+
     // 1. Cek apakah user sudah terdaftar di SIMANTAP
     let user = await this.prisma.user.findUnique({
       where: { nip: cleanNip },
@@ -174,7 +210,8 @@ export class UsersService {
           jabatan: egovProfile.jabatan,
           email,
           password: defaultPassword,
-          role: dto.role,
+          role: primaryRole,
+          roles: assignedRoles,
           opdId: assignedOpdId,
           subUnitId: dto.subUnitId,
           status: 'AKTIF',
@@ -187,7 +224,8 @@ export class UsersService {
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
-          role: dto.role,
+          role: primaryRole,
+          roles: assignedRoles,
           opdId: dto.opdId || user.opdId,
           subUnitId: dto.subUnitId || user.subUnitId,
           status: 'AKTIF',
@@ -204,20 +242,22 @@ export class UsersService {
         resourceId: user.id,
         payload: {
           targetNip: cleanNip,
-          assignedRole: dto.role,
+          assignedRoles,
+          primaryRole,
           opdId: dto.opdId,
         },
       },
     });
 
     return {
-      message: `Hak akses role '${dto.role}' berhasil diberikan kepada ${user.namaLengkap}`,
+      message: `Hak akses role (${assignedRoles.join(', ')}) berhasil diberikan kepada ${user.namaLengkap}`,
       user: {
         id: user.id,
         nip: user.nip,
         namaLengkap: user.namaLengkap,
         jabatan: user.jabatan,
         role: user.role,
+        roles: user.roles,
         status: user.status,
       },
     };
@@ -237,6 +277,7 @@ export class UsersService {
       throw new NotFoundException(`Pengguna dengan NIP '${cleanNip}' tidak ditemukan`);
     }
 
+    // Ubah status menjadi NON_AKTIF tanpa menghapus/mengubah role
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
@@ -257,12 +298,58 @@ export class UsersService {
         action: 'REVOKE_USER_ACCESS',
         resource: 'USER_ROLE',
         resourceId: user.id,
-        payload: { targetNip: cleanNip },
+        payload: { targetNip: cleanNip, role: user.role, roles: user.roles },
       },
     });
 
     return {
-      message: `Hak akses sistem SIMANTAP untuk '${user.namaLengkap}' berhasil dicabut (Non-aktif)`,
+      message: `Hak akses sistem SIMANTAP untuk '${user.namaLengkap}' berhasil dicabut (Status: Non-Aktif). Peran tetap tersimpan.`,
+    };
+  }
+
+  /**
+   * Mengembalikan peran ke default (Belum Diberi Akses)
+   * Menghapus record pengguna dari database lokal SIMANTAP sehingga datanya kembali bersih dan kembali ke Direktori ASN
+   */
+  async resetToDefault(nip: string, adminId?: string) {
+    const cleanNip = nip.trim();
+
+    const user = await this.prisma.user.findUnique({
+      where: { nip: cleanNip },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`Pengguna dengan NIP '${cleanNip}' tidak terdaftar di SIMANTAP`);
+    }
+
+    // Invalidate dan hapus semua refresh token
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    // Catat log audit sebelum akun dihapus
+    await this.prisma.auditLog.create({
+      data: {
+        userId: adminId,
+        action: 'RESET_USER_TO_DEFAULT',
+        resource: 'USER_ROLE',
+        resourceId: user.id,
+        payload: {
+          targetNip: cleanNip,
+          namaLengkap: user.namaLengkap,
+          previousRole: user.role,
+          previousRoles: user.roles,
+        },
+      },
+    });
+
+    // Hapus akun dari SIMANTAP lokal agar datanya kembali bersih
+    await this.prisma.user.delete({
+      where: { id: user.id },
+    });
+
+    return {
+      message: `Peran akun '${user.namaLengkap}' telah dikembalikan ke default (Belum Diberi Akses) dan dikembalikan ke Direktori ASN.`,
     };
   }
 
@@ -303,6 +390,7 @@ export class UsersService {
         id: true,
         nip: true,
         role: true,
+        roles: true,
         status: true,
       },
     });
@@ -316,7 +404,8 @@ export class UsersService {
         ...p,
         hasSimantapAccess: !!local && local.status === 'AKTIF',
         simantapRole: local?.role || null,
-        simantapStatus: local?.status || 'BELUM_DIBERI_AKSES',
+        simantapRoles: local?.roles && local.roles.length > 0 ? local.roles : (local?.role ? [local.role] : []),
+        simantapStatus: local ? local.status : 'BELUM_DIBERI_AKSES',
         simantapUserId: local?.id || null,
       };
     });

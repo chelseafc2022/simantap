@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { RoleEnum } from '../../../common/enums/role.enum';
 
 export class SetRoleDto {
@@ -8,13 +8,21 @@ export class SetRoleDto {
   @IsString()
   nip: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: RoleEnum,
-    description: 'Role akses yang diberikan (7 Role RBAC SIMANTAP)',
+    description: 'Role akses tunggal (opsional / backward compatibility)',
   })
-  @IsNotEmpty({ message: 'Role wajib diisi' })
+  @IsOptional()
   @IsEnum(RoleEnum, { message: 'Role tidak valid' })
-  role: RoleEnum;
+  role?: RoleEnum;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Daftar role akses pengguna (bisa lebih dari 1)',
+  })
+  @IsOptional()
+  @IsArray({ message: 'Roles harus berupa array' })
+  roles?: RoleEnum[];
 
   @ApiPropertyOptional({ description: 'ID OPD di SIMANTAP (opsional, otomatis ditarik dari SIMPEG jika kosong)' })
   @IsOptional()

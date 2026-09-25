@@ -1,9 +1,12 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import {
   LogOut,
-  Shield,
-  User as UserIcon,
+  ChevronsUpDown,
+  Building2,
+  Briefcase,
+  Loader2,
 } from "lucide-react"
 
 import {
@@ -20,12 +23,45 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
+import { toast } from "sonner"
+
+function getInitials(name?: string): string {
+  if (!name) return "AD"
+  const clean = name.replace(/,\s*.*$/, "").trim()
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+  }
+  return clean.substring(0, 2).toUpperCase()
+}
+
+function formatRole(role?: string): string {
+  switch (role) {
+    case "ADMINISTRATOR":
+      return "Administrator"
+    case "ADMIN_SIRUP":
+      return "Admin SiRUP"
+    case "ADMIN_PERENCANAAN":
+      return "Admin Perencanaan"
+    case "ADMIN_PPK":
+      return "Admin PPK"
+    case "BENDAHARA":
+      return "Bendahara"
+    case "KEPALA_OPD":
+      return "Kepala OPD"
+    case "PIMPINAN_DAERAH":
+      return "Pimpinan Daerah"
+    default:
+      return role || "Pengguna"
+  }
+}
 
 export function NavUser({
-  user,
+  user: initialUser,
 }: {
-  user: {
+  user?: {
     name: string
     email: string
     avatar?: string
@@ -33,6 +69,34 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const { logout, user: authUser } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      toast.info("Mengeluarkan akun...")
+      await logout()
+    } catch {
+      window.location.href = "/login"
+    }
+  }
+
+  // Consistent SSR & Initial Client Render
+  const activeUser = mounted ? authUser : null
+  const displayName = activeUser?.namaLengkap || initialUser?.name || "Administrator"
+  const displaySubtitle = activeUser?.nip
+    ? `NIP. ${activeUser.nip}`
+    : activeUser?.role
+    ? formatRole(activeUser.role)
+    : (initialUser?.email || "admin@konaweselatankab.go.id")
+  const roleName = activeUser?.role ? formatRole(activeUser.role) : "Administrator"
+  const opdName = activeUser?.opd?.singkatan || activeUser?.opd?.namaOpd
+  const initials = getInitials(displayName)
 
   return (
     <SidebarMenu>
@@ -41,50 +105,95 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground cursor-pointer transition-colors"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-semibold text-xs border border-emerald-300 dark:border-emerald-800">
-                {user.name.substring(0, 2).toUpperCase()}
+              <div
+                suppressHydrationWarning
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm"
+              >
+                {initials}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                <span
+                  suppressHydrationWarning
+                  className="truncate font-semibold text-xs text-foreground"
+                >
+                  {displayName}
+                </span>
+                <span
+                  suppressHydrationWarning
+                  className="text-muted-foreground truncate text-[11px]"
+                >
+                  {displaySubtitle}
                 </span>
               </div>
+              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground/70" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-xl p-2 shadow-xl border-border/80"
             side={isMobile ? "bottom" : "right"}
             align="end"
-            sideOffset={4}
+            sideOffset={8}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-semibold text-xs">
-                  {user.name.substring(0, 2).toUpperCase()}
+            <DropdownMenuLabel className="p-2 font-normal">
+              <div className="flex items-start gap-3 text-left">
+                <div
+                  suppressHydrationWarning
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white font-bold text-sm shadow-md"
+                >
+                  {initials}
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {authUser?.role || "Pengguna"}
+                <div className="grid flex-1 leading-tight gap-1 overflow-hidden">
+                  <span
+                    suppressHydrationWarning
+                    className="truncate font-bold text-sm text-foreground"
+                  >
+                    {displayName}
                   </span>
-                  {authUser?.opd && (
-                    <span className="text-[10px] text-muted-foreground truncate">
-                      {authUser.opd.singkatan || authUser.opd.namaOpd}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {(activeUser?.roles && activeUser.roles.length > 0 ? activeUser.roles : (activeUser?.role ? [activeUser.role] : [])).map((r) => (
+                      <Badge
+                        key={r}
+                        variant="outline"
+                        className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0 font-medium"
+                      >
+                        {formatRole(r)}
+                      </Badge>
+                    ))}
+                    {activeUser?.nip && (
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        NIP. {activeUser.nip}
+                      </span>
+                    )}
+                  </div>
+                  {activeUser?.jabatan && (
+                    <span className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                      <Briefcase className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                      <span className="truncate">{activeUser.jabatan}</span>
+                    </span>
+                  )}
+                  {opdName && (
+                    <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium truncate flex items-center gap-1">
+                      <Building2 className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span className="truncate">{opdName}</span>
                     </span>
                   )}
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
-              onClick={() => logout()}
-              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive font-medium rounded-lg py-2 transition-colors"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Keluar (Logout)
+              {isLoggingOut ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4 mr-2" />
+              )}
+              {isLoggingOut ? "Sedang keluar..." : "Keluar (Logout)"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

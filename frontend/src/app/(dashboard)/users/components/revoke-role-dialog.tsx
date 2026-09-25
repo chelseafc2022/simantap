@@ -34,7 +34,7 @@ export function RevokeRoleDialog({ open, onOpenChange, target }: RevokeRoleDialo
     },
     onSuccess: (data) => {
       toast.success(
-        data?.message || `Hak akses untuk ${target?.namaLengkap} berhasil dinonaktifkan`
+        data?.message || `Hak akses untuk ${target?.namaLengkap} berhasil dicabut (Non-Aktif)`
       )
       queryClient.invalidateQueries({ queryKey: ["users"] })
       queryClient.invalidateQueries({ queryKey: ["pegawai-directory"] })
@@ -55,7 +55,7 @@ export function RevokeRoleDialog({ open, onOpenChange, target }: RevokeRoleDialo
             Cabut Hak Akses SIMANTAP
           </DialogTitle>
           <DialogDescription>
-            Tindakan ini akan menonaktifkan status akun pegawai dan membatalkan seluruh sesi login aktif.
+            Tindakan ini akan menonaktifkan status akun pegawai dan membatalkan seluruh sesi login aktif. Peran (role) akun tetap tersimpan.
           </DialogDescription>
         </DialogHeader>
 
@@ -65,11 +65,19 @@ export function RevokeRoleDialog({ open, onOpenChange, target }: RevokeRoleDialo
               <span className="font-semibold block">{target.namaLengkap}</span>
               <span className="text-muted-foreground font-mono">NIP: {target.nip}</span>
             </div>
-            {target.currentRole && (
+            {target.currentRoles && target.currentRoles.length > 0 ? (
+              <div className="text-muted-foreground mt-1">
+                Peran Akses Saat Ini:{" "}
+                <span className="font-medium text-destructive">{target.currentRoles.join(", ")}</span>
+              </div>
+            ) : target.currentRole ? (
               <div className="text-muted-foreground mt-1">
                 Peran Akses Saat Ini: <span className="font-medium text-destructive">{target.currentRole}</span>
               </div>
-            )}
+            ) : null}
+            <div className="text-[11px] text-muted-foreground pt-1 leading-snug">
+              Status akun akan menjadi <strong className="text-destructive">Non-Aktif</strong> dan tidak dapat login ke sistem. Perannya tetap tersimpan.
+            </div>
           </div>
         )}
 
@@ -91,7 +99,7 @@ export function RevokeRoleDialog({ open, onOpenChange, target }: RevokeRoleDialo
             disabled={mutation.isPending || !target}
           >
             {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
-            Cabut Akses
+            Cabut Akses (Non-Aktifkan)
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -24,15 +24,22 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Akses ditolak: Pengguna tidak terautentikasi');
     }
 
-    // Administrator always has access
-    if (user.role === RoleEnum.ADMINISTRATOR) {
+    const userRoles: RoleEnum[] =
+      user.roles && user.roles.length > 0
+        ? user.roles
+        : user.role
+        ? [user.role]
+        : [];
+
+    // Administrator always has full access
+    if (userRoles.includes(RoleEnum.ADMINISTRATOR)) {
       return true;
     }
 
-    const hasRole = requiredRoles.includes(user.role);
+    const hasRole = requiredRoles.some((r) => userRoles.includes(r));
     if (!hasRole) {
       throw new ForbiddenException(
-        `Akses ditolak: Peran '${user.role}' tidak memiliki izin untuk tindakan ini`,
+        `Akses ditolak: Peran '${userRoles.join(', ')}' tidak memiliki izin untuk tindakan ini`,
       );
     }
 

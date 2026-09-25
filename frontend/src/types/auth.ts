@@ -14,6 +14,7 @@ export interface UserProfile {
   jabatan: string;
   email: string;
   role: RoleEnum;
+  roles?: RoleEnum[];
   status: 'AKTIF' | 'NON_AKTIF' | 'TERKUNCI';
   opd?: {
     id: string;

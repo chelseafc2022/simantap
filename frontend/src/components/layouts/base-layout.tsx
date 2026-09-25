@@ -1,11 +1,14 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
 import { ThemeCustomizer, ThemeCustomizerTrigger } from "@/components/theme-customizer"
 import { useSidebarConfig } from "@/hooks/use-sidebar-config"
+import { useAuth } from "@/hooks/use-auth"
+import { tokenStorage } from "@/lib/token-storage"
 import {
   SidebarInset,
   SidebarProvider,
@@ -20,6 +23,14 @@ interface BaseLayoutProps {
 export function BaseLayout({ children, title, description }: BaseLayoutProps) {
   const [themeCustomizerOpen, setThemeCustomizerOpen] = React.useState(false)
   const { config } = useSidebarConfig()
+  const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (!isLoading && !isAuthenticated && !tokenStorage.getAccessToken()) {
+      router.replace("/login")
+    }
+  }, [isLoading, isAuthenticated, router])
 
   return (
     <SidebarProvider

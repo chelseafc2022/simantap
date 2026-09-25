@@ -77,13 +77,26 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Mencabut hak akses sistem SIMANTAP untuk pegawai (Non-aktifkan)',
+    summary: 'Mencabut hak akses sistem SIMANTAP untuk pegawai (Non-aktifkan status, role tetap tersimpan)',
   })
   revokeRole(
     @Body() dto: RevokeRoleDto,
     @CurrentUser('id') adminId: string,
   ) {
     return this.usersService.revokeRole(dto.nip, adminId);
+  }
+
+  @Post('reset-to-default')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Mengembalikan role ke default (Belum Diberi Akses) dan membersihkan data dari SIMANTAP',
+  })
+  resetToDefault(
+    @Body() dto: RevokeRoleDto,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.usersService.resetToDefault(dto.nip, adminId);
   }
 
 

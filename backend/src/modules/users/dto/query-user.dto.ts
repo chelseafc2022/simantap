@@ -14,6 +14,16 @@ export class QueryUserDto extends PaginationDto {
   @IsString()
   opdId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Instansi / Unit Kerja dari SIMPEG' })
+  @IsOptional()
+  @IsString()
+  instansiId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Sub Unit Kerja dari SIMPEG' })
+  @IsOptional()
+  @IsString()
+  unitKerjaId?: string;
+
   @ApiPropertyOptional({ description: 'Filter berdasarkan status akun (AKTIF, NON_AKTIF, TERKUNCI)' })
   @IsOptional()
   @IsString()

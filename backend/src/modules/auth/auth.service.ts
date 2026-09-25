@@ -60,6 +60,7 @@ export class AuthService {
         jabatan: true,
         email: true,
         role: true,
+        roles: true,
         status: true,
         opdId: true,
         createdAt: true,
@@ -223,6 +224,7 @@ export class AuthService {
         jabatan: user.jabatan,
         email: user.email,
         role: user.role,
+        roles: (user.roles && user.roles.length > 0) ? user.roles : [user.role],
         opd: user.opd,
       },
     };
@@ -306,6 +308,7 @@ export class AuthService {
           jabatan: user.jabatan,
           email: user.email,
           role: user.role,
+          roles: (user.roles && user.roles.length > 0) ? user.roles : [user.role],
           opd: user.opd,
         },
       };
@@ -332,6 +335,7 @@ export class AuthService {
         jabatan: true,
         email: true,
         role: true,
+        roles: true,
         status: true,
         opd: true,
         subUnit: true,
@@ -352,14 +356,17 @@ export class AuthService {
     nip: string;
     email: string;
     role: any;
+    roles?: any;
     opdId?: string | null;
     namaLengkap: string;
   }) {
+    const userRoles = (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []);
     const payload: JwtPayload = {
       sub: user.id,
       nip: user.nip,
       email: user.email,
-      role: user.role as RoleEnum,
+      role: (user.role as RoleEnum) || (userRoles[0] as RoleEnum) || null,
+      roles: userRoles as RoleEnum[],
       opdId: user.opdId,
       namaLengkap: user.namaLengkap,
     };

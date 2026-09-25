@@ -65,7 +65,8 @@ model User {
   jabatan     String
   email       String       @unique
   password    String
-  role        RoleEnum     @default(ADMIN_PPK)
+  role        RoleEnum?
+  roles       RoleEnum[]   @default([])
   status      StatusAkun   @default(AKTIF)
   opdId       String?      @map("opd_id")
   subUnitId   String?      @map("sub_unit_id")

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { StatCards } from "./components/stat-cards"
 import { SetRoleDialog, SIMANTAP_ROLES, TargetPegawai } from "./components/set-role-dialog"
 import { RevokeRoleDialog } from "./components/revoke-role-dialog"
+import { SearchableCombobox } from "./components/searchable-combobox"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -75,7 +76,7 @@ export default function UsersManagementPage() {
     isFetching: isFetchingUsers,
     refetch: refetchUsers,
   } = useQuery({
-    queryKey: ["users", pageUsers, debouncedSearch, roleFilter, statusFilter],
+    queryKey: ["users", pageUsers, debouncedSearch, roleFilter, statusFilter, selectedInstansi, selectedUnitKerja],
     queryFn: async () => {
       const params: any = {
         page: pageUsers,
@@ -84,6 +85,8 @@ export default function UsersManagementPage() {
       if (debouncedSearch) params.search = debouncedSearch
       if (roleFilter !== "ALL") params.role = roleFilter
       if (statusFilter !== "ALL") params.status = statusFilter
+      if (selectedInstansi !== "all") params.instansiId = selectedInstansi
+      if (selectedUnitKerja !== "all") params.unitKerjaId = selectedUnitKerja
 
       const res = await apiClient.get("/users", { params })
       return res.data
@@ -141,6 +144,21 @@ export default function UsersManagementPage() {
   const directoryMeta = directoryResponse?.meta || { page: 1, totalPages: 1, total: 0 }
   const instansiList = instansiResponse || []
   const unitKerjaList = unitKerjaResponse || []
+
+  // Options for SearchableCombobox (typeable filter)
+  const instansiOptions = useMemo(() => {
+    return instansiList.map((ins: any) => ({
+      id: String(ins.id),
+      label: ins.instansi,
+    }))
+  }, [instansiList])
+
+  const unitKerjaOptions = useMemo(() => {
+    return unitKerjaList.map((uk: any) => ({
+      id: String(uk.id),
+      label: uk.unitKerja,
+    }))
+  }, [unitKerjaList])
 
   const getRoleBadge = (roleName: string) => {
     const roleConfig = SIMANTAP_ROLES.find((r) => r.value === roleName)
@@ -227,68 +245,135 @@ export default function UsersManagementPage() {
         {/* ========================================================= */}
         <TabsContent value="simantap_users" className="space-y-4 m-0">
           <Card className="border-border/60 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <CardHeader className="p-4 sm:p-5 border-b border-border/50 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base font-semibold">
                     Daftar Akun Pengguna SIMANTAP
                   </CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
                     Akun yang telah memiliki penetapan hak akses role di Kabupaten Konawe Selatan
                   </CardDescription>
                 </div>
 
-                {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative w-full sm:w-60">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari NIP, nama, atau jabatan..."
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value)
+                {(roleFilter !== "ALL" || statusFilter !== "ALL" || selectedInstansi !== "all" || selectedUnitKerja !== "all" || search) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setRoleFilter("ALL")
+                      setStatusFilter("ALL")
+                      setSelectedInstansi("all")
+                      setSelectedUnitKerja("all")
+                      setSearch("")
+                      setPageUsers(1)
+                    }}
+                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 self-start sm:self-auto"
+                    title="Reset Semua Filter"
+                  >
+                    <FilterX className="h-3.5 w-3.5" />
+                    Reset Filter
+                  </Button>
+                )}
+              </div>
+
+              {/* Toolbar Filter */}
+              <div className="space-y-3 pt-1">
+                {/* Baris 1: Filter Pencarian diletakkan di atas */}
+                <div className="relative w-full">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari NIP, nama, atau jabatan..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value)
+                      setPageUsers(1)
+                    }}
+                    className="pl-8 text-xs h-9 bg-background w-full"
+                  />
+                </div>
+
+                {/* Baris 2: Sejajar 4 filter: Unit Kerja, Sub Unit Kerja, Role, Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {/* Filter Unit Kerja (Instansi / OPD) - Searchable & Typeable */}
+                  <div className="w-full">
+                    <SearchableCombobox
+                      value={selectedInstansi}
+                      onValueChange={(val) => {
+                        setSelectedInstansi(val)
+                        setSelectedUnitKerja("all")
                         setPageUsers(1)
                       }}
-                      className="pl-8 text-xs h-9 bg-background"
+                      items={instansiOptions}
+                      placeholder="Ketik / Pilih Unit Kerja (OPD)..."
+                      searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                      emptyText="Unit Kerja tidak ditemukan."
+                      allLabel="-- Semua Unit Kerja (OPD) --"
+                      icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
                     />
                   </div>
 
-                  <Select
-                    value={roleFilter}
-                    onValueChange={(val) => {
-                      setRoleFilter(val)
-                      setPageUsers(1)
-                    }}
-                  >
-                    <SelectTrigger className="h-9 w-40 text-xs">
-                      <SelectValue placeholder="Filter Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL" className="text-xs">Semua Role</SelectItem>
-                      {SIMANTAP_ROLES.map((r) => (
-                        <SelectItem key={r.value} value={r.value} className="text-xs">
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* Filter Sub Unit Kerja - Searchable & Typeable */}
+                  <div className="w-full">
+                    <SearchableCombobox
+                      value={selectedUnitKerja}
+                      onValueChange={(val) => {
+                        setSelectedUnitKerja(val)
+                        setPageUsers(1)
+                      }}
+                      items={unitKerjaOptions}
+                      placeholder={isLoadingUnitKerja ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                      searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                      emptyText="Sub Unit Kerja tidak ditemukan."
+                      allLabel="-- Semua Sub Unit Kerja --"
+                      icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                      disabled={isLoadingUnitKerja}
+                    />
+                  </div>
 
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(val) => {
-                      setStatusFilter(val)
-                      setPageUsers(1)
-                    }}
-                  >
-                    <SelectTrigger className="h-9 w-32 text-xs">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL" className="text-xs">Semua Status</SelectItem>
-                      <SelectItem value="AKTIF" className="text-xs">Aktif</SelectItem>
-                      <SelectItem value="NON_AKTIF" className="text-xs">Non-Aktif</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* Filter Role */}
+                  <div className="w-full">
+                    <Select
+                      value={roleFilter}
+                      onValueChange={(val) => {
+                        setRoleFilter(val)
+                        setPageUsers(1)
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background w-full">
+                        <SelectValue placeholder="Semua Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL" className="text-xs">Semua Role</SelectItem>
+                        {SIMANTAP_ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value} className="text-xs">
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter Status */}
+                  <div className="w-full">
+                    <Select
+                      value={statusFilter}
+                      onValueChange={(val) => {
+                        setStatusFilter(val)
+                        setPageUsers(1)
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background w-full">
+                        <SelectValue placeholder="Semua Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ALL" className="text-xs">Semua Status</SelectItem>
+                        <SelectItem value="AKTIF" className="text-xs">Aktif</SelectItem>
+                        <SelectItem value="NON_AKTIF" className="text-xs">Non-Aktif</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -350,7 +435,17 @@ export default function UsersManagementPage() {
                             </div>
                           </TableCell>
                           <TableCell className="py-3">
-                            {getRoleBadge(user.role)}
+                            {(user.roles && user.roles.length > 0) || user.role ? (
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
+                                  <span key={r}>{getRoleBadge(r)}</span>
+                                ))}
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal">
+                                Belum Diberi Akses
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="py-3 text-center">
                             {user.status === "AKTIF" ? (
@@ -386,6 +481,7 @@ export default function UsersManagementPage() {
                                     jabatan: user.jabatan,
                                     opd: user.opd?.namaOpd,
                                     currentRole: user.role,
+                                    currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                                   })
                                 }
                                 className="h-7 px-2 text-xs gap-1"
@@ -402,6 +498,7 @@ export default function UsersManagementPage() {
                                       nip: user.nip,
                                       namaLengkap: user.namaLengkap,
                                       currentRole: user.role,
+                                      currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                                     })
                                   }
                                   className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -457,110 +554,89 @@ export default function UsersManagementPage() {
         {/* ========================================================= */}
         <TabsContent value="egov_directory" className="space-y-4 m-0">
           <Card className="border-border/60 shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <CardHeader className="p-4 sm:p-5 border-b border-border/50 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Database className="h-4 w-4 text-blue-600" />
-                    Direktori Pegawai ASN (Server E-Gov & SIMPEG Konsel)
+                    <Database className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    Pegawai ASN
                   </CardTitle>
-                  <CardDescription className="text-xs">
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
                     Pencarian data seluruh pegawai ASN Pemerintah Kabupaten Konawe Selatan untuk penugasan hak akses
                   </CardDescription>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                  {/* Filter Unit Kerja (Instansi) */}
-                  <div className="w-full sm:w-56">
-                    <Select
-                      value={selectedInstansi}
-                      onValueChange={(val) => {
-                        setSelectedInstansi(val)
-                        setSelectedUnitKerja("all")
-                        setPageDirectory(1)
-                      }}
-                    >
-                      <SelectTrigger className="h-9 text-xs bg-background">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <SelectValue placeholder="Pilih Unit Kerja / OPD" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value="all" className="text-xs font-semibold">
-                          -- Semua Unit Kerja (OPD) --
-                        </SelectItem>
-                        {instansiList.map((ins: any) => (
-                          <SelectItem key={ins.id} value={ins.id} className="text-xs">
-                            {ins.instansi}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Tombol Reset Filter jika aktif */}
+                {(selectedInstansi !== "all" || selectedUnitKerja !== "all" || search) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedInstansi("all")
+                      setSelectedUnitKerja("all")
+                      setSearch("")
+                      setPageDirectory(1)
+                    }}
+                    className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 self-start sm:self-auto"
+                    title="Reset Semua Filter"
+                  >
+                    <FilterX className="h-3.5 w-3.5" />
+                    Reset Filter
+                  </Button>
+                )}
+              </div>
 
-                  {/* Filter Sub Unit Kerja */}
-                  <div className="w-full sm:w-56">
-                    <Select
-                      value={selectedUnitKerja}
-                      onValueChange={(val) => {
-                        setSelectedUnitKerja(val)
-                        setPageDirectory(1)
-                      }}
-                      disabled={isLoadingUnitKerja}
-                    >
-                      <SelectTrigger className="h-9 text-xs bg-background">
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                          <SelectValue placeholder="Pilih Sub Unit Kerja" />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value="all" className="text-xs font-semibold">
-                          -- Semua Sub Unit Kerja --
-                        </SelectItem>
-                        {unitKerjaList.map((uk: any) => (
-                          <SelectItem key={uk.id} value={uk.id} className="text-xs">
-                            {uk.unitKerja}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {/* Grid 3 Kolom Filter Rapi & Proporsional */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+                {/* Pencarian NIP / Nama */}
+                <div className="relative w-full sm:col-span-2 lg:col-span-1">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari NIP atau nama pegawai..."
+                    value={search}
+                    onChange={(e) => {
+                      setSearch(e.target.value)
+                      setPageDirectory(1)
+                    }}
+                    className="pl-8 text-xs h-9 bg-background w-full"
+                  />
+                </div>
 
-                  {/* Pencarian NIP / Nama */}
-                  <div className="relative w-full sm:w-56">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari NIP atau nama pegawai..."
-                      value={search}
-                      onChange={(e) => {
-                        setSearch(e.target.value)
-                        setPageDirectory(1)
-                      }}
-                      className="pl-8 text-xs h-9 bg-background"
-                    />
-                  </div>
+                {/* Filter Unit Kerja (Instansi / OPD) - Searchable & Typeable */}
+                <div className="w-full sm:col-span-1 lg:col-span-1">
+                  <SearchableCombobox
+                    value={selectedInstansi}
+                    onValueChange={(val) => {
+                      setSelectedInstansi(val)
+                      setSelectedUnitKerja("all")
+                      setPageDirectory(1)
+                    }}
+                    items={instansiOptions}
+                    placeholder="Ketik / Pilih Unit Kerja (OPD)..."
+                    searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                    emptyText="Unit Kerja tidak ditemukan."
+                    allLabel="-- Semua Unit Kerja (OPD) --"
+                    icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                  />
+                </div>
 
-                  {/* Tombol Reset Filter jika aktif */}
-                  {(selectedInstansi !== "all" || selectedUnitKerja !== "all" || search) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedInstansi("all")
-                        setSelectedUnitKerja("all")
-                        setSearch("")
-                        setPageDirectory(1)
-                      }}
-                      className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
-                      title="Reset Semua Filter"
-                    >
-                      <FilterX className="h-3.5 w-3.5" />
-                      Reset
-                    </Button>
-                  )}
+                {/* Filter Sub Unit Kerja - Searchable & Typeable */}
+                <div className="w-full sm:col-span-1 lg:col-span-1">
+                  <SearchableCombobox
+                    value={selectedUnitKerja}
+                    onValueChange={(val) => {
+                      setSelectedUnitKerja(val)
+                      setPageDirectory(1)
+                    }}
+                    items={unitKerjaOptions}
+                    placeholder={isLoadingUnitKerja ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                    searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                    emptyText="Sub Unit Kerja tidak ditemukan."
+                    allLabel="-- Semua Sub Unit Kerja --"
+                    icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                    disabled={isLoadingUnitKerja}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -601,14 +677,25 @@ export default function UsersManagementPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      directoryList.map((item: any) => (
-                        <TableRow key={item.nip} className="hover:bg-muted/40 transition-colors">
+                      directoryList.map((item: any, idx: number) => (
+                        <TableRow key={item.egovId || `${item.nip}-${item.username || idx}`} className="hover:bg-muted/40 transition-colors">
                           <TableCell className="py-3">
                             <div className="font-semibold text-xs text-foreground">
                               {item.namaLengkap}
                             </div>
-                            <div className="text-[11px] font-mono text-muted-foreground">
-                              NIP. {item.nip}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-[11px] font-mono text-muted-foreground">
+                                NIP. {item.nip}
+                              </span>
+                              {item.username && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] font-mono px-1.5 py-0 bg-muted/80 text-foreground border border-border/60"
+                                  title={`Akun E-Gov: ${item.username}`}
+                                >
+                                  @{item.username}
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="py-3 text-xs text-foreground max-w-xs truncate">
@@ -625,9 +712,30 @@ export default function UsersManagementPage() {
                               </div>
                             )}
                           </TableCell>
-                          <TableCell className="py-3 text-center">
+                          <TableCell className="py-3">
                             {item.hasSimantapAccess ? (
-                              getRoleBadge(item.simantapRole)
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {((item.simantapRoles && item.simantapRoles.length > 0)
+                                  ? item.simantapRoles
+                                  : (item.simantapRole ? [item.simantapRole] : [])
+                                ).map((r: string) => (
+                                  <span key={r}>{getRoleBadge(r)}</span>
+                                ))}
+                              </div>
+                            ) : item.simantapStatus === "NON_AKTIF" ? (
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap gap-1 max-w-xs opacity-80">
+                                  {((item.simantapRoles && item.simantapRoles.length > 0)
+                                    ? item.simantapRoles
+                                    : (item.simantapRole ? [item.simantapRole] : [])
+                                  ).map((r: string) => (
+                                    <span key={r}>{getRoleBadge(r)}</span>
+                                  ))}
+                                </div>
+                                <Badge variant="outline" className="text-destructive border-destructive/20 text-[9px] py-0 font-normal">
+                                  Akses Dicabut
+                                </Badge>
+                              </div>
                             ) : (
                               <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal">
                                 Belum Diberi Akses
@@ -644,12 +752,14 @@ export default function UsersManagementPage() {
                                   jabatan: item.jabatan,
                                   opd: item.opd,
                                   currentRole: item.simantapRole,
+                                  currentRoles: (item.simantapRoles && item.simantapRoles.length > 0) ? item.simantapRoles : (item.simantapRole ? [item.simantapRole] : []),
+                                  username: item.username,
                                 })
                               }
                               className="h-7 px-2.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
                             >
                               <UserPlus className="h-3 w-3" />
-                              {item.hasSimantapAccess ? "Ubah Role" : "Tetapkan Role"}
+                              {item.hasSimantapAccess || item.simantapStatus === "NON_AKTIF" ? "Ubah Role" : "Tetapkan Role"}
                             </Button>
                           </TableCell>
                         </TableRow>
