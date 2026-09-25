@@ -122,17 +122,6 @@ npm run start:prod
 - **Base URL API**: `http://localhost:4000/api/v1`
 - **Swagger Documentation**: `http://localhost:4000/docs`
 - **Health Check**: `http://localhost:4000/api/v1/health`
-
-### Akun Demo Default (Hasil Seeder)
-- **Password**: `Password123!`
-- **Administrator**: NIP `198001012005011001` (`admin@konaweselatankab.go.id`)
-- **Admin SiRUP**: NIP `198804122011011003` (`andi.sirup@konaweselatankab.go.id`)
-- **Admin Perencanaan**: NIP `198607142010011002` (`budi.perencanaan@konaweselatankab.go.id`)
-- **Admin PPK**: NIP `198209212008011004` (`herman.ppk@konaweselatankab.go.id`)
-- **Bendahara**: NIP `199203202018012003` (`wahyuni.bendahara@konaweselatankab.go.id`)
-- **Kepala OPD**: NIP `197505152000011002` (`rizki.kadis@konaweselatankab.go.id`)
-- **Pimpinan Daerah**: NIP `196812101994031005` (`bupati@konaweselatankab.go.id`)
-
 ---
 
 ## 🏛️ Integrasi E-Gov & SIMPEG Konawe Selatan

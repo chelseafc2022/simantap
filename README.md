@@ -1,7 +1,7 @@
 # 🏛️ SIMANTAP (Sistem Informasi Monitoring dan Evaluasi Data Pembangunan Terpadu)
 
 > **Pemerintah Kabupaten Konawe Selatan**  
-> *Bagian Administrasi Pembangunan — Sekretariat Daerah*  
+> _Bagian Administrasi Pembangunan — Sekretariat Daerah_  
 > Tahun Anggaran 2026
 
 [![NestJS](https://img.shields.io/badge/Backend-NestJS%20v11-ea2849?logo=nestjs&logoColor=white)](https://nestjs.com/)
@@ -18,8 +18,9 @@
 **SIMANTAP** adalah platform web terpadu milik Pemerintah Kabupaten Konawe Selatan untuk digitalisasi koordinasi, pemantauan, evaluasi, dan pengendalian terhadap realisasi pelaksanaan program dan kegiatan pembangunan fisik maupun keuangan yang didanai oleh APBD, APBN, DAK, dan sumber dana lainnya.
 
 ### Masalah yang Diselesaikan:
+
 1. **Pencatatan Terfragmentasi**: Mengintegrasikan data perencanaan SiRUP LKPP, kontrak riil, kurva rencana kegiatan, progres fisik lapangan, dan serapan keuangan (SP2D).
-2. **Early Warning System (EWS)**: Menghitung deviasi capaian kinerja secara otomatis guna mendeteksi potensi deviasi negatif (*Show Cause Meeting / Kontrak Kritis*).
+2. **Early Warning System (EWS)**: Menghitung deviasi capaian kinerja secara otomatis guna mendeteksi potensi deviasi negatif (_Show Cause Meeting / Kontrak Kritis_).
 3. **Disparitas Fisik vs Keuangan**: Mencegah ketidaksesuaian antara persentase fisik pekerjaan di lapangan dengan pencairan anggaran SP2D.
 4. **Otomasi Laporan RFK**: Menyediakan cetak Rekapitulasi Realisasi Fisik dan Keuangan (RFK) siap pakai dalam format baku resmi (PDF & Excel).
 
@@ -27,7 +28,8 @@
 
 ## 🔒 2. Aturan Mutlak Integrasi Sistem (Read-Only Policy)
 
-Database eksternal **E-Gov** dan **SIMPEG** (`mysql.konaweselatankab.go.id`):
+Database eksternal **E-Gov** dan **SIMPEG** (`xxxxx`):
+
 1. **MUTLAK HANYA BACA (READ-ONLY / SELECT ONLY)**.
 2. **DILARANG KERAS** melakukan aksi manipulasi data apapun (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`) ke database `egov` maupun `simpeg`.
 3. Seluruh penetapan hak akses role, pembuatan sesi SIMANTAP, penugasan peran, dan manajemen data proyek **HANYA DISIMPAN** di basis data lokal PostgreSQL (`simantap`).
@@ -38,15 +40,15 @@ Database eksternal **E-Gov** dan **SIMPEG** (`mysql.konaweselatankab.go.id`):
 
 SIMANTAP menerapkan model **Multi-Role RBAC (Role-Based Access Control)**, di mana seorang ASN dapat memiliki lebih dari satu peran sesuai surat keputusan/penugasan kedinasan:
 
-| No | Peran (Role) | Kode Enum | Wewenang & Tanggung Jawab Utama |
-| :-: | :--- | :--- | :--- |
-| **1** | **Administrator Utama** | `ADMINISTRATOR` | Hak akses penuh sistem, konfigurasi master data, penetapan multi-role pengguna, cabut akses, audit trail. |
-| **2** | **Admin SiRUP (Data Awal)** | `ADMIN_SIRUP` | Memasukkan dan menyinkronkan data paket pengadaan awal berbasis SiRUP LKPP. |
-| **3** | **Admin Perencanaan** | `ADMIN_PERENCANAAN` | Menyusun target capaian bulanan dan kurva rencana (kurva S) fisik kegiatan. |
-| **4** | **Admin PPK** | `ADMIN_PPK` | Menginput besaran capaian fisik riil mingguan/bulanan dan bukti dokumentasi lapangan. |
-| **5** | **Bendahara (Realisasi Keuangan)** | `BENDAHARA` | Menginput dan merekonsiliasi realisasi keuangan paket pembangunan berbasis SP2D/Kas daerah. |
-| **6** | **Kepala OPD** | `KEPALA_OPD` | Menelaah hasil capaian, validasi dan approval berkala laporan kinerja paket di unit kerjanya. |
-| **7** | **Pimpinan Daerah** | `PIMPINAN_DAERAH` | *Executive dashboard monitoring* menyeluruh realisasi pembangunan se-Kabupaten Konawe Selatan (Bupati, Wabup, Sekda). |
+|  No   | Peran (Role)                       | Kode Enum           | Wewenang & Tanggung Jawab Utama                                                                                       |
+| :---: | :--------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Administrator Utama**            | `ADMINISTRATOR`     | Hak akses penuh sistem, konfigurasi master data, penetapan multi-role pengguna, cabut akses, audit trail.             |
+| **2** | **Admin SiRUP (Data Awal)**        | `ADMIN_SIRUP`       | Memasukkan dan menyinkronkan data paket pengadaan awal berbasis SiRUP LKPP.                                           |
+| **3** | **Admin Perencanaan**              | `ADMIN_PERENCANAAN` | Menyusun target capaian bulanan dan kurva rencana (kurva S) fisik kegiatan.                                           |
+| **4** | **Admin PPK**                      | `ADMIN_PPK`         | Menginput besaran capaian fisik riil mingguan/bulanan dan bukti dokumentasi lapangan.                                 |
+| **5** | **Bendahara (Realisasi Keuangan)** | `BENDAHARA`         | Menginput dan merekonsiliasi realisasi keuangan paket pembangunan berbasis SP2D/Kas daerah.                           |
+| **6** | **Kepala OPD**                     | `KEPALA_OPD`        | Menelaah hasil capaian, validasi dan approval berkala laporan kinerja paket di unit kerjanya.                         |
+| **7** | **Pimpinan Daerah**                | `PIMPINAN_DAERAH`   | _Executive dashboard monitoring_ menyeluruh realisasi pembangunan se-Kabupaten Konawe Selatan (Bupati, Wabup, Sekda). |
 
 ---
 
@@ -69,6 +71,7 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 ```
 
 ### Komponen Backend:
+
 - **Framework**: NestJS v11
 - **Database Utama**: PostgreSQL 16
 - **ORM**: Prisma Client v6
@@ -77,6 +80,7 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 - **API Docs**: Swagger UI (`/docs`)
 
 ### Komponen Frontend:
+
 - **Framework**: Next.js 15 (App Router, React 19)
 - **State & Data Fetching**: TanStack React Query v5
 - **Desain & UI**: Tailwind CSS, Shadcn UI / Radix UI, Lucide Icons, Sonner Toast
@@ -90,18 +94,19 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
    - ASN dapat login menggunakan NIP atau Username E-Gov disertai password akun E-Gov masing-masing.
    - Akun yang valid dari E-Gov secara otomatis dapat ditugaskan hak akses role SIMANTAP oleh Administrator.
 2. **Dukungan Multi-Role**:
-   - Satu pengguna dapat memegang beberapa peran sekaligus (contoh: *Admin PPK* sekaligus *Bendahara*).
+   - Satu pengguna dapat memegang beberapa peran sekaligus (contoh: _Admin PPK_ sekaligus _Bendahara_).
 3. **Filter Unit Kerja & Sub Unit Kerja yang Dapat Diketik**:
    - Dropdown filter unit kerja berbasis combobox yang dapat diketik kata kuncinya secara instan.
 4. **Mekanisme Cabut Akses vs Kembalikan ke Default**:
    - **Cabut Akses**: Status akun diubah menjadi `Non-Aktif`, sesi login ditarik, namun peran yang telah ditetapkan tetap tersimpan sebagai arsip penugasan.
-   - **Kembalikan ke Default (Belum Diberi Akses)**: Menghapus data akun dari database SIMANTAP lokal, sehingga pengguna kembali bersih (*fresh*) ke Direktori ASN dengan status awal "Belum Diberi Akses".
+   - **Kembalikan ke Default (Belum Diberi Akses)**: Menghapus data akun dari database SIMANTAP lokal, sehingga pengguna kembali bersih (_fresh_) ke Direktori ASN dengan status awal "Belum Diberi Akses".
 
 ---
 
 ## 🚀 6. Panduan Menjalankan Sistem (Local Development)
 
 ### 📋 Prasyarat
+
 - **Node.js**: Versi `>= 20.x`
 - **npm**: Versi `>= 10.x`
 - **PostgreSQL**: Versi `>= 14.x` (berjalan di port 5432)
@@ -111,20 +116,25 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 ### A. Setup Backend
 
 1. Masuk ke direktori backend:
+
    ```bash
    cd backend
    ```
 
 2. Instal dependensi:
+
    ```bash
    npm install
    ```
 
 3. Konfigurasi file `.env`:
+
    ```bash
    cp .env.example .env
    ```
+
    Pastikan variabel basis data PostgreSQL lokal telah sesuai:
+
    ```env
    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/simantap?schema=public"
    PORT=4000
@@ -144,12 +154,14 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
    ```
 
 4. Sinkronkan skema dan jalankan generator Prisma:
+
    ```bash
    npx prisma db push
    npx prisma generate
    ```
 
 5. Jalankan seed data awal (OPD dan akun Administrator):
+
    ```bash
    npm run prisma:seed
    ```
@@ -158,6 +170,7 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
    ```bash
    npm run start:dev
    ```
+
    - API Service: `http://localhost:4000/api/v1`
    - Dokumentasi Swagger: `http://localhost:4000/docs`
    - Health Check: `http://localhost:4000/api/v1/health`
@@ -167,16 +180,19 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 ### B. Setup Frontend
 
 1. Buka terminal baru dan masuk ke direktori frontend:
+
    ```bash
    cd frontend
    ```
 
 2. Instal dependensi:
+
    ```bash
    npm install
    ```
 
 3. Konfigurasi file `.env.local`:
+
    ```env
    NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
    ```
@@ -185,23 +201,12 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
    ```bash
    npm run dev
    ```
+
    - Aplikasi Web: `http://localhost:3000`
 
 ---
 
-## 🔑 7. Akun Awal untuk Pengujian (Seeded Accounts)
-
-| NIP / Username | Nama Pengguna | Peran Awal (Roles) | Kata Sandi Default |
-| :--- | :--- | :--- | :--- |
-| `199506082024211001` | RISWAN M. RIZAL, S.T | `ADMINISTRATOR` | `Password123!` |
-| `01` | IRHAM KALENGGO, S.Sos., M.Si | `PIMPINAN_DAERAH` | `Password123!` |
-| `199401182025212016` | FATMAH RIZKIDINIAH, S.T | `ADMINISTRATOR` | `Password123!` |
-
-> *Catatan: Akun ASN lainnya dapat login langsung menggunakan kredensial username/password E-Gov Konawe Selatan setelah diberikan role oleh Administrator.*
-
----
-
-## 📁 8. Struktur Direktori Proyek
+## 📁 7. Struktur Direktori Proyek
 
 ```text
 simantap/
@@ -239,7 +244,7 @@ simantap/
 
 ---
 
-## 📄 9. Lisensi & Hak Cipta
+## 📄 8. Lisensi & Hak Cipta
 
 Sistem ini dikembangkan khusus untuk **Pemerintah Kabupaten Konawe Selatan**, Provinsi Sulawesi Tenggara.  
 Hak Cipta © 2026 Bagian Administrasi Pembangunan Sekretariat Daerah Kabupaten Konawe Selatan. Seluruh hak cipta dilindungi undang-undang.
