@@ -1,18 +1,8 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { inter } from '@/lib/fonts';
 import { siteConfig } from '../config/site';
 import { AppProvider } from '../providers/app-provider';
 import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: `${siteConfig.name} - ${siteConfig.fullName}`,
@@ -25,10 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-neutral-950 text-neutral-100`}
-      >
+    <html lang="id" suppressHydrationWarning className={`${inter.variable} antialiased`}>
+      <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
         <AppProvider>{children}</AppProvider>
       </body>
     </html>
