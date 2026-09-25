@@ -35,9 +35,7 @@ export function SiteHeader() {
             <span className="text-sm font-semibold tracking-tight text-foreground hidden sm:inline-block">
               SIMANTAP KONAWE SELATAN
             </span>
-            <Badge variant="outline" className="text-[10px] py-0 px-1.5 hidden md:inline-flex bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-              E-Gov & SIMPEG Integrated
-            </Badge>
+            
           </div>
           <div className="ml-auto flex items-center gap-2">
             <div className="w-48 sm:w-64">

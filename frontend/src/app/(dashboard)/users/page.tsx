@@ -163,11 +163,15 @@ export default function UsersManagementPage() {
   const getRoleBadge = (roleName: string) => {
     const roleConfig = SIMANTAP_ROLES.find((r) => r.value === roleName)
     if (!roleConfig) {
-      return <Badge variant="outline" className="text-xs">{roleName}</Badge>
+      return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{roleName}</Badge>
     }
     return (
-      <Badge variant="outline" className={`text-[11px] px-2 py-0.5 font-medium ${roleConfig.badgeClass}`}>
-        {roleConfig.label}
+      <Badge
+        variant="outline"
+        title={roleConfig.label}
+        className={`text-[10px] px-1.5 py-0.5 font-medium whitespace-nowrap shrink-0 ${roleConfig.badgeClass}`}
+      >
+        {roleConfig.shortLabel || roleConfig.label}
       </Badge>
     )
   }
@@ -379,15 +383,15 @@ export default function UsersManagementPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow className="bg-muted/30">
-                      <TableHead className="text-xs font-semibold">Pegawai ASN</TableHead>
-                      <TableHead className="text-xs font-semibold">Jabatan & OPD</TableHead>
-                      <TableHead className="text-xs font-semibold">Peran (Role SIMANTAP)</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Status</TableHead>
-                      <TableHead className="text-xs font-semibold">Terakhir Login</TableHead>
-                      <TableHead className="text-xs font-semibold text-right">Aksi</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[170px]">Pegawai ASN</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[210px]">Jabatan & OPD</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[150px]">Peran (Role SIMANTAP)</TableHead>
+                      <TableHead className="text-xs font-semibold text-center min-w-[85px]">Status</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[120px]">Terakhir Login</TableHead>
+                      <TableHead className="text-xs font-semibold text-right min-w-[160px] pr-4">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -417,26 +421,34 @@ export default function UsersManagementPage() {
                     ) : (
                       usersList.map((user: any) => (
                         <TableRow key={user.id} className="hover:bg-muted/40 transition-colors">
-                          <TableCell className="py-3">
-                            <div className="font-semibold text-xs text-foreground">
+                          <TableCell className="py-3 align-top min-w-[170px]">
+                            <div className="font-semibold text-xs text-foreground leading-snug break-words whitespace-normal line-clamp-2">
                               {user.namaLengkap}
                             </div>
-                            <div className="text-[11px] font-mono text-muted-foreground">
+                            <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
                               NIP. {user.nip}
                             </div>
                           </TableCell>
-                          <TableCell className="py-3">
-                            <div className="text-xs text-foreground truncate max-w-xs">
+                          <TableCell className="py-3 align-top min-w-[210px]">
+                            <div 
+                              className="text-xs text-foreground font-medium line-clamp-2 md:line-clamp-3 leading-relaxed break-words whitespace-normal"
+                              title={user.jabatan || "-"}
+                            >
                               {user.jabatan || "-"}
                             </div>
-                            <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Building2 className="h-3 w-3 shrink-0 text-primary" />
-                              <span className="truncate max-w-xs">{user.opd?.namaOpd || "-"}</span>
+                            <div className="text-[11px] text-muted-foreground flex items-start gap-1 mt-1">
+                              <Building2 className="h-3 w-3 shrink-0 text-primary mt-0.5" />
+                              <span 
+                                className="line-clamp-2 leading-tight break-words whitespace-normal"
+                                title={user.opd?.namaOpd || "-"}
+                              >
+                                {user.opd?.namaOpd || "-"}
+                              </span>
                             </div>
                           </TableCell>
-                          <TableCell className="py-3">
+                          <TableCell className="py-3 align-top min-w-[150px]">
                             {(user.roles && user.roles.length > 0) || user.role ? (
-                              <div className="flex flex-wrap gap-1 max-w-xs">
+                              <div className="flex flex-wrap gap-1 items-center">
                                 {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
                                   <span key={r}>{getRoleBadge(r)}</span>
                                 ))}
@@ -447,18 +459,18 @@ export default function UsersManagementPage() {
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="py-3 text-center">
+                          <TableCell className="py-3 text-center align-top min-w-[85px]">
                             {user.status === "AKTIF" ? (
-                              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 py-0">
+                              <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 py-0 px-2 font-medium whitespace-nowrap">
                                 <CheckCircle2 className="h-3 w-3" /> Aktif
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-destructive border-destructive/20 text-[10px] gap-1 py-0">
+                              <Badge variant="outline" className="text-destructive border-destructive/20 text-[10px] gap-1 py-0 px-2 font-medium whitespace-nowrap">
                                 <XCircle className="h-3 w-3" /> Non-Aktif
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="py-3 text-xs text-muted-foreground">
+                          <TableCell className="py-3 text-xs text-muted-foreground align-top min-w-[120px] whitespace-normal leading-snug">
                             {user.lastLoginAt
                               ? new Date(user.lastLoginAt).toLocaleDateString("id-ID", {
                                   day: "2-digit",
@@ -469,8 +481,8 @@ export default function UsersManagementPage() {
                                 })
                               : "Belum pernah login"}
                           </TableCell>
-                          <TableCell className="py-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                          <TableCell className="py-3 text-right align-top min-w-[160px] pr-4">
+                            <div className="flex items-center justify-end gap-1.5 shrink-0">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -484,7 +496,7 @@ export default function UsersManagementPage() {
                                     currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                                   })
                                 }
-                                className="h-7 px-2 text-xs gap-1"
+                                className="h-7 px-2 text-xs gap-1 shrink-0 whitespace-nowrap"
                               >
                                 <Edit3 className="h-3 w-3" />
                                 Ubah Role
@@ -501,7 +513,7 @@ export default function UsersManagementPage() {
                                       currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                                     })
                                   }
-                                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 whitespace-nowrap"
                                 >
                                   <UserX className="h-3 w-3" />
                                   Cabut
@@ -587,10 +599,10 @@ export default function UsersManagementPage() {
                 )}
               </div>
 
-              {/* Grid 3 Kolom Filter Rapi & Proporsional */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-                {/* Pencarian NIP / Nama */}
-                <div className="relative w-full sm:col-span-2 lg:col-span-1">
+              {/* Toolbar Filter Tab 2: Pencarian di atas, Unit Kerja & Sub Unit sejajar */}
+              <div className="space-y-3 pt-1">
+                {/* Baris 1: Pencarian Penuh */}
+                <div className="relative w-full">
                   <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     placeholder="Cari NIP atau nama pegawai..."
@@ -603,53 +615,54 @@ export default function UsersManagementPage() {
                   />
                 </div>
 
-                {/* Filter Unit Kerja (Instansi / OPD) - Searchable & Typeable */}
-                <div className="w-full sm:col-span-1 lg:col-span-1">
-                  <SearchableCombobox
-                    value={selectedInstansi}
-                    onValueChange={(val) => {
-                      setSelectedInstansi(val)
-                      setSelectedUnitKerja("all")
-                      setPageDirectory(1)
-                    }}
-                    items={instansiOptions}
-                    placeholder="Ketik / Pilih Unit Kerja (OPD)..."
-                    searchPlaceholder="Ketik nama Unit Kerja / OPD..."
-                    emptyText="Unit Kerja tidak ditemukan."
-                    allLabel="-- Semua Unit Kerja (OPD) --"
-                    icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
-                  />
-                </div>
+                {/* Baris 2: Sejajar 2 Kolom Unit Kerja & Sub Unit Kerja */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="w-full">
+                    <SearchableCombobox
+                      value={selectedInstansi}
+                      onValueChange={(val) => {
+                        setSelectedInstansi(val)
+                        setSelectedUnitKerja("all")
+                        setPageDirectory(1)
+                      }}
+                      items={instansiOptions}
+                      placeholder="Ketik / Pilih Unit Kerja (OPD)..."
+                      searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                      emptyText="Unit Kerja tidak ditemukan."
+                      allLabel="-- Semua Unit Kerja (OPD) --"
+                      icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                    />
+                  </div>
 
-                {/* Filter Sub Unit Kerja - Searchable & Typeable */}
-                <div className="w-full sm:col-span-1 lg:col-span-1">
-                  <SearchableCombobox
-                    value={selectedUnitKerja}
-                    onValueChange={(val) => {
-                      setSelectedUnitKerja(val)
-                      setPageDirectory(1)
-                    }}
-                    items={unitKerjaOptions}
-                    placeholder={isLoadingUnitKerja ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
-                    searchPlaceholder="Ketik nama Sub Unit Kerja..."
-                    emptyText="Sub Unit Kerja tidak ditemukan."
-                    allLabel="-- Semua Sub Unit Kerja --"
-                    icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                    disabled={isLoadingUnitKerja}
-                  />
+                  <div className="w-full">
+                    <SearchableCombobox
+                      value={selectedUnitKerja}
+                      onValueChange={(val) => {
+                        setSelectedUnitKerja(val)
+                        setPageDirectory(1)
+                      }}
+                      items={unitKerjaOptions}
+                      placeholder={isLoadingUnitKerja ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                      searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                      emptyText="Sub Unit Kerja tidak ditemukan."
+                      allLabel="-- Semua Sub Unit Kerja --"
+                      icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                      disabled={isLoadingUnitKerja}
+                    />
+                  </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="w-full">
                   <TableHeader>
                     <TableRow className="bg-muted/30">
-                      <TableHead className="text-xs font-semibold">Pegawai ASN</TableHead>
-                      <TableHead className="text-xs font-semibold">Jabatan ASN</TableHead>
-                      <TableHead className="text-xs font-semibold">OPD / Dinas</TableHead>
-                      <TableHead className="text-xs font-semibold text-center">Hak Akses SIMANTAP</TableHead>
-                      <TableHead className="text-xs font-semibold text-right">Aksi</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[180px]">Pegawai ASN</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[210px]">Jabatan ASN</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[210px]">OPD / Dinas</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[130px]">Hak Akses SIMANTAP</TableHead>
+                      <TableHead className="text-xs font-semibold text-right min-w-[140px] pr-4">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -679,8 +692,8 @@ export default function UsersManagementPage() {
                     ) : (
                       directoryList.map((item: any, idx: number) => (
                         <TableRow key={item.egovId || `${item.nip}-${item.username || idx}`} className="hover:bg-muted/40 transition-colors">
-                          <TableCell className="py-3">
-                            <div className="font-semibold text-xs text-foreground">
+                          <TableCell className="py-3 align-top min-w-[180px]">
+                            <div className="font-semibold text-xs text-foreground leading-snug break-words whitespace-normal">
                               {item.namaLengkap}
                             </div>
                             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -698,23 +711,38 @@ export default function UsersManagementPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="py-3 text-xs text-foreground max-w-xs truncate">
-                            {item.jabatan || "-"}
+                          <TableCell className="py-3 align-top min-w-[210px]">
+                            <span 
+                              className="text-xs text-foreground leading-relaxed line-clamp-2 md:line-clamp-3 break-words whitespace-normal block"
+                              title={item.jabatan || "-"}
+                            >
+                              {item.jabatan || "-"}
+                            </span>
                           </TableCell>
-                          <TableCell className="py-3">
-                            <div className="text-xs text-foreground flex items-center gap-1.5">
-                              <Building2 className="h-3 w-3 text-primary shrink-0" />
-                              <span className="truncate max-w-xs">{item.opd || "-"}</span>
-                            </div>
-                            {item.unitKerja && item.unitKerja !== item.opd && (
-                              <div className="text-[10px] text-muted-foreground truncate max-w-xs mt-0.5 pl-4">
-                                {item.unitKerja}
+                          <TableCell className="py-3 align-top min-w-[210px]">
+                            <div className="flex items-start gap-1.5">
+                              <Building2 className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                              <div className="min-w-0 flex-1">
+                                <span 
+                                  className="text-xs text-foreground font-medium leading-relaxed line-clamp-2 md:line-clamp-3 break-words whitespace-normal block"
+                                  title={item.opd || "-"}
+                                >
+                                  {item.opd || "-"}
+                                </span>
+                                {item.unitKerja && item.unitKerja !== item.opd && (
+                                  <span 
+                                    className="text-[11px] text-muted-foreground leading-snug line-clamp-2 break-words whitespace-normal block mt-0.5"
+                                    title={item.unitKerja}
+                                  >
+                                    {item.unitKerja}
+                                  </span>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </TableCell>
-                          <TableCell className="py-3">
+                          <TableCell className="py-3 align-top min-w-[130px]">
                             {item.hasSimantapAccess ? (
-                              <div className="flex flex-wrap gap-1 max-w-xs">
+                              <div className="flex flex-wrap gap-1 items-center">
                                 {((item.simantapRoles && item.simantapRoles.length > 0)
                                   ? item.simantapRoles
                                   : (item.simantapRole ? [item.simantapRole] : [])
@@ -724,7 +752,7 @@ export default function UsersManagementPage() {
                               </div>
                             ) : item.simantapStatus === "NON_AKTIF" ? (
                               <div className="space-y-1">
-                                <div className="flex flex-wrap gap-1 max-w-xs opacity-80">
+                                <div className="flex flex-wrap gap-1 opacity-80">
                                   {((item.simantapRoles && item.simantapRoles.length > 0)
                                     ? item.simantapRoles
                                     : (item.simantapRole ? [item.simantapRole] : [])
@@ -732,17 +760,17 @@ export default function UsersManagementPage() {
                                     <span key={r}>{getRoleBadge(r)}</span>
                                   ))}
                                 </div>
-                                <Badge variant="outline" className="text-destructive border-destructive/20 text-[9px] py-0 font-normal">
+                                <Badge variant="outline" className="text-destructive border-destructive/20 text-[9px] py-0 font-normal whitespace-nowrap">
                                   Akses Dicabut
                                 </Badge>
                               </div>
                             ) : (
-                              <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal">
+                              <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal whitespace-nowrap">
                                 Belum Diberi Akses
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="py-3 text-right">
+                          <TableCell className="py-3 text-right align-top min-w-[140px] pr-4">
                             <Button
                               size="sm"
                               onClick={() =>
@@ -756,10 +784,10 @@ export default function UsersManagementPage() {
                                   username: item.username,
                                 })
                               }
-                              className="h-7 px-2.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                              className="h-7 px-2.5 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shrink-0 whitespace-nowrap"
                             >
-                              <UserPlus className="h-3 w-3" />
-                              {item.hasSimantapAccess || item.simantapStatus === "NON_AKTIF" ? "Ubah Role" : "Tetapkan Role"}
+                              <UserPlus className="h-3 w-3 shrink-0" />
+                              <span>{item.hasSimantapAccess || item.simantapStatus === "NON_AKTIF" ? "Ubah Role" : "Tetapkan Role"}</span>
                             </Button>
                           </TableCell>
                         </TableRow>
