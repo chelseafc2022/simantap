@@ -1,0 +1,398 @@
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+import * as mysql from 'mysql2/promise';
+
+export interface EgovPegawaiProfile {
+  egovId: string;
+  username: string;
+  nip: string;
+  nama: string;
+  gelarDepan?: string;
+  gelarBelakang?: string;
+  namaLengkap: string;
+  jabatan: string;
+  opd: string;
+  unitKerja: string;
+  instansiId?: string | number;
+  unitKerjaId?: string | number;
+}
+
+@Injectable()
+export class EgovService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(EgovService.name);
+  private pool: mysql.Pool | null = null;
+  private isConnected = false;
+
+  constructor(private readonly configService: ConfigService) {}
+
+  async onModuleInit() {
+    const host = this.configService.get<string>('egov.host', 'mysql.konaweselatankab.go.id');
+    const user = this.configService.get<string>('egov.user', 'diskominfosandi');
+    const password = this.configService.get<string>('egov.password', 'NewKominfo2018');
+    const port = this.configService.get<number>('egov.port', 3306);
+    const connectionLimit = this.configService.get<number>('egov.connectionLimit', 20);
+
+    try {
+      this.pool = mysql.createPool({
+        host,
+        user,
+        password,
+        port,
+        connectionLimit,
+        waitForConnections: true,
+        queueLimit: 0,
+        connectTimeout: 7000,
+      });
+
+      // Test connection
+      const conn = await this.pool.getConnection();
+      conn.release();
+      this.isConnected = true;
+      this.logger.log(`Berhasil terhubung ke Server Database E-Gov & SIMPEG Konsel (${host})`);
+    } catch (error) {
+      this.isConnected = false;
+      this.logger.warn(
+        `Koneksi ke server database E-Gov & SIMPEG tidak dapat dibangun (${error.message}). Otentikasi fallback lokal tetap aktif.`,
+      );
+    }
+  }
+
+  async onModuleDestroy() {
+    if (this.pool) {
+      await this.pool.end();
+      this.logger.log('Koneksi pool E-Gov & SIMPEG ditutup');
+    }
+  }
+
+  getIsConnected(): boolean {
+    return this.isConnected;
+  }
+
+  formatNamaLengkap(r: {
+    nama?: string;
+    username?: string;
+    gelar_depan?: string;
+    gelar_belakang?: string;
+  }): string {
+    const gDepan =
+      r.gelar_depan &&
+      r.gelar_depan.trim() !== '' &&
+      r.gelar_depan.trim() !== '-'
+        ? `${r.gelar_depan.trim()} `
+        : '';
+
+    const gBelakang =
+      r.gelar_belakang &&
+      r.gelar_belakang.trim() !== '' &&
+      r.gelar_belakang.trim() !== '-'
+        ? `, ${r.gelar_belakang.trim()}`
+        : '';
+
+    const rawNama = (r.nama || r.username || '').replace(/^[-,\s]+|[-,\s]+$/g, '');
+    return `${gDepan}${rawNama}${gBelakang}`.trim();
+  }
+
+  /**
+   * Autentikasi langsung terhadap database egov.users dan simpeg.biodata
+   * Mengadopsi pola dari konsel-setara/backend/auth/index.js
+   */
+  async authenticate(
+    usernameOrNip: string,
+    passwordPlain: string,
+  ): Promise<EgovPegawaiProfile | null> {
+    if (!this.pool || !this.isConnected) {
+      return null;
+    }
+
+    try {
+      const cleanInput = usernameOrNip.trim();
+      const sqlEgov = `
+        SELECT 
+          egov.users.id AS egov_id,
+          egov.users.username AS egov_username,
+          egov.users.password AS egov_password,
+          simpeg.biodata.nip AS bio_nip,
+          simpeg.biodata.nama AS bio_nama,
+          simpeg.biodata.gelar_depan AS bio_gelar_depan,
+          simpeg.biodata.gelar_belakang AS bio_gelar_belakang,
+          COALESCE(simpeg.jabatan.jabatan, simpeg.biodata.jenis_jabatan, 'Pegawai') AS bio_jabatan,
+          simpeg.unit_kerja.id AS unit_kerja_id,
+          simpeg.unit_kerja.unit_kerja AS unit_kerja_nama,
+          simpeg.instansi.id AS instansi_id,
+          simpeg.instansi.instansi AS instansi_nama
+        FROM egov.users
+        LEFT JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
+        LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE egov.users.username = ? OR simpeg.biodata.nip = ?
+        LIMIT 1;
+      `;
+
+      const [rows] = await this.pool.query<any[]>(sqlEgov, [cleanInput, cleanInput]);
+      if (!rows || rows.length === 0) {
+        return null;
+      }
+
+      const egovUser = rows[0];
+      const isMatch = await bcrypt.compare(passwordPlain, egovUser.egov_password);
+      if (!isMatch) {
+        return null;
+      }
+
+      const namaLengkap = this.formatNamaLengkap({
+        nama: egovUser.bio_nama,
+        username: egovUser.egov_username,
+        gelar_depan: egovUser.bio_gelar_depan,
+        gelar_belakang: egovUser.bio_gelar_belakang,
+      });
+
+      return {
+        egovId: String(egovUser.egov_id),
+        username: egovUser.egov_username,
+        nip: egovUser.bio_nip || egovUser.egov_username,
+        nama: egovUser.bio_nama || egovUser.egov_username,
+        gelarDepan: egovUser.bio_gelar_depan,
+        gelarBelakang: egovUser.bio_gelar_belakang,
+        namaLengkap,
+        jabatan: egovUser.bio_jabatan || 'Pegawai ASN',
+        opd: egovUser.instansi_nama || egovUser.unit_kerja_nama || 'Pemerintah Kabupaten Konawe Selatan',
+        unitKerja: egovUser.unit_kerja_nama || '-',
+        instansiId: egovUser.instansi_id,
+        unitKerjaId: egovUser.unit_kerja_id,
+      };
+    } catch (error) {
+      this.logger.error('Error saat autentikasi E-Gov:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Lookup Pegawai di E-Gov & SIMPEG untuk Autocomplete / Pencarian
+   * Mengadopsi pola dari konsel-setara/backend/apiMysql/pegawai.js (lookup)
+   */
+  async lookupPegawai(cari: string, limit = 20): Promise<EgovPegawaiProfile[]> {
+    if (!this.pool || !this.isConnected || !cari || cari.trim().length < 3) {
+      return [];
+    }
+
+    try {
+      const q = `%${cari.trim()}%`;
+      const sql = `
+        SELECT 
+          egov.users.id AS egov_id,
+          egov.users.username AS egov_username,
+          simpeg.biodata.nip AS nip,
+          simpeg.biodata.nama AS nama,
+          simpeg.biodata.gelar_depan AS gelar_depan,
+          simpeg.biodata.gelar_belakang AS gelar_belakang,
+          COALESCE(simpeg.jabatan.jabatan, simpeg.biodata.jenis_jabatan, 'Pegawai') AS jabatan_nama,
+          simpeg.unit_kerja.id AS unit_kerja_id,
+          simpeg.unit_kerja.unit_kerja AS unit_kerja,
+          simpeg.instansi.id AS instansi_id,
+          simpeg.instansi.instansi AS opd
+        FROM egov.users
+        INNER JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
+        LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE 
+          simpeg.biodata.nama IS NOT NULL 
+          AND (
+            simpeg.biodata.nip LIKE ? 
+            OR simpeg.biodata.nama LIKE ? 
+            OR simpeg.instansi.instansi LIKE ?
+          )
+        LIMIT ?;
+      `;
+
+      const [rows] = await this.pool.query<any[]>(sql, [q, q, q, limit]);
+
+      return (rows || []).map((r) => ({
+        egovId: String(r.egov_id),
+        username: r.egov_username,
+        nip: r.nip,
+        nama: r.nama,
+        gelarDepan: r.gelar_depan,
+        gelarBelakang: r.gelar_belakang,
+        namaLengkap: this.formatNamaLengkap(r),
+        jabatan: r.jabatan_nama || 'Pegawai',
+        opd: r.opd || r.unit_kerja || 'Pemerintah Kabupaten Konawe Selatan',
+        unitKerja: r.unit_kerja || '-',
+        instansiId: r.instansi_id,
+        unitKerjaId: r.unit_kerja_id,
+      }));
+    } catch (error) {
+      this.logger.error('Error saat lookup pegawai E-Gov:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Mengambil detail lengkap 1 pegawai berdasarkan NIP
+   */
+  async getPegawaiByNip(nip: string): Promise<EgovPegawaiProfile | null> {
+    if (!this.pool || !this.isConnected) {
+      return null;
+    }
+
+    try {
+      const sql = `
+        SELECT 
+          egov.users.id AS egov_id,
+          egov.users.username AS egov_username,
+          simpeg.biodata.nip AS nip,
+          simpeg.biodata.nama AS nama,
+          simpeg.biodata.gelar_depan AS gelar_depan,
+          simpeg.biodata.gelar_belakang AS gelar_belakang,
+          COALESCE(simpeg.jabatan.jabatan, simpeg.biodata.jenis_jabatan, 'Pegawai') AS jabatan_nama,
+          simpeg.unit_kerja.id AS unit_kerja_id,
+          simpeg.unit_kerja.unit_kerja AS unit_kerja,
+          simpeg.instansi.id AS instansi_id,
+          simpeg.instansi.instansi AS opd
+        FROM egov.users
+        INNER JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
+        LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE simpeg.biodata.nip = ? OR egov.users.username = ?
+        LIMIT 1;
+      `;
+
+      const [rows] = await this.pool.query<any[]>(sql, [nip, nip]);
+      if (!rows || rows.length === 0) return null;
+
+      const r = rows[0];
+      return {
+        egovId: String(r.egov_id),
+        username: r.egov_username,
+        nip: r.nip,
+        nama: r.nama,
+        gelarDepan: r.gelar_depan,
+        gelarBelakang: r.gelar_belakang,
+        namaLengkap: this.formatNamaLengkap(r),
+        jabatan: r.jabatan_nama || 'Pegawai',
+        opd: r.opd || r.unit_kerja || 'Pemerintah Kabupaten Konawe Selatan',
+        unitKerja: r.unit_kerja || '-',
+        instansiId: r.instansi_id,
+        unitKerjaId: r.unit_kerja_id,
+      };
+    } catch (error) {
+      this.logger.error(`Error getPegawaiByNip (${nip}):`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Direktori Pegawai E-Gov & SIMPEG terpaginasi
+   * Mengadopsi pola dari konsel-setara/backend/apiMysql/pegawai.js (directory)
+   */
+  async getDirectory(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    opdName?: string;
+  }) {
+    if (!this.pool || !this.isConnected) {
+      return { data: [], total: 0, totalPages: 0 };
+    }
+
+    try {
+      const page = Math.max(1, params.page || 1);
+      const limit = Math.min(100, Math.max(1, params.limit || 10));
+      const offset = (page - 1) * limit;
+
+      let whereClauses: string[] = ['simpeg.biodata.nama IS NOT NULL'];
+      let queryParams: any[] = [];
+
+      if (params.search && params.search.trim() !== '') {
+        const s = `%${params.search.trim()}%`;
+        whereClauses.push('(simpeg.biodata.nip LIKE ? OR simpeg.biodata.nama LIKE ?)');
+        queryParams.push(s, s);
+      }
+
+      if (params.opdName && params.opdName.trim() !== '') {
+        const o = `%${params.opdName.trim()}%`;
+        whereClauses.push('simpeg.instansi.instansi LIKE ?');
+        queryParams.push(o);
+      }
+
+      const whereStr = whereClauses.join(' AND ');
+
+      const countSql = `
+        SELECT COUNT(DISTINCT egov.users.id) AS total
+        FROM egov.users
+        INNER JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE ${whereStr};
+      `;
+
+      const [countRows] = await this.pool.query<any[]>(countSql, queryParams);
+      const total = countRows[0]?.total || 0;
+      const totalPages = Math.ceil(total / limit) || 1;
+
+      const dataSql = `
+        SELECT 
+          egov.users.id AS egov_id,
+          egov.users.username AS egov_username,
+          simpeg.biodata.nip AS nip,
+          simpeg.biodata.nama AS nama,
+          simpeg.biodata.gelar_depan AS gelar_depan,
+          simpeg.biodata.gelar_belakang AS gelar_belakang,
+          COALESCE(simpeg.jabatan.jabatan, simpeg.biodata.jenis_jabatan, 'Pegawai') AS jabatan_nama,
+          simpeg.unit_kerja.id AS unit_kerja_id,
+          simpeg.unit_kerja.unit_kerja AS unit_kerja,
+          simpeg.instansi.id AS instansi_id,
+          simpeg.instansi.instansi AS opd
+        FROM egov.users
+        INNER JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
+        LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
+        LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
+        WHERE ${whereStr}
+        GROUP BY egov.users.id
+        ORDER BY simpeg.biodata.nama ASC
+        LIMIT ?, ?;
+      `;
+
+      const [dataRows] = await this.pool.query<any[]>(dataSql, [
+        ...queryParams,
+        offset,
+        limit,
+      ]);
+
+      const data: EgovPegawaiProfile[] = (dataRows || []).map((r) => ({
+        egovId: String(r.egov_id),
+        username: r.egov_username,
+        nip: r.nip,
+        nama: r.nama,
+        gelarDepan: r.gelar_depan,
+        gelarBelakang: r.gelar_belakang,
+        namaLengkap: this.formatNamaLengkap(r),
+        jabatan: r.jabatan_nama || 'Pegawai',
+        opd: r.opd || r.unit_kerja || 'Pemerintah Kabupaten Konawe Selatan',
+        unitKerja: r.unit_kerja || '-',
+        instansiId: r.instansi_id,
+        unitKerjaId: r.unit_kerja_id,
+      }));
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      this.logger.error('Error saat getDirectory E-Gov:', error.message);
+      return { data: [], total: 0, totalPages: 0 };
+    }
+  }
+}

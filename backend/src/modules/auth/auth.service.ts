@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -10,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../core/database/prisma.service';
+import { EgovService } from '../../core/egov/egov.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -24,6 +26,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly egovService: EgovService,
   ) {}
 
   async register(dto: RegisterUserDto) {
@@ -66,10 +69,17 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Login terpadu: Mendukung akun lokal SIMANTAP dan SSO E-Gov / SIMPEG Konsel
+   * Mengadopsi alur multi-database konsel-setara
+   */
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
-    const user = await this.prisma.user.findFirst({
+    const cleanInput = dto.nipOrEmail.trim();
+
+    // 1. Coba Autentikasi ke Database Lokal SIMANTAP
+    let user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ nip: dto.nipOrEmail }, { email: dto.nipOrEmail }],
+        OR: [{ nip: cleanInput }, { email: cleanInput }],
       },
       include: {
         opd: {
@@ -83,17 +93,70 @@ export class AuthService {
       },
     });
 
+    let isAuthenticated = false;
+
+    if (user) {
+      const isMatch = await bcrypt.compare(dto.password, user.password);
+      if (isMatch) {
+        isAuthenticated = true;
+      }
+    }
+
+    // 2. Jika tidak cocok di lokal, coba autentikasi ke Server Database E-Gov & SIMPEG
+    if (!isAuthenticated) {
+      const egovProfile = await this.egovService.authenticate(
+        cleanInput,
+        dto.password,
+      );
+
+      if (!egovProfile) {
+        throw new UnauthorizedException(
+          'Kredensial tidak valid: NIP/Username atau Kata Sandi salah',
+        );
+      }
+
+      // Cari user berdasarkan NIP hasil dari E-Gov
+      if (!user) {
+        user = await this.prisma.user.findFirst({
+          where: { nip: egovProfile.nip },
+          include: {
+            opd: {
+              select: {
+                id: true,
+                kodeOpd: true,
+                namaOpd: true,
+                singkatan: true,
+              },
+            },
+          },
+        });
+      }
+
+      if (!user) {
+        // Akun E-Gov valid, tetapi belum diberikan hak akses role di SIMANTAP oleh Administrator
+        throw new ForbiddenException(
+          `Akun E-Gov/SIMPEG atas nama '${egovProfile.namaLengkap}' valid, namun belum diberikan hak akses role pada sistem SIMANTAP. Silakan hubungi Administrator.`,
+        );
+      }
+
+      // Update data nama & jabatan pegawai dari SIMPEG jika ada pembaruan
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          namaLengkap: egovProfile.namaLengkap,
+          jabatan: egovProfile.jabatan || user.jabatan,
+        },
+      });
+
+      isAuthenticated = true;
+    }
+
     if (!user) {
-      throw new UnauthorizedException('Kredensial tidak valid (NIP/Email salah)');
+      throw new UnauthorizedException('Pengguna tidak ditemukan');
     }
 
     if (user.status !== 'AKTIF') {
       throw new UnauthorizedException('Akun berstatus non-aktif atau terkunci');
-    }
-
-    const isMatch = await bcrypt.compare(dto.password, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Kredensial tidak valid (Kata sandi salah)');
     }
 
     // Generate tokens
@@ -119,7 +182,7 @@ export class AuthService {
       },
     });
 
-    // Optional audit log
+    // Audit log
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,

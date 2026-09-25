@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
+import egovConfig from './config/egov.config';
 import jwtConfig from './config/jwt.config';
 import mailConfig from './config/mail.config';
 import redisConfig from './config/redis.config';
@@ -17,19 +18,21 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 import { PrismaModule } from './core/database/prisma.module';
+import { EgovModule } from './core/egov/egov.module';
 import { HealthModule } from './core/health/health.module';
 import { MailModule } from './core/mail/mail.module';
 import { QueueModule } from './core/queue/queue.module';
 import { RedisModule } from './core/redis/redis.module';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, redisConfig, mailConfig],
+      load: [appConfig, databaseConfig, jwtConfig, redisConfig, mailConfig, egovConfig],
       validationSchema,
     }),
 
@@ -39,9 +42,11 @@ import { AuthModule } from './modules/auth/auth.module';
     QueueModule,
     MailModule,
     HealthModule,
+    EgovModule,
 
-    // Feature Modules (Foundation)
+    // Feature Modules
     AuthModule,
+    UsersModule,
   ],
   providers: [
     // Global Guards (JWT by default, check @Public and @Roles)
