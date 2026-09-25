@@ -13,4 +13,9 @@ export class QueryUserDto extends PaginationDto {
   @IsOptional()
   @IsString()
   opdId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan status akun (AKTIF, NON_AKTIF, TERKUNCI)' })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

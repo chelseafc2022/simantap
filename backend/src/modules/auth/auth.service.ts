@@ -74,7 +74,8 @@ export class AuthService {
    * Mengadopsi alur multi-database konsel-setara
    */
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
-    const cleanInput = dto.nipOrEmail.trim();
+    const rawInput = dto.nipOrEmail || dto.identifier || "";
+    const cleanInput = rawInput.trim();
 
     // 1. Coba Autentikasi ke Database Lokal SIMANTAP
     let user = await this.prisma.user.findFirst({

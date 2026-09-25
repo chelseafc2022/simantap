@@ -25,7 +25,7 @@ export class UsersService {
    * Menampilkan daftar pengguna SIMANTAP terpaginasi
    */
   async findAll(query: QueryUserDto) {
-    const { page = 1, limit = 10, search, role, opdId, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const { page = 1, limit = 10, search, role, opdId, status, sortBy = 'createdAt', sortOrder = 'desc' } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -45,6 +45,10 @@ export class UsersService {
 
     if (opdId) {
       where.opdId = opdId;
+    }
+
+    if (status && status !== 'ALL') {
+      where.status = status;
     }
 
     const [total, data] = await Promise.all([

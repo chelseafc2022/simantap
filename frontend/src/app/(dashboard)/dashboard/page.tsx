@@ -1,7 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
+import { apiClient } from "@/lib/api-client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,10 +19,22 @@ import {
   FileCheck,
   Building2,
   Landmark,
+  Activity,
+  AlertCircle,
 } from "lucide-react"
 
 export default function DashboardPage() {
   const { user } = useAuth()
+
+  // Real-time backend connection check
+  const { data: healthData, isError: isHealthError, isLoading: isHealthLoading } = useQuery({
+    queryKey: ["backend-health"],
+    queryFn: async () => {
+      const res = await apiClient.get("/health")
+      return res.data
+    },
+    refetchInterval: 30000,
+  })
 
   const rolesList = [
     {
@@ -93,7 +107,7 @@ export default function DashboardPage() {
             </h1>
             <p className="text-sm text-neutral-300 leading-relaxed">
               Sistem Informasi Monitoring dan Evaluasi Data Pembangunan Terpadu (SIMANTAP).
-              Pondasi arsitektur frontend dan sistem autentikasi dual E-Gov/SIMPEG telah aktif.
+              Frontend telah terhubung langsung dengan backend NestJS dan database E-Gov & SIMPEG Konawe Selatan.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -110,38 +124,54 @@ export default function DashboardPage() {
 
       {/* Integration Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Backend & DB Health */}
+        <Card className="border-border/60 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Backend NestJS & DB</CardTitle>
+            <Activity className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <div className="flex items-center gap-2">
+              {isHealthLoading ? (
+                <span className="text-sm text-muted-foreground">Memeriksa koneksi...</span>
+              ) : isHealthError ? (
+                <>
+                  <span className="text-xl font-bold text-destructive">Terputus</span>
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                </>
+              ) : (
+                <>
+                  <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">Terhubung</span>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                </>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {healthData?.data?.details?.database?.status === "up"
+                ? `PostgreSQL: UP (${healthData.data.details.database.responseTime}ms)`
+                : "http://localhost:4000/api/v1"}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* E-Gov Server Status */}
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Server E-Gov Konawe Selatan</CardTitle>
-            <Server className="h-4 w-4 text-emerald-500" />
+            <Server className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold text-foreground">Terhubung</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Host: mysql.konaweselatankab.go.id (Database: egov)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Sinkronisasi SIMPEG ASN</CardTitle>
-            <Database className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-foreground">Aktif Real-time</span>
               <CheckCircle2 className="h-4 w-4 text-blue-500" />
             </div>
             <p className="text-xs text-muted-foreground">
-              Tarik otomatis profil pegawai ASN berdasarkan NIP
+              Host: mysql.konaweselatankab.go.id (10.800+ ASN)
             </p>
           </CardContent>
         </Card>
 
+        {/* RBAC Model */}
         <Card className="border-border/60 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Model Hak Akses (RBAC)</CardTitle>
@@ -152,7 +182,7 @@ export default function DashboardPage() {
               <span className="text-xl font-bold text-foreground">7 Role Terdefinisi</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Administrator, SiRUP, Perencanaan, PPK, Bendahara, Kepala OPD, Pimpinan
+              Administrator, SiRUP, Perencanaan, PPK, Bendahara, OPD, Pimpinan
             </p>
           </CardContent>
         </Card>

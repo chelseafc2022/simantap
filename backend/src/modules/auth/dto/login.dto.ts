@@ -1,14 +1,22 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: '198001012005011001',
     description: 'NIP Pegawai ASN atau Alamat Email Dinas',
   })
-  @IsNotEmpty({ message: 'NIP atau Email wajib diisi' })
+  @IsOptional()
   @IsString()
-  nipOrEmail: string;
+  nipOrEmail?: string;
+
+  @ApiPropertyOptional({
+    example: '198001012005011001',
+    description: 'Identifier akun (NIP atau Email)',
+  })
+  @IsOptional()
+  @IsString()
+  identifier?: string;
 
   @ApiProperty({
     example: 'Password123!',
