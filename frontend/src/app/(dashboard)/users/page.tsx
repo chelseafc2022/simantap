@@ -33,6 +33,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Building2,
+  Layers,
+  FilterX,
   RefreshCw,
   Edit3,
   UserX,
@@ -54,6 +56,8 @@ export default function UsersManagementPage() {
   const [debouncedSearch] = useDebounce(search, 400)
   const [roleFilter, setRoleFilter] = useState("ALL")
   const [statusFilter, setStatusFilter] = useState("ALL")
+  const [selectedInstansi, setSelectedInstansi] = useState("all")
+  const [selectedUnitKerja, setSelectedUnitKerja] = useState("all")
 
   // Pagination states
   const [pageUsers, setPageUsers] = useState(1)
@@ -86,20 +90,44 @@ export default function UsersManagementPage() {
     },
   })
 
-  // 2. Fetch E-Gov & SIMPEG ASN Directory
+  // 2. Fetch List Instansi / Unit Kerja dari SIMPEG
+  const { data: instansiResponse } = useQuery({
+    queryKey: ["simpeg-instansi"],
+    queryFn: async () => {
+      const res = await apiClient.get("/users/pegawai/instansi")
+      return res.data?.data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 3. Fetch List Sub Unit Kerja berdasarkan Instansi yang dipilih
+  const { data: unitKerjaResponse, isLoading: isLoadingUnitKerja } = useQuery({
+    queryKey: ["simpeg-unit-kerja", selectedInstansi],
+    queryFn: async () => {
+      const params: any = {}
+      if (selectedInstansi !== "all") params.instansiId = selectedInstansi
+      const res = await apiClient.get("/users/pegawai/unit-kerja", { params })
+      return res.data?.data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 4. Fetch E-Gov & SIMPEG ASN Directory dengan Filter Unit Kerja & Sub Unit Kerja
   const {
     data: directoryResponse,
     isLoading: isLoadingDirectory,
     isFetching: isFetchingDirectory,
     refetch: refetchDirectory,
   } = useQuery({
-    queryKey: ["pegawai-directory", pageDirectory, debouncedSearch],
+    queryKey: ["pegawai-directory", pageDirectory, debouncedSearch, selectedInstansi, selectedUnitKerja],
     queryFn: async () => {
       const params: any = {
         page: pageDirectory,
         limit: 10,
       }
       if (debouncedSearch) params.search = debouncedSearch
+      if (selectedInstansi !== "all") params.instansiId = selectedInstansi
+      if (selectedUnitKerja !== "all") params.unitKerjaId = selectedUnitKerja
 
       const res = await apiClient.get("/users/pegawai/directory", { params })
       return res.data
@@ -111,6 +139,8 @@ export default function UsersManagementPage() {
 
   const directoryList = directoryResponse?.data || []
   const directoryMeta = directoryResponse?.meta || { page: 1, totalPages: 1, total: 0 }
+  const instansiList = instansiResponse || []
+  const unitKerjaList = unitKerjaResponse || []
 
   const getRoleBadge = (roleName: string) => {
     const roleConfig = SIMANTAP_ROLES.find((r) => r.value === roleName)
@@ -439,17 +469,98 @@ export default function UsersManagementPage() {
                   </CardDescription>
                 </div>
 
-                <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari NIP, nama pegawai, atau OPD..."
-                    value={search}
-                    onChange={(e) => {
-                      setSearch(e.target.value)
-                      setPageDirectory(1)
-                    }}
-                    className="pl-8 text-xs h-9 bg-background"
-                  />
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                  {/* Filter Unit Kerja (Instansi) */}
+                  <div className="w-full sm:w-56">
+                    <Select
+                      value={selectedInstansi}
+                      onValueChange={(val) => {
+                        setSelectedInstansi(val)
+                        setSelectedUnitKerja("all")
+                        setPageDirectory(1)
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <SelectValue placeholder="Pilih Unit Kerja / OPD" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="all" className="text-xs font-semibold">
+                          -- Semua Unit Kerja (OPD) --
+                        </SelectItem>
+                        {instansiList.map((ins: any) => (
+                          <SelectItem key={ins.id} value={ins.id} className="text-xs">
+                            {ins.instansi}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Filter Sub Unit Kerja */}
+                  <div className="w-full sm:w-56">
+                    <Select
+                      value={selectedUnitKerja}
+                      onValueChange={(val) => {
+                        setSelectedUnitKerja(val)
+                        setPageDirectory(1)
+                      }}
+                      disabled={isLoadingUnitKerja}
+                    >
+                      <SelectTrigger className="h-9 text-xs bg-background">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                          <SelectValue placeholder="Pilih Sub Unit Kerja" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectItem value="all" className="text-xs font-semibold">
+                          -- Semua Sub Unit Kerja --
+                        </SelectItem>
+                        {unitKerjaList.map((uk: any) => (
+                          <SelectItem key={uk.id} value={uk.id} className="text-xs">
+                            {uk.unitKerja}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Pencarian NIP / Nama */}
+                  <div className="relative w-full sm:w-56">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari NIP atau nama pegawai..."
+                      value={search}
+                      onChange={(e) => {
+                        setSearch(e.target.value)
+                        setPageDirectory(1)
+                      }}
+                      className="pl-8 text-xs h-9 bg-background"
+                    />
+                  </div>
+
+                  {/* Tombol Reset Filter jika aktif */}
+                  {(selectedInstansi !== "all" || selectedUnitKerja !== "all" || search) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedInstansi("all")
+                        setSelectedUnitKerja("all")
+                        setSearch("")
+                        setPageDirectory(1)
+                      }}
+                      className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                      title="Reset Semua Filter"
+                    >
+                      <FilterX className="h-3.5 w-3.5" />
+                      Reset
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>

@@ -298,6 +298,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     limit: number;
     search?: string;
     opdName?: string;
+    instansiId?: string;
+    unitKerjaId?: string;
   }) {
     if (!this.pool || !this.isConnected) {
       return { data: [], total: 0, totalPages: 0 };
@@ -321,6 +323,16 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         const o = `%${params.opdName.trim()}%`;
         whereClauses.push('simpeg.instansi.instansi LIKE ?');
         queryParams.push(o);
+      }
+
+      if (params.instansiId && params.instansiId !== 'all') {
+        whereClauses.push('simpeg.instansi.id = ?');
+        queryParams.push(params.instansiId);
+      }
+
+      if (params.unitKerjaId && params.unitKerjaId !== 'all') {
+        whereClauses.push('simpeg.unit_kerja.id = ?');
+        queryParams.push(params.unitKerjaId);
       }
 
       const whereStr = whereClauses.join(' AND ');
@@ -395,4 +407,54 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       return { data: [], total: 0, totalPages: 0 };
     }
   }
+
+  /**
+   * Mengambil daftar Instansi / Unit Kerja dari SIMPEG (READ-ONLY)
+   */
+  async getInstansiList(): Promise<{ id: string; instansi: string }[]> {
+    if (!this.pool || !this.isConnected) {
+      return [];
+    }
+    try {
+      const sql = 'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;';
+      const [rows] = await this.pool.query<any[]>(sql);
+      return (rows || []).map((r) => ({
+        id: String(r.id),
+        instansi: r.instansi,
+      }));
+    } catch (error) {
+      this.logger.error('Error saat getInstansiList:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Mengambil daftar Sub Unit Kerja dari SIMPEG berdasarkan Instansi (READ-ONLY)
+   */
+  async getUnitKerjaList(instansiId?: string): Promise<{ id: string; unitKerja: string; instansiId: string }[]> {
+    if (!this.pool || !this.isConnected) {
+      return [];
+    }
+    try {
+      let sql = 'SELECT id, unit_kerja, instansi FROM simpeg.unit_kerja';
+      const params: any[] = [];
+
+      if (instansiId && instansiId !== 'all') {
+        sql += ' WHERE instansi = ?';
+        params.push(instansiId);
+      }
+      sql += ' ORDER BY unit_kerja ASC;';
+
+      const [rows] = await this.pool.query<any[]>(sql, params);
+      return (rows || []).map((r) => ({
+        id: String(r.id),
+        unitKerja: r.unit_kerja,
+        instansiId: String(r.instansi),
+      }));
+    } catch (error) {
+      this.logger.error('Error saat getUnitKerjaList:', error.message);
+      return [];
+    }
+  }
+
 }

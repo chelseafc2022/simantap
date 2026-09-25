@@ -86,6 +86,26 @@ export class UsersController {
     return this.usersService.revokeRole(dto.nip, adminId);
   }
 
+
+  @Get('pegawai/instansi')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Daftar Instansi / Unit Kerja dari database SIMPEG Konsel (READ-ONLY)',
+  })
+  getInstansi() {
+    return this.usersService.getInstansiList();
+  }
+
+  @Get('pegawai/unit-kerja')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Daftar Sub Unit Kerja dari database SIMPEG Konsel (READ-ONLY)',
+  })
+  @ApiQuery({ name: 'instansiId', required: false, description: 'ID Instansi untuk filter sub unit kerja' })
+  getUnitKerja(@Query('instansiId') instansiId?: string) {
+    return this.usersService.getUnitKerjaList(instansiId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Mendapatkan data detail pengguna berdasarkan ID' })
   findOne(@Param('id') id: string) {

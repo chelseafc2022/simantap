@@ -278,13 +278,15 @@ export class UsersService {
    * Diperkaya dengan informasi status hak akses aktif di SIMANTAP
    */
   async getPegawaiDirectory(query: QueryPegawaiDirectoryDto) {
-    const { page = 1, limit = 10, search, opdName } = query;
+    const { page = 1, limit = 10, search, opdName, instansiId, unitKerjaId } = query;
 
     const result = await this.egovService.getDirectory({
       page,
       limit,
       search,
       opdName,
+      instansiId,
+      unitKerjaId,
     });
 
     if (!result.data || result.data.length === 0) {
@@ -329,4 +331,19 @@ export class UsersService {
       },
     };
   }
+
+  /**
+   * Mengambil daftar Instansi / Unit Kerja dari SIMPEG (READ-ONLY)
+   */
+  async getInstansiList() {
+    return this.egovService.getInstansiList();
+  }
+
+  /**
+   * Mengambil daftar Sub Unit Kerja dari SIMPEG berdasarkan Instansi (READ-ONLY)
+   */
+  async getUnitKerjaList(instansiId?: string) {
+    return this.egovService.getUnitKerjaList(instansiId);
+  }
+
 }

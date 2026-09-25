@@ -7,4 +7,14 @@ export class QueryPegawaiDirectoryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   opdName?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Instansi / Unit Kerja SIMPEG' })
+  @IsOptional()
+  @IsString()
+  instansiId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Sub Unit Kerja SIMPEG' })
+  @IsOptional()
+  @IsString()
+  unitKerjaId?: string;
 }
