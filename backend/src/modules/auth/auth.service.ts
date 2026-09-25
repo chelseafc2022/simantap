@@ -78,9 +78,25 @@ export class AuthService {
     const cleanInput = rawInput.trim();
 
     // 1. Coba Autentikasi ke Database Lokal SIMANTAP
+    let targetNip = cleanInput;
+    if (!/^\d+$/.test(cleanInput) && !cleanInput.includes('@')) {
+      try {
+        const egovInfo = await this.egovService.getPegawaiByNip(cleanInput);
+        if (egovInfo?.nip) {
+          targetNip = egovInfo.nip;
+        }
+      } catch (err) {
+        this.logger.warn(`Lookup E-Gov username ${cleanInput} gagal: ${err.message}`);
+      }
+    }
+
     let user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ nip: cleanInput }, { email: cleanInput }],
+        OR: [
+          { nip: cleanInput },
+          { nip: targetNip },
+          { email: cleanInput },
+        ],
       },
       include: {
         opd: {
