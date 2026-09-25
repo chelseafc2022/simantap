@@ -150,6 +150,15 @@ export default function LoginPage() {
               type="button"
               variant="outline"
               size="sm"
+              onClick={() => { setIdentifier("riswan28"); }}
+              className="text-[10px] h-7 justify-start truncate bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 col-span-2 font-semibold"
+            >
+              🌟 Riswan M. Rizal (username: riswan28 / NIP: 199506082024211001)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => fillDemo("198001012005011001")}
               className="text-[10px] h-7 justify-start truncate"
             >
