@@ -20,7 +20,7 @@ export function StatCards({
 }: StatCardsProps) {
   const stats = [
     {
-      title: "Total Pegawai ASN (E-Gov)",
+      title: "Total Pegawai ASN",
       value: isLoading ? "..." : totalPegawai.toLocaleString("id-ID"),
       description: "Data sinkron server E-Gov & SIMPEG Konsel",
       icon: Users,
