@@ -64,90 +64,44 @@ async function main() {
   // 2. Default Password: Password123!
   const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
 
-  // 3. Seed 7 Role Users
-  const usersToSeed = [
-    {
-      nip: '198001012005011001',
-      namaLengkap: 'Ir. H. Ahmad Fauzan, M.Si',
-      jabatan: 'Kabag Administrasi Pembangunan',
-      email: 'admin@konaweselatankab.go.id',
+  // 3. Seed OPD Diskominfo & Administrator Utama Resmi (Riswan M. Rizal dari E-Gov)
+  const opdKominfo = await prisma.opd.upsert({
+    where: { kodeOpd: 'OPD-KOMINFO' },
+    update: {},
+    create: {
+      kodeOpd: 'OPD-KOMINFO',
+      namaOpd: 'Dinas Komunikasi, Informatika dan Persandian',
+      singkatan: 'DISKOMINFO',
+      alamat: 'Jl. Poros Andoolo Kompleks Perkantoran',
+      namaKepalaOpd: '-',
+      nipKepalaOpd: '-',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { nip: '199506082024211001' },
+    update: {
+      namaLengkap: 'RISWAN M. RIZAL, S.T',
+      jabatan: 'Pranata Komputer / Pegawai Diskominfo',
+      email: 'rfbriswanmrizal@gmail.com',
       role: RoleEnum.ADMINISTRATOR,
-      opdId: opdSetda.id,
+      status: StatusAkun.AKTIF,
+      opdId: opdKominfo.id,
+      password: defaultPasswordHash,
     },
-    {
-      nip: '198804122011011003',
-      namaLengkap: 'Andi Pratama, S.Kom',
-      jabatan: 'Operator Pengadaan & SiRUP',
-      email: 'andi.sirup@konaweselatankab.go.id',
-      role: RoleEnum.ADMIN_SIRUP,
-      opdId: opdDpu.id,
+    create: {
+      nip: '199506082024211001',
+      namaLengkap: 'RISWAN M. RIZAL, S.T',
+      jabatan: 'Pranata Komputer / Pegawai Diskominfo',
+      email: 'rfbriswanmrizal@gmail.com',
+      password: defaultPasswordHash,
+      role: RoleEnum.ADMINISTRATOR,
+      status: StatusAkun.AKTIF,
+      opdId: opdKominfo.id,
     },
-    {
-      nip: '198607142010011002',
-      namaLengkap: 'Budi Santoso, ST',
-      jabatan: 'Kasubag Perencanaan & Program',
-      email: 'budi.perencanaan@konaweselatankab.go.id',
-      role: RoleEnum.ADMIN_PERENCANAAN,
-      opdId: opdDpu.id,
-    },
-    {
-      nip: '198209212008011004',
-      namaLengkap: 'Ir. Herman Syahputra, ST',
-      jabatan: 'Pejabat Pembuat Komitmen (PPK)',
-      email: 'herman.ppk@konaweselatankab.go.id',
-      role: RoleEnum.ADMIN_PPK,
-      opdId: opdDpu.id,
-    },
-    {
-      nip: '199203202018012003',
-      namaLengkap: 'Sri Wahyuni, SE',
-      jabatan: 'Bendahara Pengeluaran',
-      email: 'wahyuni.bendahara@konaweselatankab.go.id',
-      role: RoleEnum.BENDAHARA,
-      opdId: opdDpu.id,
-    },
-    {
-      nip: '197505152000011002',
-      namaLengkap: 'Drs. Muhammad Rizki, M.Si',
-      jabatan: 'Kepala Dinas DPUPR',
-      email: 'rizki.kadis@konaweselatankab.go.id',
-      role: RoleEnum.KEPALA_OPD,
-      opdId: opdDpu.id,
-    },
-    {
-      nip: '196812101994031005',
-      namaLengkap: 'H. Surunuddin Dangga, ST., MM',
-      jabatan: 'Bupati Konawe Selatan',
-      email: 'bupati@konaweselatankab.go.id',
-      role: RoleEnum.PIMPINAN_DAERAH,
-      opdId: opdSetda.id,
-    },
-  ];
+  });
 
-  for (const u of usersToSeed) {
-    await prisma.user.upsert({
-      where: { nip: u.nip },
-      update: {
-        namaLengkap: u.namaLengkap,
-        jabatan: u.jabatan,
-        email: u.email,
-        role: u.role,
-        opdId: u.opdId,
-      },
-      create: {
-        nip: u.nip,
-        namaLengkap: u.namaLengkap,
-        jabatan: u.jabatan,
-        email: u.email,
-        password: defaultPasswordHash,
-        role: u.role,
-        status: StatusAkun.AKTIF,
-        opdId: u.opdId,
-      },
-    });
-  }
-
-  console.log('✅ 7 Akun Pengguna Role RBAC berhasil dibuat (Password: Password123!)');
+  console.log('✅ Akun Administrator Utama Riswan M. Rizal (E-Gov) berhasil disiapkan');
 
   // 4. Seed System Settings
   const existingSetting = await prisma.systemSetting.findFirst();

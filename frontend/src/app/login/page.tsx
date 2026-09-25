@@ -139,59 +139,24 @@ export default function LoginPage() {
           </form>
         </Card>
 
-        {/* Demo Quick-Fill Accounts */}
-        <div className="rounded-xl border border-border/60 bg-card p-3 space-y-2 text-xs">
+        {/* Akun Administrator Resmi */}
+        <div className="rounded-xl border border-border/60 bg-card p-3.5 space-y-2.5 text-xs">
           <div className="flex items-center gap-1.5 text-muted-foreground font-medium text-[11px]">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            <span>Akun Uji Coba Cepat (Password: Password123!)</span>
+            <span>Akun Administrator Utama SIMANTAP (Terverifikasi E-Gov):</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => { fillDemo("riswan28"); }}
-              className="text-[10px] h-7 justify-start truncate bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 col-span-2 font-semibold"
-            >
-              🌟 Riswan M. Rizal (username: riswan28 / NIP: 199506082024211001)
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fillDemo("198001012005011001")}
-              className="text-[10px] h-7 justify-start truncate"
-            >
-              👑 Administrator Utama
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fillDemo("198804122011011003")}
-              className="text-[10px] h-7 justify-start truncate"
-            >
-              📑 Admin SiRUP (PU)
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fillDemo("198607142010011002")}
-              className="text-[10px] h-7 justify-start truncate"
-            >
-              🎯 Admin Perencanaan
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fillDemo("198209212008011004")}
-              className="text-[10px] h-7 justify-start truncate"
-            >
-              🏗️ Admin PPK
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => { fillDemo("riswan28"); }}
+            className="w-full text-xs h-8 justify-center bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-semibold hover:bg-emerald-500/20"
+          >
+            🌟 Riswan M. Rizal, S.T (riswan28 / NIP: 199506082024211001)
+          </Button>
+          <p className="text-[10px] text-muted-foreground text-center">
+            Akun peran lain ditetapkan melalui menu <strong>Direktori ASN Server E-Gov & SIMPEG</strong>.
+          </p>
         </div>
       </div>
     </div>
