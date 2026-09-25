@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleEnum {
+  ADMINISTRATOR
+  ADMIN_SIRUP
+  ADMIN_PERENCANAAN
+  ADMIN_PPK
+  BENDAHARA
+  KEPALA_OPD
+  PIMPINAN_DAERAH
+}
+
+enum StatusAkun {
+  AKTIF
+  NON_AKTIF
+  TERKUNCI
+}
+
+model Opd {
+  id             String    @id @default(uuid())
+  kodeOpd        String    @unique @map("kode_opd")
+  namaOpd        String    @map("nama_opd")
+  singkatan      String?
+  alamat         String?
+  telepon        String?
+  email          String?
+  namaKepalaOpd  String?   @map("nama_kepala_opd")
+  nipKepalaOpd   String?   @map("nip_kepala_opd")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  subUnits       SubUnit[]
+  users          User[]
+
+  @@map("opd")
+}
+
+model SubUnit {
+  id          String   @id @default(uuid())
+  opdId       String   @map("opd_id")
+  kodeSubUnit String   @map("kode_sub_unit")
+  namaSubUnit String   @map("nama_sub_unit")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  opd         Opd      @relation(fields: [opdId], references: [id], onDelete: Cascade)
+  users       User[]
+
+  @@unique([opdId, kodeSubUnit])
+  @@map("sub_unit")
+}
+
+model User {
+  id          String       @id @default(uuid())
+  nip         String       @unique
+  namaLengkap String       @map("nama_lengkap")
+  jabatan     String
+  email       String       @unique
+  password    String
+  role        RoleEnum     @default(ADMIN_PPK)
+  status      StatusAkun   @default(AKTIF)
+  opdId       String?      @map("opd_id")
+  subUnitId   String?      @map("sub_unit_id")
+  lastLoginAt DateTime?    @map("last_login_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  opd          Opd?          @relation(fields: [opdId], references: [id], onDelete: SetNull)
+  subUnit      SubUnit?      @relation(fields: [subUnitId], references: [id], onDelete: SetNull)
+  refreshTokens RefreshToken[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tokenHash  String   @map("token_hash")
+  isRevoked  Boolean  @default(false) @map("is_revoked")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  resource   String
+  resourceId String?  @map("resource_id")
+  payload    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id            String   @id @default(uuid())
+  tahunAnggaran Int      @default(2026) @map("tahun_anggaran")
+  ambangKuning  Float    @default(5.0) @map("ambang_kuning")
+  ambangMerah   Float    @default(10.0) @map("ambang_merah")
+  egovActive    Boolean  @default(true) @map("egov_active")
+  simpegActive  Boolean  @default(true) @map("simpeg_active")
+  sirupActive   Boolean  @default(true) @map("sirup_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model LockingPeriod {
+  id          String   @id @default(uuid())
+  tahun       Int
+  bulan       Int
+  isLocked    Boolean  @default(false) @map("is_locked")
+  batasInput  DateTime @map("batas_input")
+  updatedById String?  @map("updated_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([tahun, bulan])
+  @@map("locking_periods")
+}
