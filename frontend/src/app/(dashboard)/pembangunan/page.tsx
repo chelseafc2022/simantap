@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/hooks/use-auth"
+import { SearchableCombobox } from "@/components/searchable-combobox"
 import { PembangunanStatCards } from "./components/pembangunan-stat-cards"
 import {
   PaketFormDialog,
@@ -51,14 +53,27 @@ import {
 } from "lucide-react"
 
 export default function PaketPembangunanPage() {
+  const { user } = useAuth()
+  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userOpdId = user?.opd?.id
+  const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
+
   // Filters state
   const [search, setSearch] = useState("")
   const [debouncedSearch] = useDebounce(search, 400)
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2026)
   const [selectedOpd, setSelectedOpd] = useState<string>("ALL")
+  const [selectedSubUnit, setSelectedSubUnit] = useState<string>("all")
   const [selectedMetode, setSelectedMetode] = useState<string>("ALL")
   const [page, setPage] = useState<number>(1)
   const limit = 10
+
+  // Lock selectedOpd if not super role
+  useEffect(() => {
+    if (!isSuperRole && userOpdId) {
+      setSelectedOpd(userOpdId)
+    }
+  }, [isSuperRole, userOpdId])
 
   // Dialogs state
   const [formOpen, setFormOpen] = useState<boolean>(false)
@@ -66,7 +81,7 @@ export default function PaketPembangunanPage() {
   const [deleteOpen, setDeleteOpen] = useState<boolean>(false)
   const [selectedPaket, setSelectedPaket] = useState<PaketItem | null>(null)
 
-  // 1. Fetch OPD list
+  // 1. Fetch OPD list (from real SIMPEG instansi)
   const { data: opdResponse } = useQuery({
     queryKey: ["opd-options"],
     queryFn: async () => {
@@ -76,7 +91,21 @@ export default function PaketPembangunanPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  // 2. Fetch PBJ Constants
+  // 2. Fetch Sub Unit Kerja based on selectedOpd
+  const { data: subUnitResponse, isLoading: isLoadingSubUnit } = useQuery({
+    queryKey: ["pembangunan-sub-units", selectedOpd],
+    queryFn: async () => {
+      const params: any = {}
+      if (selectedOpd !== "ALL" && selectedOpd !== "all") {
+        params.opdId = selectedOpd
+      }
+      const res = await apiClient.get("/pembangunan/sub-units", { params })
+      return res.data?.data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // 3. Fetch PBJ Constants
   const { data: constantsResponse } = useQuery({
     queryKey: ["pbj-constants"],
     queryFn: async () => {
@@ -90,14 +119,14 @@ export default function PaketPembangunanPage() {
     staleTime: 10 * 60 * 1000,
   })
 
-  // 3. Fetch Paket Pembangunan
+  // 4. Fetch Paket Pembangunan
   const {
     data: paketResponse,
     isLoading,
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ["paket-pembangunan", page, debouncedSearch, tahunAnggaran, selectedOpd, selectedMetode],
+    queryKey: ["paket-pembangunan", page, debouncedSearch, tahunAnggaran, selectedOpd, selectedSubUnit, selectedMetode],
     queryFn: async () => {
       const params: any = {
         page,
@@ -105,8 +134,17 @@ export default function PaketPembangunanPage() {
         tahunAnggaran,
       }
       if (debouncedSearch) params.search = debouncedSearch
-      if (selectedOpd !== "ALL") params.opdId = selectedOpd
-      if (selectedMetode !== "ALL") params.metodePemilihan = selectedMetode
+      if (!isSuperRole && userOpdId) {
+        params.opdId = userOpdId
+      } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
+        params.opdId = selectedOpd
+      }
+      if (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") {
+        params.subUnitId = selectedSubUnit
+      }
+      if (selectedMetode !== "ALL" && selectedMetode !== "all") {
+        params.metodePemilihan = selectedMetode
+      }
 
       const res = await apiClient.get("/pembangunan", { params })
       return res.data
@@ -116,6 +154,23 @@ export default function PaketPembangunanPage() {
   const opdList = opdResponse || []
   const paketList: PaketItem[] = paketResponse?.data || []
   const meta = paketResponse?.meta || { total: 0, totalPages: 1, page: 1 }
+
+  // Combobox options for Unit Kerja & Sub Unit
+  const opdOptions = useMemo(() => {
+    const list = Array.isArray(opdList) ? opdList : []
+    return list.map((opd) => ({
+      id: opd.id,
+      label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
+    }))
+  }, [opdList])
+
+  const subUnitOptions = useMemo(() => {
+    const list = Array.isArray(subUnitResponse) ? subUnitResponse : []
+    return list.map((su: any) => ({
+      id: su.id,
+      label: su.namaSubUnit,
+    }))
+  }, [subUnitResponse])
 
   // Calculate totals for stats
   const totalPagu = paketList.reduce(
@@ -159,7 +214,8 @@ export default function PaketPembangunanPage() {
   const handleResetFilter = () => {
     setSearch("")
     setTahunAnggaran(2026)
-    setSelectedOpd("ALL")
+    setSelectedOpd(isSuperRole ? "ALL" : (userOpdId || "ALL"))
+    setSelectedSubUnit("all")
     setSelectedMetode("ALL")
     setPage(1)
   }
@@ -215,26 +271,70 @@ export default function PaketPembangunanPage() {
         totalKontrak={totalKontrak}
       />
 
-      {/* Filter Toolbar */}
+      {/* Filter Toolbar - Mengadopsi Layout & Style Presisi /users */}
       <Card className="border-border/70 shadow-xs bg-card/60 backdrop-blur-xs">
-        <CardContent className="p-4 sm:p-5 space-y-3.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-            {/* Search Input */}
-            <div className="relative sm:col-span-2 lg:col-span-5">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Cari nama paket, no. SPK, kode RUP, rekanan..."
-                className="pl-9 text-sm h-10"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
+        <CardContent className="p-4 sm:p-5 space-y-3">
+          {/* Baris 1: Pencarian Teks Full Width */}
+          <div className="relative w-full">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Cari nama paket, nomor SPK, kode RUP, atau rekanan..."
+              className="pl-8 text-xs h-9 bg-background w-full"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+            />
+          </div>
+
+          {/* Baris 2: Sejajar 4 Filter: Unit Kerja (OPD), Sub Unit Kerja, Tahun, Metode */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
+            <div className="w-full">
+              {isSuperRole ? (
+                <SearchableCombobox
+                  value={selectedOpd === "ALL" ? "all" : selectedOpd}
+                  onValueChange={(val) => {
+                    setSelectedOpd(val === "all" ? "ALL" : val)
+                    setSelectedSubUnit("all")
+                    setPage(1)
+                  }}
+                  items={opdOptions}
+                  placeholder="Ketik / Pilih Unit Kerja (OPD)..."
+                  searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                  emptyText="Unit Kerja tidak ditemukan."
+                  allLabel="-- Semua Unit Kerja (OPD) --"
+                  icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                />
+              ) : (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
+                  <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">{userOpdNama || "OPD Anda"}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Filter Sub Unit Kerja - Searchable & Typeable */}
+            <div className="w-full">
+              <SearchableCombobox
+                value={selectedSubUnit}
+                onValueChange={(val) => {
+                  setSelectedSubUnit(val)
                   setPage(1)
                 }}
+                items={subUnitOptions}
+                placeholder={isLoadingSubUnit ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                emptyText="Sub Unit Kerja tidak ditemukan."
+                allLabel="-- Semua Sub Unit Kerja --"
+                icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                disabled={isLoadingSubUnit}
               />
             </div>
 
-            {/* Tahun Filter */}
-            <div className="lg:col-span-2">
+            {/* Filter Tahun Anggaran */}
+            <div className="w-full">
               <Select
                 value={String(tahunAnggaran)}
                 onValueChange={(val) => {
@@ -242,42 +342,19 @@ export default function PaketPembangunanPage() {
                   setPage(1)
                 }}
               >
-                <SelectTrigger className="text-sm h-10">
+                <SelectTrigger className="h-9 text-xs bg-background w-full">
                   <SelectValue placeholder="Tahun Anggaran" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2026">TA 2026</SelectItem>
-                  <SelectItem value="2025">TA 2025</SelectItem>
-                  <SelectItem value="2024">TA 2024</SelectItem>
+                  <SelectItem value="2026">Tahun Anggaran 2026</SelectItem>
+                  <SelectItem value="2025">Tahun Anggaran 2025</SelectItem>
+                  <SelectItem value="2024">Tahun Anggaran 2024</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* OPD Filter */}
-            <div className="lg:col-span-3">
-              <Select
-                value={selectedOpd}
-                onValueChange={(val) => {
-                  setSelectedOpd(val)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger className="text-sm h-10">
-                  <SelectValue placeholder="Semua Perangkat Daerah" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  <SelectItem value="ALL">Semua OPD / SKPD</SelectItem>
-                  {opdList.map((opd) => (
-                    <SelectItem key={opd.id} value={opd.id}>
-                      {opd.namaOpd} {opd.singkatan ? `(${opd.singkatan})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Metode Pemilihan Filter */}
-            <div className="lg:col-span-2">
+            {/* Filter Metode Pemilihan PBJ */}
+            <div className="w-full">
               <Select
                 value={selectedMetode}
                 onValueChange={(val) => {
@@ -285,8 +362,8 @@ export default function PaketPembangunanPage() {
                   setPage(1)
                 }}
               >
-                <SelectTrigger className="text-sm h-10">
-                  <SelectValue placeholder="Semua Metode" />
+                <SelectTrigger className="h-9 text-xs bg-background w-full">
+                  <SelectValue placeholder="Semua Metode PBJ" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Semua Metode PBJ</SelectItem>
@@ -305,8 +382,8 @@ export default function PaketPembangunanPage() {
             </div>
           </div>
 
-          {(search || selectedOpd !== "ALL" || selectedMetode !== "ALL" || tahunAnggaran !== 2026) && (
-            <div className="flex items-center justify-between pt-3 border-t text-xs text-muted-foreground">
+          {(search || (selectedOpd !== "ALL" && selectedOpd !== "all") || (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") || selectedMetode !== "ALL" || tahunAnggaran !== 2026) && (
+            <div className="flex items-center justify-between pt-2.5 border-t text-xs text-muted-foreground">
               <span>Filter aktif diterapkan pada daftar paket</span>
               <Button
                 variant="ghost"
@@ -420,11 +497,18 @@ export default function PaketPembangunanPage() {
 
                       {/* OPD */}
                       <TableCell className="py-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-xs font-medium text-foreground">
-                            {paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
-                          </span>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-xs font-medium text-foreground">
+                              {paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
+                            </span>
+                          </div>
+                          {paket.subUnit?.namaSubUnit && (
+                            <div className="text-[11px] text-muted-foreground pl-5 truncate max-w-[200px]" title={paket.subUnit.namaSubUnit}>
+                              {paket.subUnit.namaSubUnit}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
 
