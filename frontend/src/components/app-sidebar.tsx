@@ -5,6 +5,9 @@ import {
   LayoutDashboard,
   Users,
   ShieldCheck,
+  Briefcase,
+  TrendingUp,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -36,6 +39,34 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           icon: LayoutDashboard,
           isActive: pathname === "/dashboard",
         },
+      ],
+    },
+    {
+      label: "Pembangunan & RFK",
+      items: [
+        {
+          title: "Paket Pembangunan",
+          url: "/pembangunan",
+          icon: Briefcase,
+          isActive: pathname.startsWith("/pembangunan"),
+        },
+        {
+          title: "Realisasi Bulanan",
+          url: "/realisasi",
+          icon: TrendingUp,
+          isActive: pathname.startsWith("/realisasi"),
+        },
+        {
+          title: "Laporan & Evaluasi",
+          url: "/laporan",
+          icon: FileText,
+          isActive: pathname.startsWith("/laporan"),
+        },
+      ],
+    },
+    {
+      label: "Sistem & Pengguna",
+      items: [
         {
           title: "Manajemen Akun",
           url: "/users",
