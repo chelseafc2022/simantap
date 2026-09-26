@@ -51,6 +51,15 @@ export class PembangunanController {
     return this.pembangunanService.getOpdOptions();
   }
 
+  @Public()
+  @Get('sub-units')
+  @ApiOperation({
+    summary: 'Daftar Sub Unit Kerja / Bagian / Bidang berdasarkan OPD penanggung jawab',
+  })
+  getSubUnits(@Query('opdId') opdId?: string) {
+    return this.pembangunanService.getSubUnitOptions(opdId);
+  }
+
   @Get()
   @Roles(
     RoleEnum.ADMINISTRATOR,

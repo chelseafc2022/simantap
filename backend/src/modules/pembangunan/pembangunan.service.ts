@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
+import { EgovService } from '../../core/egov/egov.service';
 import { CreatePaketDto } from './dto/create-paket.dto';
 import { QueryPaketDto } from './dto/query-paket.dto';
 import { SetTargetsDto } from './dto/set-targets.dto';
@@ -17,7 +18,10 @@ import { UpdatePaketDto } from './dto/update-paket.dto';
 export class PembangunanService {
   private readonly logger = new Logger(PembangunanService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly egovService: EgovService,
+  ) {}
 
   /**
    * Helper pengecekan hak akses scope OPD
@@ -40,6 +44,7 @@ export class PembangunanService {
       search,
       tahunAnggaran = 2026,
       opdId,
+      subUnitId,
       metodePemilihan,
       jenisPengadaan,
       sumberDana,
@@ -59,8 +64,13 @@ export class PembangunanService {
     const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
     if (!isSuperRole && user?.opdId) {
       andConditions.push({ opdId: user.opdId });
-    } else if (opdId) {
+    } else if (opdId && opdId !== 'ALL' && opdId !== 'all') {
       andConditions.push({ opdId });
+    }
+
+    // Filter Sub Unit Kerja
+    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+      andConditions.push({ subUnitId });
     }
 
     // Filter kategori pengadaan
@@ -451,6 +461,62 @@ export class PembangunanService {
         singkatan: true,
       },
       orderBy: { namaOpd: 'asc' },
+    });
+  }
+
+  /**
+   * Mengambil daftar Sub Unit Kerja berdasarkan OPD (sinkron dari SIMPEG)
+   */
+  async getSubUnitOptions(opdId?: string) {
+    if (!opdId || opdId === 'ALL' || opdId === 'all') {
+      return this.prisma.subUnit.findMany({
+        select: {
+          id: true,
+          kodeSubUnit: true,
+          namaSubUnit: true,
+          opdId: true,
+        },
+        orderBy: { namaSubUnit: 'asc' },
+      });
+    }
+
+    const opd = await this.prisma.opd.findUnique({
+      where: { id: opdId },
+    });
+    if (!opd) return [];
+
+    // Tarik daftar sub-unit dari SIMPEG
+    const simpegSubUnits = await this.egovService.getUnitKerjaList(opd.kodeOpd);
+
+    // Sinkronkan ke tabel lokal sub_unit
+    for (const su of simpegSubUnits) {
+      await this.prisma.subUnit.upsert({
+        where: {
+          opdId_kodeSubUnit: {
+            opdId: opd.id,
+            kodeSubUnit: su.id,
+          },
+        },
+        create: {
+          opdId: opd.id,
+          kodeSubUnit: su.id,
+          namaSubUnit: su.unitKerja,
+        },
+        update: {
+          namaSubUnit: su.unitKerja,
+        },
+      });
+    }
+
+    return this.prisma.subUnit.findMany({
+      where: { opdId: opd.id },
+      select: {
+        id: true,
+        kodeSubUnit: true,
+        namaSubUnit: true,
+        opdId: true,
+      },
+      orderBy: { namaSubUnit: 'asc' },
     });
   }
 

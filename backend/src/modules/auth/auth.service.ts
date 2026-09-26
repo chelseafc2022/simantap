@@ -158,11 +158,39 @@ export class AuthService {
       }
 
       // Update data nama & jabatan pegawai dari SIMPEG jika ada pembaruan
-      await this.prisma.user.update({
+      // Dan sinkronkan OPD jika user belum terhubung ke OPD
+      let updatedOpdId = user.opdId;
+      if (!updatedOpdId && (egovProfile.instansiId || egovProfile.opd)) {
+        const matchedOpd = await this.prisma.opd.findFirst({
+          where: {
+            OR: [
+              ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
+              { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
+              { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
+            ],
+          },
+        });
+        if (matchedOpd) {
+          updatedOpdId = matchedOpd.id;
+        }
+      }
+
+      user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
           namaLengkap: egovProfile.namaLengkap,
           jabatan: egovProfile.jabatan || user.jabatan,
+          opdId: updatedOpdId,
+        },
+        include: {
+          opd: {
+            select: {
+              id: true,
+              kodeOpd: true,
+              namaOpd: true,
+              singkatan: true,
+            },
+          },
         },
       });
 

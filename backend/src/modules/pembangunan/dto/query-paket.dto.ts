@@ -29,4 +29,9 @@ export class QueryPaketDto extends PaginationDto {
   @IsOptional()
   @IsString()
   sumberDana?: string;
+
+  @ApiPropertyOptional({ description: 'Filter Sub Unit Kerja / Bagian / Bidang' })
+  @IsOptional()
+  @IsString()
+  subUnitId?: string;
 }

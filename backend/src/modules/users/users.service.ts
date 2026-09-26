@@ -184,14 +184,15 @@ export class UsersService {
         );
       }
 
-      // Cari atau buat OPD jika belum ada
+      // Cari atau cocokkan OPD dari database SIMPEG jika belum ditentukan
       let assignedOpdId = dto.opdId;
-      if (!assignedOpdId && egovProfile.opd) {
+      if (!assignedOpdId && (egovProfile.instansiId || egovProfile.opd)) {
         const existingOpd = await this.prisma.opd.findFirst({
           where: {
             OR: [
+              ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
+              { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
               { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
-              { singkatan: { contains: egovProfile.opd, mode: 'insensitive' } },
             ],
           },
         });
@@ -221,12 +222,29 @@ export class UsersService {
       action = 'ASSIGN_NEW_ROLE_FROM_EGOV';
     } else {
       // 3. Jika sudah ada di lokal, perbarui role & status
+      let finalOpdId = dto.opdId || user.opdId;
+      if (!finalOpdId) {
+        const egovProfile = await this.egovService.getPegawaiByNip(cleanNip);
+        if (egovProfile && (egovProfile.instansiId || egovProfile.opd)) {
+          const matchedOpd = await this.prisma.opd.findFirst({
+            where: {
+              OR: [
+                ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
+                { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
+                { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
+              ],
+            },
+          });
+          if (matchedOpd) finalOpdId = matchedOpd.id;
+        }
+      }
+
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
           role: primaryRole,
           roles: assignedRoles,
-          opdId: dto.opdId || user.opdId,
+          opdId: finalOpdId,
           subUnitId: dto.subUnitId || user.subUnitId,
           status: 'AKTIF',
         },
