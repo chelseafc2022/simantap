@@ -23,11 +23,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { CreatePaketDto } from './dto/create-paket.dto';
 import { QueryPaketDto } from './dto/query-paket.dto';
+import { QueryRealisasiDto } from './dto/query-realisasi.dto';
 import { SetTargetsDto } from './dto/set-targets.dto';
 import { UpdatePaketDto } from './dto/update-paket.dto';
+import { BulkUpsertRealisasiDto, UpsertRealisasiDto } from './dto/upsert-realisasi.dto';
 import { PembangunanService } from './pembangunan.service';
 
-@ApiTags('Paket Pembangunan (Menu 1)')
+@ApiTags('Paket Pembangunan (Menu 1 & Menu 2)')
 @ApiBearerAuth('bearer')
 @Controller('pembangunan')
 export class PembangunanController {
@@ -58,6 +60,23 @@ export class PembangunanController {
   })
   getSubUnits(@Query('opdId') opdId?: string) {
     return this.pembangunanService.getSubUnitOptions(opdId);
+  }
+
+  @Get('realisasi')
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_PPK,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.BENDAHARA,
+    RoleEnum.KEPALA_OPD,
+    RoleEnum.PIMPINAN_DAERAH,
+  )
+  @ApiOperation({
+    summary: 'Rekapitulasi Realisasi Fisik & Keuangan bulanan (Menu 2) lengkap deviasi dan status capaian',
+  })
+  getRekapRealisasi(@Query() query: QueryRealisasiDto, @CurrentUser() user: any) {
+    return this.pembangunanService.getRekapRealisasi(query, user);
   }
 
   @Get()
@@ -127,6 +146,49 @@ export class PembangunanController {
     @CurrentUser() user: any,
   ) {
     return this.pembangunanService.setTargets(id, dto, user);
+  }
+
+  @Get(':id/realisasi')
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_PPK,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.BENDAHARA,
+    RoleEnum.KEPALA_OPD,
+    RoleEnum.PIMPINAN_DAERAH,
+  )
+  @ApiOperation({
+    summary: 'Riwayat lengkap realisasi 12 bulan untuk satu paket pembangunan',
+  })
+  getRealisasiPaket(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.pembangunanService.getRealisasiPaket(id, user);
+  }
+
+  @Put(':id/realisasi')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
+  @ApiOperation({
+    summary: 'Simpan / perbarui realisasi fisik & keuangan 1 bulan untuk paket tertentu',
+  })
+  upsertRealisasi(
+    @Param('id') id: string,
+    @Body() dto: UpsertRealisasiDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.upsertRealisasi(id, dto, user);
+  }
+
+  @Put(':id/realisasi/bulk')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
+  @ApiOperation({
+    summary: 'Simpan / perbarui realisasi fisik & keuangan beberapa bulan sekaligus untuk paket tertentu',
+  })
+  bulkUpsertRealisasi(
+    @Param('id') id: string,
+    @Body() dto: BulkUpsertRealisasiDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.bulkUpsertRealisasi(id, dto, user);
   }
 
   @Delete(':id')
