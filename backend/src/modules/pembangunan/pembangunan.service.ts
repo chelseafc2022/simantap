@@ -997,5 +997,257 @@ export class PembangunanService {
 
     return this.getRealisasiPaket(paketId, user);
   }
+
+  /**
+   * Laporan Matriks 12 Bulan RFK untuk seluruh paket pembangunan (Menu 3)
+   */
+  async getLaporanMatriks(query: QueryRealisasiDto, user?: any) {
+    const {
+      tahunAnggaran = new Date().getFullYear(),
+      bulan = new Date().getMonth() + 1,
+      opdId,
+      subUnitId,
+      metodePemilihan,
+      statusDeviasi,
+      search,
+    } = query;
+
+    const activeTahun = Number(tahunAnggaran);
+    const activeBulan = Math.min(12, Math.max(1, Number(bulan)));
+
+    const andConditions: Prisma.PaketPembangunanWhereInput[] = [
+      { tahunAnggaran: activeTahun },
+    ];
+
+    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
+    if (!isSuperRole && user?.opdId) {
+      andConditions.push({ opdId: user.opdId });
+    } else if (opdId && opdId !== 'ALL') {
+      andConditions.push({ opdId });
+    }
+
+    if (subUnitId && subUnitId !== 'ALL') {
+      andConditions.push({ subUnitId });
+    }
+
+    if (metodePemilihan && metodePemilihan !== 'ALL') {
+      andConditions.push({ metodePemilihan });
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      andConditions.push({
+        OR: [
+          { namaPaket: { contains: q, mode: 'insensitive' } },
+          { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
+          { nomorKontrak: { contains: q, mode: 'insensitive' } },
+          { pemenangRekanan: { contains: q, mode: 'insensitive' } },
+          { lokasiKegiatan: { contains: q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const pakets = await this.prisma.paketPembangunan.findMany({
+      where: { AND: andConditions },
+      orderBy: [
+        { opd: { namaOpd: 'asc' } },
+        { namaPaket: 'asc' },
+      ],
+      include: {
+        opd: {
+          select: {
+            id: true,
+            kodeOpd: true,
+            namaOpd: true,
+            singkatan: true,
+          },
+        },
+        subUnit: {
+          select: {
+            id: true,
+            kodeSubUnit: true,
+            namaSubUnit: true,
+          },
+        },
+        targetBulanan: {
+          orderBy: { bulan: 'asc' },
+        },
+        realisasiBulanan: {
+          orderBy: { bulan: 'asc' },
+        },
+      },
+    });
+
+    const items = pakets.map((paket) => {
+      const nilaiPagu = Number(paket.nilaiPagu) || 0;
+      const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
+
+      const timeline = Array.from({ length: 12 }, (_, idx) => {
+        const b = idx + 1;
+        const targetItem = paket.targetBulanan.find((t) => t.bulan === b);
+        const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === b);
+
+        const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
+        const realisasiFisik = realisasiItem ? Number(realisasiItem.realisasiFisik) : 0;
+        const realisasiKeuangan = realisasiItem ? Number(realisasiItem.realisasiKeuangan) : 0;
+        const deviasiFisik = parseFloat((realisasiFisik - targetFisik).toFixed(2));
+        const persenKeuangan = nilaiKontrak > 0
+          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+          : 0;
+
+        let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
+        if (targetFisik === 0 && realisasiFisik === 0) {
+          status = 'BELUM_MULAI';
+        } else if (deviasiFisik >= 0) {
+          status = 'AMAN';
+        } else if (deviasiFisik >= -10) {
+          status = 'PERHATIAN';
+        } else {
+          status = 'KRITIS';
+        }
+
+        return {
+          bulan: b,
+          targetFisik,
+          realisasiFisik,
+          deviasiFisik,
+          realisasiKeuangan,
+          persenKeuangan,
+          status,
+        };
+      });
+
+      const activeMonthData = timeline[activeBulan - 1];
+
+      return {
+        id: paket.id,
+        namaPaket: paket.namaPaket,
+        kodeRupKontrak: paket.kodeRupKontrak,
+        nomorKontrak: paket.nomorKontrak,
+        lokasiKegiatan: paket.lokasiKegiatan,
+        metodePemilihan: paket.metodePemilihan,
+        jenisPengadaan: paket.jenisPengadaan,
+        sumberDana: paket.sumberDana,
+        tanggalMulai: paket.tanggalMulai,
+        tanggalSelesai: paket.tanggalSelesai,
+        pemenangRekanan: paket.pemenangRekanan,
+        nilaiPagu,
+        nilaiKontrak,
+        opd: paket.opd,
+        subUnit: paket.subUnit,
+        timeline,
+        posisiEvaluasi: {
+          bulan: activeBulan,
+          targetFisik: activeMonthData.targetFisik,
+          realisasiFisik: activeMonthData.realisasiFisik,
+          deviasiFisik: activeMonthData.deviasiFisik,
+          realisasiKeuangan: activeMonthData.realisasiKeuangan,
+          persenKeuangan: activeMonthData.persenKeuangan,
+          status: activeMonthData.status,
+        },
+      };
+    });
+
+    const filtered = statusDeviasi && statusDeviasi !== 'ALL'
+      ? items.filter((item) => item.posisiEvaluasi.status === statusDeviasi)
+      : items;
+
+    return {
+      tahunAnggaran: activeTahun,
+      bulanEvaluasi: activeBulan,
+      totalPaket: filtered.length,
+      items: filtered,
+    };
+  }
+
+  /**
+   * Rekapitulasi Kinerja Pengadaan & RFK per OPD (Executive Summary)
+   */
+  async getLaporanRekapOpd(query: QueryRealisasiDto, user?: any) {
+    const {
+      tahunAnggaran = new Date().getFullYear(),
+      bulan = new Date().getMonth() + 1,
+    } = query;
+
+    const activeTahun = Number(tahunAnggaran);
+    const activeBulan = Math.min(12, Math.max(1, Number(bulan)));
+
+    const opds = await this.prisma.opd.findMany({
+      orderBy: { namaOpd: 'asc' },
+      include: {
+        paketPembangunan: {
+          where: { tahunAnggaran: activeTahun },
+          include: {
+            targetBulanan: { where: { bulan: activeBulan } },
+            realisasiBulanan: { where: { bulan: activeBulan } },
+          },
+        },
+      },
+    });
+
+    const rekap = opds
+      .filter((opd) => opd.paketPembangunan.length > 0)
+      .map((opd) => {
+        const totalPaket = opd.paketPembangunan.length;
+        const totalPagu = opd.paketPembangunan.reduce((acc, p) => acc + (Number(p.nilaiPagu) || 0), 0);
+        const totalKontrak = opd.paketPembangunan.reduce((acc, p) => acc + (Number(p.nilaiKontrak) || 0), 0);
+
+        let sumTarget = 0;
+        let sumRealisasiFisik = 0;
+        let sumRealisasiKeuangan = 0;
+        let countAman = 0;
+        let countPerhatian = 0;
+        let countKritis = 0;
+        let countBelumMulai = 0;
+
+        for (const p of opd.paketPembangunan) {
+          const target = p.targetBulanan[0] ? Number(p.targetBulanan[0].targetFisik) : 0;
+          const realFisik = p.realisasiBulanan[0] ? Number(p.realisasiBulanan[0].realisasiFisik) : 0;
+          const realKeu = p.realisasiBulanan[0] ? Number(p.realisasiBulanan[0].realisasiKeuangan) : 0;
+          const dev = parseFloat((realFisik - target).toFixed(2));
+
+          sumTarget += target;
+          sumRealisasiFisik += realFisik;
+          sumRealisasiKeuangan += realKeu;
+
+          if (target === 0 && realFisik === 0) countBelumMulai++;
+          else if (dev >= 0) countAman++;
+          else if (dev >= -10) countPerhatian++;
+          else countKritis++;
+        }
+
+        const avgTargetFisik = parseFloat((sumTarget / totalPaket).toFixed(2));
+        const avgRealisasiFisik = parseFloat((sumRealisasiFisik / totalPaket).toFixed(2));
+        const avgDeviasiFisik = parseFloat((avgRealisasiFisik - avgTargetFisik).toFixed(2));
+        const persenSerapanKeuangan = totalKontrak > 0
+          ? parseFloat(((sumRealisasiKeuangan / totalKontrak) * 100).toFixed(2))
+          : 0;
+
+        return {
+          opdId: opd.id,
+          kodeOpd: opd.kodeOpd,
+          namaOpd: opd.namaOpd,
+          singkatan: opd.singkatan,
+          totalPaket,
+          totalPagu,
+          totalKontrak,
+          totalRealisasiKeuangan: sumRealisasiKeuangan,
+          persenSerapanKeuangan,
+          avgTargetFisik,
+          avgRealisasiFisik,
+          avgDeviasiFisik,
+          countAman,
+          countPerhatian,
+          countKritis,
+          countBelumMulai,
+        };
+      });
+
+    return {
+      tahunAnggaran: activeTahun,
+      bulanEvaluasi: activeBulan,
+      rekap,
+    };
+  }
 }
 

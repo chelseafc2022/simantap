@@ -79,6 +79,40 @@ export class PembangunanController {
     return this.pembangunanService.getRekapRealisasi(query, user);
   }
 
+  @Get('laporan/matriks')
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_PPK,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.BENDAHARA,
+    RoleEnum.KEPALA_OPD,
+    RoleEnum.PIMPINAN_DAERAH,
+  )
+  @ApiOperation({
+    summary: 'Laporan Matriks 12 Bulan RFK paket pembangunan (Menu 3) untuk evaluasi horizontal',
+  })
+  getLaporanMatriks(@Query() query: QueryRealisasiDto, @CurrentUser() user: any) {
+    return this.pembangunanService.getLaporanMatriks(query, user);
+  }
+
+  @Get('laporan/rekap-opd')
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_PPK,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.BENDAHARA,
+    RoleEnum.KEPALA_OPD,
+    RoleEnum.PIMPINAN_DAERAH,
+  )
+  @ApiOperation({
+    summary: 'Executive Summary Kinerja RFK dan Peringkat Keterlambatan per OPD (Menu 3)',
+  })
+  getLaporanRekapOpd(@Query() query: QueryRealisasiDto, @CurrentUser() user: any) {
+    return this.pembangunanService.getLaporanRekapOpd(query, user);
+  }
+
   @Get()
   @Roles(
     RoleEnum.ADMINISTRATOR,
