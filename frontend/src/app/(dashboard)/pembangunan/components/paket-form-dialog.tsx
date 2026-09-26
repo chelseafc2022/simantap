@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
+import { useAuth } from "@/hooks/use-auth"
+import { SearchableCombobox } from "@/components/searchable-combobox"
 import {
   Dialog,
   DialogContent,
@@ -79,6 +81,11 @@ export interface PaketItem {
     namaOpd: string
     singkatan?: string | null
   }
+  subUnit?: {
+    id: string
+    kodeSubUnit?: string | null
+    namaSubUnit: string
+  } | null
 }
 
 interface PaketFormDialogProps {
@@ -116,6 +123,10 @@ export function PaketFormDialog({
   constants,
 }: PaketFormDialogProps) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userOpdId = user?.opd?.id
+  const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
   const isEdit = !!initialData
 
   // Active form tab
@@ -124,6 +135,7 @@ export function PaketFormDialog({
   // Form states
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2026)
   const [opdId, setOpdId] = useState<string>("")
+  const [subUnitId, setSubUnitId] = useState<string>("")
   const [namaPaket, setNamaPaket] = useState<string>("")
   const [kodeRupKontrak, setKodeRupKontrak] = useState<string>("")
   const [lokasiKegiatan, setLokasiKegiatan] = useState<string>("")
@@ -138,6 +150,35 @@ export function PaketFormDialog({
   const [pemenangRekanan, setPemenangRekanan] = useState<string>("")
   const [keterangan, setKeterangan] = useState<string>("")
 
+  // Fetch Sub Unit Kerja based on selected OPD
+  const { data: subUnitsResponse, isLoading: isLoadingSubUnits } = useQuery({
+    queryKey: ["sub-units", opdId],
+    queryFn: async () => {
+      if (!opdId) return []
+      const res = await apiClient.get("/pembangunan/sub-units", { params: { opdId } })
+      return res.data?.data || []
+    },
+    enabled: !!opdId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Combobox options
+  const opdOptions = useMemo(() => {
+    const list = Array.isArray(opdList) ? opdList : []
+    return list.map((opd) => ({
+      id: opd.id,
+      label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
+    }))
+  }, [opdList])
+
+  const subUnitOptions = useMemo(() => {
+    const list = Array.isArray(subUnitsResponse) ? subUnitsResponse : []
+    return list.map((su: any) => ({
+      id: su.id,
+      label: su.namaSubUnit,
+    }))
+  }, [subUnitsResponse])
+
   // Targets state: array of 12 numbers (index 0 = bulan 1)
   const [targets, setTargets] = useState<number[]>(Array(12).fill(0))
 
@@ -146,6 +187,7 @@ export function PaketFormDialog({
     if (initialData) {
       setTahunAnggaran(initialData.tahunAnggaran || 2026)
       setOpdId(initialData.opdId || "")
+      setSubUnitId(initialData.subUnitId || "")
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
       setLokasiKegiatan(initialData.lokasiKegiatan || "")
@@ -172,7 +214,9 @@ export function PaketFormDialog({
     } else {
       // Reset form
       setTahunAnggaran(2026)
-      setOpdId(opdList[0]?.id || "")
+      const defaultOpd = !isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")
+      setOpdId(defaultOpd)
+      setSubUnitId("")
       setNamaPaket("")
       setKodeRupKontrak("")
       setLokasiKegiatan("")
@@ -189,7 +233,7 @@ export function PaketFormDialog({
       setTargets(Array(12).fill(0))
     }
     setActiveTab("info")
-  }, [initialData, open, opdList, constants])
+  }, [initialData, open, opdList, constants, isSuperRole, userOpdId])
 
   // Calculated values
   const paguNum = parseFloat(nilaiPagu) || 0
@@ -283,6 +327,7 @@ export function PaketFormDialog({
       const payload = {
         tahunAnggaran,
         opdId,
+        subUnitId: subUnitId || undefined,
         namaPaket: namaPaket.trim(),
         kodeRupKontrak: kodeRupKontrak.trim() || undefined,
         lokasiKegiatan: lokasiKegiatan.trim() || undefined,
@@ -383,7 +428,7 @@ export function PaketFormDialog({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
                 {/* Tahun Anggaran */}
-                <div className="lg:col-span-3 space-y-1.5">
+                <div className="lg:col-span-2 space-y-1.5">
                   <Label htmlFor="tahunAnggaran" className="text-xs font-medium">
                     Tahun Anggaran
                   </Label>
@@ -392,27 +437,56 @@ export function PaketFormDialog({
                     type="number"
                     value={tahunAnggaran}
                     onChange={(e) => setTahunAnggaran(parseInt(e.target.value) || 2026)}
-                    className="font-mono text-sm"
+                    className="font-mono text-xs h-9"
                   />
                 </div>
 
-                {/* OPD */}
-                <div className="lg:col-span-9 space-y-1.5">
-                  <Label htmlFor="opdId" className="text-xs font-medium">
-                    OPD / SKPD Penanggung Jawab <span className="text-red-500">*</span>
+                {/* Unit Kerja (OPD) - SearchableCombobox */}
+                <div className="lg:col-span-5 space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    Unit Kerja (OPD / SKPD) <span className="text-red-500">*</span>
                   </Label>
-                  <Select value={opdId} onValueChange={setOpdId}>
-                    <SelectTrigger id="opdId" className="text-sm">
-                      <SelectValue placeholder="Pilih Perangkat Daerah..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-64">
-                      {opdList.map((opd) => (
-                        <SelectItem key={opd.id} value={opd.id}>
-                          {opd.namaOpd} {opd.singkatan ? `(${opd.singkatan})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isSuperRole ? (
+                    <SearchableCombobox
+                      value={opdId}
+                      onValueChange={(val) => {
+                        setOpdId(val)
+                        setSubUnitId("")
+                      }}
+                      items={opdOptions}
+                      placeholder="Ketik / Pilih Unit Kerja (OPD)..."
+                      searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                      emptyText="Unit Kerja tidak ditemukan."
+                      icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between h-9 px-2.5 rounded-md border bg-muted/40 text-xs font-medium">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">{userOpdNama || "OPD Anda"}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        Terkunci Sesuai Akun
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sub Unit Kerja - SearchableCombobox */}
+                <div className="lg:col-span-5 space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    Sub Unit Kerja (Bidang / Bagian)
+                  </Label>
+                  <SearchableCombobox
+                    value={subUnitId}
+                    onValueChange={setSubUnitId}
+                    items={subUnitOptions}
+                    placeholder={isLoadingSubUnits ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit Kerja..."}
+                    searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                    emptyText="Sub Unit Kerja tidak ditemukan."
+                    icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                    disabled={isLoadingSubUnits || !opdId}
+                  />
                 </div>
 
                 {/* Nama Paket */}

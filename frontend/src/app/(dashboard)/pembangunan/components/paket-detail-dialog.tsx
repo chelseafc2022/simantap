@@ -105,9 +105,17 @@ export function PaketDetailDialog({
               <DialogTitle className="text-xl font-bold text-foreground">
                 {paket.namaPaket}
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-1.5 mt-1">
-                <Building2 className="h-3.5 w-3.5" />
-                {paket.opd?.namaOpd || "OPD Pemkab Konawe Selatan"}
+              <DialogDescription className="flex items-center gap-1.5 mt-1 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {paket.opd?.namaOpd || "OPD Pemkab Konawe Selatan"}
+                </span>
+                {paket.subUnit?.namaSubUnit && (
+                  <>
+                    <span className="text-muted-foreground/60">•</span>
+                    <span className="text-muted-foreground font-medium">{paket.subUnit.namaSubUnit}</span>
+                  </>
+                )}
               </DialogDescription>
             </div>
           </div>
