@@ -111,7 +111,7 @@ export function NavUser({
             >
               <div
                 suppressHydrationWarning
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-sm"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-700 via-emerald-600 to-teal-500 text-white font-bold text-xs shadow-sm ring-1 ring-emerald-500/30"
               >
                 {initials}
               </div>

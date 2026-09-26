@@ -1,58 +1,58 @@
 "use client"
 
 import * as React from "react"
-import { X } from "lucide-react"
+import { X, Bell, Calendar, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Logo } from "./logo"
+
+const STORAGE_KEY = "simantap_notification_dismissed"
 
 export function SidebarNotification() {
-  const [isVisible, setIsVisible] = React.useState(true)
+  const [isVisible, setIsVisible] = React.useState(false)
+
+  React.useEffect(() => {
+    const dismissed = sessionStorage.getItem(STORAGE_KEY)
+    if (!dismissed) setIsVisible(true)
+  }, [])
+
+  const handleDismiss = () => {
+    sessionStorage.setItem(STORAGE_KEY, "true")
+    setIsVisible(false)
+  }
 
   if (!isVisible) return null
 
+  const bulan = new Date().toLocaleDateString("id-ID", { month: "long", year: "numeric" })
+
   return (
-    <Card className="mb-3 py-0 border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800">
-      <CardContent className="p-4 relative">
+    <div className="mx-2 mb-2 group-data-[collapsible=icon]:hidden">
+      <div className="relative rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent p-3 overflow-hidden">
+        {/* Top accent */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 rounded-t-xl" />
+
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-          onClick={() => setIsVisible(false)}
+          className="absolute top-1.5 right-1.5 h-5 w-5 p-0 hover:bg-amber-500/20 rounded-md"
+          onClick={handleDismiss}
         >
-          <X className="h-3 w-3" />
-          <span className="sr-only">Close notification</span>
+          <X className="h-3 w-3 text-amber-700 dark:text-amber-400" />
+          <span className="sr-only">Tutup</span>
         </Button>
-        
-        <div className="pr-6">
-          <h3 className="flex items-center gap-3 font-semibold text-neutral-900 dark:text-neutral-100 mb-2 mt-1">
-            <Logo size={42} className="-mt-1" />
-            <div>
-              Welcome to{" "}
-              <a 
-                href="https://shadcnstore.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                ShadcnStore
-              </a>
-            </div>
-          </h3>
-          <p className="text-sm text-muted-foreground dark:text-neutral-400 leading-relaxed">
-            Explore our premium Shadcn UI{" "}
-            <a 
-              href="https://shadcnstore.com/blocks" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              blocks
-            </a>{" "}
-            to build your next project faster.
-          </p>
+
+        <div className="flex items-start gap-2 pr-4">
+          <div className="mt-0.5 shrink-0 p-1 rounded-md bg-amber-500/15">
+            <Bell className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+              Pengisian RFK Aktif
+            </p>
+            <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 leading-relaxed mt-0.5">
+              Pastikan realisasi fisik &amp; keuangan {bulan} sudah diinput sebelum akhir bulan.
+            </p>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

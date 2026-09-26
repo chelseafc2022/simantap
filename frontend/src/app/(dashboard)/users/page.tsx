@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
+import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
 import { StatCards } from "./components/stat-cards"
 import { SetRoleDialog, SIMANTAP_ROLES, TargetPegawai } from "./components/set-role-dialog"
@@ -49,6 +51,15 @@ import {
 } from "lucide-react"
 
 export default function UsersManagementPage() {
+  const router = useRouter()
+  const { user, isLoading: isAuthLoading } = useAuth()
+  const userRoles: string[] = [
+    ...(user?.role ? [user.role] : []),
+    ...(user?.roles || []),
+    ...(user?.userRoles?.map((ur: any) => ur.role?.kode || ur.role) || []),
+  ]
+  const isAdministrator = userRoles.includes("ADMINISTRATOR")
+
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>("simantap_users")
 
@@ -91,6 +102,7 @@ export default function UsersManagementPage() {
       const res = await apiClient.get("/users", { params })
       return res.data
     },
+    enabled: isAdministrator,
   })
 
   // 2. Fetch List Instansi / Unit Kerja dari SIMPEG
@@ -100,6 +112,7 @@ export default function UsersManagementPage() {
       const res = await apiClient.get("/users/pegawai/instansi")
       return res.data?.data || []
     },
+    enabled: isAdministrator,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -112,6 +125,7 @@ export default function UsersManagementPage() {
       const res = await apiClient.get("/users/pegawai/unit-kerja", { params })
       return res.data?.data || []
     },
+    enabled: isAdministrator,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -135,6 +149,7 @@ export default function UsersManagementPage() {
       const res = await apiClient.get("/users/pegawai/directory", { params })
       return res.data
     },
+    enabled: isAdministrator,
   })
 
   const usersList = Array.isArray(usersResponse?.data)
@@ -192,6 +207,35 @@ export default function UsersManagementPage() {
   const handleOpenRevokeRole = (pegawai: TargetPegawai) => {
     setTargetPegawai(pegawai)
     setRevokeRoleOpen(true)
+  }
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!isAdministrator) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 space-y-4">
+        <div className="p-4 rounded-full bg-destructive/10 text-destructive border border-destructive/20 shadow-inner">
+          <ShieldAlert className="h-12 w-12" />
+        </div>
+        <div className="max-w-md space-y-2">
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            Akses Terbatas: Hanya Administrator
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Halaman Manajemen Akun & Hak Akses Pengguna hanya dapat diakses oleh pengguna dengan peran <strong className="text-foreground">Administrator Utama</strong>. Akun Anda saat ini tidak memiliki kewenangan untuk mengakses menu ini.
+          </p>
+        </div>
+        <Button onClick={() => router.push("/dashboard")} className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+          Kembali ke Dashboard
+        </Button>
+      </div>
+    )
   }
 
   return (

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -8,13 +8,34 @@ import { QueryUserDto } from './dto/query-user.dto';
 import { SetRoleDto } from './dto/set-role.dto';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
+  private roleMatrixOverrides = new Map<string, any>();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly egovService: EgovService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const logs = await this.prisma.auditLog.findMany({
+        where: { action: 'UPDATE_ROLE_MATRIX' },
+        orderBy: { createdAt: 'asc' },
+      });
+      for (const log of logs) {
+        const payload = log.payload as any;
+        if (payload?.kode) {
+          this.roleMatrixOverrides.set(payload.kode, payload);
+        }
+      }
+      if (logs.length > 0) {
+        this.logger.log(`Memulihkan ${this.roleMatrixOverrides.size} konfigurasi matriks peran dari basis data lokal.`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Gagal memuat override matriks peran: ${err?.message}`);
+    }
+  }
 
   /**
    * Menampilkan daftar pengguna SIMANTAP terpaginasi
@@ -123,9 +144,11 @@ export class UsersService {
 
   /**
    * Mengambil master list role resmi dari database
+   * Diperkaya dengan cakupan akses unit, matriks hak akses menu (seperti SIDAPEM),
+   * dan daftar akun pengguna terdaftar
    */
   async getMasterRoles() {
-    return this.prisma.role.findMany({
+    const roles = await this.prisma.role.findMany({
       orderBy: { urutan: 'asc' },
       include: {
         _count: {
@@ -133,6 +156,899 @@ export class UsersService {
         },
       },
     });
+
+    // Ambil seluruh user untuk asosiasi anggota kelompok
+    const allUsers = await this.prisma.user.findMany({
+      select: {
+        id: true,
+        nip: true,
+        namaLengkap: true,
+        jabatan: true,
+        role: true,
+        roles: true,
+        status: true,
+        opdId: true,
+      },
+    });
+
+    // Definisi template hak akses menu SIMANTAP (Format terinspirasi dari SIDAPEM)
+    const getRolePermissions = (kode: string | RoleEnum) => {
+      switch (kode) {
+        case RoleEnum.ADMINISTRATOR:
+          return {
+            aksesUnit: 3,
+            aksesUnitLabel: 'Semua Unit Kerja (Kabupaten)',
+            catatanKewenangan:
+              'Akses penuh konfigurasi sistem, manajemen akun pengguna, serta monitoring dan supervisi seluruh OPD.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Monitoring statistik dan grafik eksekutif Pemda',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 1,
+                keterangan: 'Kelola data paket, integrasi SiRUP, pagu, dan target',
+                subItem: [
+                  {
+                    id: 'm2_1',
+                    urutan: '2.1',
+                    title: 'Sinkronisasi SiRUP / RUP',
+                    route: '/pembangunan/sirup',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 1,
+                  },
+                  {
+                    id: 'm2_2',
+                    urutan: '2.2',
+                    title: 'Target Fisik Bulanan (Kurva-S)',
+                    route: '/pembangunan/target',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 1,
+                  },
+                ],
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 1,
+                keterangan: 'Akses penuh verifikasi, input fisik, dan SP2D keuangan',
+                subItem: [
+                  {
+                    id: 'm3_1',
+                    urutan: '3.1',
+                    title: 'Realisasi Fisik & Bukti Lapangan',
+                    route: '/realisasi/fisik',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 1,
+                  },
+                  {
+                    id: 'm3_2',
+                    urutan: '3.2',
+                    title: 'Realisasi Keuangan & SP2D',
+                    route: '/realisasi/keuangan',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 1,
+                  },
+                  {
+                    id: 'm3_3',
+                    urutan: '3.3',
+                    title: 'Verifikasi & Approval Monev',
+                    route: '/realisasi/verifikasi',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 1,
+                  },
+                ],
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 1,
+                keterangan: 'Generate berita acara, deviasi, dan rekapitulasi',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 1,
+                keterangan: 'Kelola akun pengguna dan integrasi SIMPEG',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Lihat dan kelola matriks izin kelompok pengguna',
+              },
+            ],
+          };
+
+        case RoleEnum.ADMIN_SIRUP:
+          return {
+            aksesUnit: 2,
+            aksesUnitLabel: '1 Unit Kerja (OPD)',
+            catatanKewenangan:
+              'Bertanggung jawab menginput dan memutakhirkan data paket pembangunan awal berbasis SiRUP LKPP.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Lihat ringkasan progres OPD sendiri',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Input paket baru, nomor RUP, pagu, dan rekanan',
+                subItem: [
+                  {
+                    id: 'm2_1',
+                    urutan: '2.1',
+                    title: 'Sinkronisasi SiRUP / RUP',
+                    route: '/pembangunan/sirup',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm2_2',
+                    urutan: '2.2',
+                    title: 'Target Fisik Bulanan (Kurva-S)',
+                    route: '/pembangunan/target',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 0,
+                    deletex: 0,
+                  },
+                ],
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Hanya melihat progres realisasi',
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat laporan hasil evaluasi',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.ADMIN_PERENCANAAN:
+          return {
+            aksesUnit: 2,
+            aksesUnitLabel: '1 Unit Kerja (OPD)',
+            catatanKewenangan:
+              'Menyusun target rencana fisik bulanan (Kurva-S) B01-B12 untuk seluruh paket di lingkup OPD-nya.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Lihat ringkasan progres OPD sendiri',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Input & edit target persentase fisik Kurva-S B01-B12',
+                subItem: [
+                  {
+                    id: 'm2_1',
+                    urutan: '2.1',
+                    title: 'Sinkronisasi SiRUP / RUP',
+                    route: '/pembangunan/sirup',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 0,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm2_2',
+                    urutan: '2.2',
+                    title: 'Target Fisik Bulanan (Kurva-S)',
+                    route: '/pembangunan/target',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                ],
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Hanya melihat progres realisasi',
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat laporan hasil evaluasi',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.ADMIN_PPK:
+          return {
+            aksesUnit: 1,
+            aksesUnitLabel: '1 Sub Unit / Paket Kerja',
+            catatanKewenangan:
+              'Input realisasi fisik kumulatif bulanan (%), kendala pelaksanaan, dan unggah bukti fisik dokumentasi lapangan.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Lihat ringkasan progres paket binaan',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat detail pagu dan kontrak paketnya',
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Input capaian fisik %, catatan kendala, dan upload foto/video',
+                subItem: [
+                  {
+                    id: 'm3_1',
+                    urutan: '3.1',
+                    title: 'Realisasi Fisik & Bukti Lapangan',
+                    route: '/realisasi/fisik',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm3_2',
+                    urutan: '3.2',
+                    title: 'Realisasi Keuangan & SP2D',
+                    route: '/realisasi/keuangan',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 0,
+                    deletex: 0,
+                  },
+                ],
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat deviasi paket binaan',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.BENDAHARA:
+          return {
+            aksesUnit: 2,
+            aksesUnitLabel: '1 Unit Kerja (OPD)',
+            catatanKewenangan:
+              'Input realisasi keuangan kumulatif berbasis pencairan SP2D / BPKAD per paket pembangunan di OPD-nya.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat serapan anggaran OPD',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat daftar pagu paket',
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Input SP2D, nomor SP2D, dan nominal realisasi kas bulanan',
+                subItem: [
+                  {
+                    id: 'm3_1',
+                    urutan: '3.1',
+                    title: 'Realisasi Fisik & Bukti Lapangan',
+                    route: '/realisasi/fisik',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 0,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm3_2',
+                    urutan: '3.2',
+                    title: 'Realisasi Keuangan & SP2D',
+                    route: '/realisasi/keuangan',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                ],
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat laporan serapan anggaran',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.KEPALA_OPD:
+          return {
+            aksesUnit: 2,
+            aksesUnitLabel: '1 Unit Kerja (OPD)',
+            catatanKewenangan:
+              'Monitoring, supervisi, dan pertanggungjawaban progres fisik & keuangan seluruh paket di OPD-nya.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Executive view capaian pembangunan OPD',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Supervisi paket kegiatan OPD',
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Pantau input fisik PPK dan SP2D Bendahara',
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Verifikasi & persetujuan laporan internal OPD',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.PIMPINAN_DAERAH:
+          return {
+            aksesUnit: 3,
+            aksesUnitLabel: 'Semua Unit Kerja (Kabupaten)',
+            catatanKewenangan:
+              'Akses pimpinan tertinggi daerah (Bupati / Sekda) untuk memantau performa serapan & fisik seluruh OPD.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Executive Summary makro seluruh OPD se-Konawe Selatan',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat seluruh paket pembangunan daerah',
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat capaian realisasi seluruh OPD',
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Rekapitulasi RFK resmi seluruh Kabupaten Konawe Selatan',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        case RoleEnum.MONEV:
+          return {
+            aksesUnit: 3,
+            aksesUnitLabel: 'Semua Unit Kerja (Kabupaten)',
+            catatanKewenangan:
+              'Melakukan verifikasi, validasi, approval/penolakan data pengajuan realisasi, dan analisis deviasi proyek.',
+            menus: [
+              {
+                id: 'm1',
+                urutan: '1',
+                title: 'Dashboard (Ringkasan Eksekutif)',
+                route: '/dashboard',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Analisis deviasi paket dan deteksi paket kritis/terlambat',
+              },
+              {
+                id: 'm2',
+                urutan: '2',
+                title: 'Paket Pembangunan',
+                route: '/pembangunan',
+                readx: 1,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Melihat seluruh paket pembangunan',
+              },
+              {
+                id: 'm3',
+                urutan: '3',
+                title: 'Realisasi Bulanan (RFK)',
+                route: '/realisasi',
+                readx: 1,
+                addx: 0,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Verifikasi, approve, atau tolak (dengan catatan) pengajuan PPK',
+                subItem: [
+                  {
+                    id: 'm3_1',
+                    urutan: '3.1',
+                    title: 'Realisasi Fisik & Bukti Lapangan',
+                    route: '/realisasi/fisik',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm3_2',
+                    urutan: '3.2',
+                    title: 'Realisasi Keuangan & SP2D',
+                    route: '/realisasi/keuangan',
+                    readx: 1,
+                    addx: 0,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                  {
+                    id: 'm3_3',
+                    urutan: '3.3',
+                    title: 'Verifikasi & Approval Monev',
+                    route: '/realisasi/verifikasi',
+                    readx: 1,
+                    addx: 1,
+                    updatex: 1,
+                    deletex: 0,
+                  },
+                ],
+              },
+              {
+                id: 'm4',
+                urutan: '4',
+                title: 'Laporan & Evaluasi RFK',
+                route: '/laporan',
+                readx: 1,
+                addx: 1,
+                updatex: 1,
+                deletex: 0,
+                keterangan: 'Menyusun analisis deviasi dan Berita Acara Rekapitulasi',
+              },
+              {
+                id: 'm5',
+                urutan: '5',
+                title: 'Manajemen Pengguna',
+                route: '/users',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+              {
+                id: 'm6',
+                urutan: '6',
+                title: 'Kelompok Pengguna & Hak Akses',
+                route: '/roles',
+                readx: 0,
+                addx: 0,
+                updatex: 0,
+                deletex: 0,
+                keterangan: 'Tidak memiliki akses',
+              },
+            ],
+          };
+
+        default:
+          return {
+            aksesUnit: 1,
+            aksesUnitLabel: '1 Sub Unit Kerja',
+            catatanKewenangan: 'Akses terbatas untuk membaca data publik pembangunan.',
+            menus: [],
+          };
+      }
+    };
+
+    return roles.map((role) => {
+      const override = this.roleMatrixOverrides.get(role.kode);
+      const perms = override || getRolePermissions(role.kode);
+      const assignedUsers = allUsers.filter(
+        (u) =>
+          u.role === role.kode ||
+          (u.roles && u.roles.includes(role.kode)),
+      );
+
+      const aksesUnit = override?.aksesUnit ?? perms.aksesUnit;
+      const aksesUnitLabel =
+        aksesUnit === 3
+          ? 'Semua Unit Kerja (Kabupaten)'
+          : aksesUnit === 2
+          ? '1 Unit Kerja (OPD)'
+          : '1 Sub Unit / Paket Kerja';
+
+      return {
+        ...role,
+        aksesUnit,
+        aksesUnitLabel,
+        catatanKewenangan: override?.catatanKewenangan || perms.catatanKewenangan,
+        menus: override?.menus || perms.menus,
+        totalUsers: assignedUsers.length,
+        users: assignedUsers.map((u) => ({
+          id: u.id,
+          nip: u.nip,
+          namaLengkap: u.namaLengkap,
+          jabatan: u.jabatan,
+          status: u.status,
+          opdId: u.opdId,
+        })),
+      };
+    });
+  }
+
+  /**
+   * Memperbarui matriks hak akses dan cakupan unit peran oleh Administrator
+   */
+  async updateRoleMatrix(
+    id: string,
+    body: { aksesUnit: number; menus: any[]; catatanKewenangan?: string },
+    adminUserId?: string,
+  ) {
+    const role = await this.prisma.role.findFirst({
+      where: { OR: [{ id }, { kode: id as any }] },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Peran dengan ID atau kode '${id}' tidak ditemukan`);
+    }
+
+    const payload = {
+      kode: role.kode,
+      nama: role.nama,
+      aksesUnit: Number(body.aksesUnit) || 1,
+      menus: body.menus || [],
+      catatanKewenangan: body.catatanKewenangan || role.deskripsi,
+    };
+
+    // Simpan ke in-memory override
+    this.roleMatrixOverrides.set(role.kode, payload);
+
+    // Catat ke PostgreSQL AuditLog
+    await this.prisma.auditLog.create({
+      data: {
+        userId: adminUserId,
+        action: 'UPDATE_ROLE_MATRIX',
+        resource: 'ROLE',
+        resourceId: role.id,
+        payload,
+      },
+    });
+
+    this.logger.log(`Matriks peran '${role.nama}' (${role.kode}) berhasil diperbarui oleh Administrator.`);
+
+    return {
+      message: `Matriks hak akses peran '${role.nama}' berhasil disimpan.`,
+      role: {
+        ...role,
+        ...payload,
+      },
+    };
   }
 
   /**

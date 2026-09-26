@@ -16,10 +16,11 @@ import {
   Settings,
   HelpCircle,
   CreditCard,
-  User,
-  Bell,
-  Link2,
-  Palette,
+  Briefcase,
+  TrendingUp,
+  FileBarChart,
+  Users,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react"
 
@@ -127,42 +128,17 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   const commandRef = React.useRef<HTMLDivElement>(null)
 
   const searchItems: SearchItem[] = [
-    // Dashboards
-    { title: "Dashboard 1", url: "/dashboard", group: "Dashboards", icon: LayoutDashboard },
-    { title: "Dashboard 2", url: "/dashboard-2", group: "Dashboards", icon: LayoutPanelLeft },
+    // Menu Utama
+    { title: "Dashboard - Ringkasan Eksekutif", url: "/dashboard", group: "Menu Utama", icon: LayoutDashboard },
 
-    // Apps
-    { title: "Mail", url: "/mail", group: "Apps", icon: Mail },
-    { title: "Tasks", url: "/tasks", group: "Apps", icon: CheckSquare },
-    { title: "Chat", url: "/chat", group: "Apps", icon: MessageCircle },
-    { title: "Calendar", url: "/calendar", group: "Apps", icon: Calendar },
+    // Pembangunan & RFK
+    { title: "Paket Pembangunan - Pagu & RUP", url: "/pembangunan", group: "Pembangunan & RFK", icon: Briefcase },
+    { title: "Realisasi Bulanan - Fisik & SP2D (RFK)", url: "/realisasi", group: "Pembangunan & RFK", icon: TrendingUp },
+    { title: "Laporan & Evaluasi - Deviasi & Rekap", url: "/laporan", group: "Pembangunan & RFK", icon: FileBarChart },
 
-    // Auth Pages
-    { title: "Sign In 1", url: "/auth/sign-in", group: "Auth Pages", icon: Shield },
-    { title: "Sign In 2", url: "/auth/sign-in-2", group: "Auth Pages", icon: Shield },
-    { title: "Sign Up 1", url: "/auth/sign-up", group: "Auth Pages", icon: Shield },
-    { title: "Sign Up 2", url: "/auth/sign-up-2", group: "Auth Pages", icon: Shield },
-    { title: "Forgot Password 1", url: "/auth/forgot-password", group: "Auth Pages", icon: Shield },
-    { title: "Forgot Password 2", url: "/auth/forgot-password-2", group: "Auth Pages", icon: Shield },
-
-    // Errors
-    { title: "Unauthorized", url: "/errors/unauthorized", group: "Errors", icon: AlertTriangle },
-    { title: "Forbidden", url: "/errors/forbidden", group: "Errors", icon: AlertTriangle },
-    { title: "Not Found", url: "/errors/not-found", group: "Errors", icon: AlertTriangle },
-    { title: "Internal Server Error", url: "/errors/internal-server-error", group: "Errors", icon: AlertTriangle },
-    { title: "Under Maintenance", url: "/errors/under-maintenance", group: "Errors", icon: AlertTriangle },
-
-    // Settings
-    { title: "User Settings", url: "/settings/user", group: "Settings", icon: User },
-    { title: "Account Settings", url: "/settings/account", group: "Settings", icon: Settings },
-    { title: "Plans & Billing", url: "/settings/billing", group: "Settings", icon: CreditCard },
-    { title: "Appearance", url: "/settings/appearance", group: "Settings", icon: Palette },
-    { title: "Notifications", url: "/settings/notifications", group: "Settings", icon: Bell },
-    { title: "Connections", url: "/settings/connections", group: "Settings", icon: Link2 },
-
-    // Pages
-    { title: "FAQs", url: "/faqs", group: "Pages", icon: HelpCircle },
-    { title: "Pricing", url: "/pricing", group: "Pages", icon: CreditCard },
+    // Sistem & Pengguna
+    { title: "Manajemen Pengguna - RBAC & E-Gov", url: "/users", group: "Sistem & Pengguna", icon: Users },
+    { title: "Kelompok Pengguna - Matriks Hak Akses & Menu", url: "/roles", group: "Sistem & Pengguna", icon: ShieldCheck },
   ]
 
   const groupedItems = searchItems.reduce((acc, item) => {

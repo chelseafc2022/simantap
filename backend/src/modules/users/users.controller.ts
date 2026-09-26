@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import {
@@ -25,12 +26,13 @@ import { UsersService } from './users.service';
 
 @ApiTags('User Management & E-Gov SIMPEG')
 @ApiBearerAuth('bearer')
+@Roles(RoleEnum.ADMINISTRATOR)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH)
+  @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
     summary: 'Daftar pengguna aktif SIMANTAP dengan filter role dan OPD',
   })
@@ -128,12 +130,25 @@ export class UsersController {
   }
 
   @Get('roles/master')
+  @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({ summary: 'Daftar master role resmi SIMANTAP dari database' })
   getMasterRoles() {
     return this.usersService.getMasterRoles();
   }
 
+  @Put('roles/:id/matrix')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Memperbarui matriks hak akses dan cakupan unit peran (Administrator)' })
+  updateRoleMatrix(
+    @Param('id') id: string,
+    @Body() body: { aksesUnit: number; menus: any[]; catatanKewenangan?: string },
+    @CurrentUser('id') adminUserId?: string,
+  ) {
+    return this.usersService.updateRoleMatrix(id, body, adminUserId);
+  }
+
   @Get(':id')
+  @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({ summary: 'Mendapatkan data detail pengguna berdasarkan ID' })
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
