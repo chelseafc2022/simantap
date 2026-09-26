@@ -25,6 +25,7 @@ import { QueueModule } from './core/queue/queue.module';
 import { RedisModule } from './core/redis/redis.module';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { PembangunanModule } from './modules/pembangunan/pembangunan.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -47,6 +48,7 @@ import { UsersModule } from './modules/users/users.module';
     // Feature Modules
     AuthModule,
     UsersModule,
+    PembangunanModule,
   ],
   providers: [
     // Global Guards (JWT by default, check @Public and @Roles)
