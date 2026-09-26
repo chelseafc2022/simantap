@@ -51,9 +51,19 @@ import {
 
 export default function RealisasiBulananPage() {
   const { user } = useAuth()
-  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userRoles: string[] =
+    user?.roles && user.roles.length > 0
+      ? user.roles
+      : user?.role
+      ? [user.role]
+      : []
+  const hasRole = (role: string) => userRoles.includes(role)
+  const isSuperRole = userRoles.length === 0 || userRoles.some((r) => ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r))
+  const isKepalaOpd = hasRole("KEPALA_OPD")
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
+  const userSubUnitId = user?.subUnit?.id
+  const userSubUnitNama = user?.subUnit?.namaSubUnit
 
   const currentMonthNo = new Date().getMonth() + 1
 
@@ -72,12 +82,15 @@ export default function RealisasiBulananPage() {
   const [inputModalOpen, setInputModalOpen] = useState<boolean>(false)
   const [selectedPaketId, setSelectedPaketId] = useState<string | null>(null)
 
-  // Lock selectedOpd if non-super role
+  // Lock selectedOpd & selectedSubUnit if non-super role
   useEffect(() => {
     if (!isSuperRole && userOpdId) {
       setSelectedOpd(userOpdId)
     }
-  }, [isSuperRole, userOpdId])
+    if (!isSuperRole && !isKepalaOpd && userSubUnitId) {
+      setSelectedSubUnit(userSubUnitId)
+    }
+  }, [isSuperRole, isKepalaOpd, userOpdId, userSubUnitId])
 
   // 1. Fetch OPD list
   const { data: opdResponse } = useQuery({
@@ -141,13 +154,15 @@ export default function RealisasiBulananPage() {
       }
 
       const res = await apiClient.get("/pembangunan/realisasi", { params })
-      return res.data?.data || null
+      return res.data
     },
   })
 
   const opdList = Array.isArray(opdResponse) ? opdResponse : []
   const subUnitList = Array.isArray(subUnitResponse) ? subUnitResponse : []
-  const items: CetakRealisasiItem[] = realisasiResponse?.data || []
+  const items: CetakRealisasiItem[] = Array.isArray(realisasiResponse?.data)
+    ? realisasiResponse.data
+    : []
   const summary = realisasiResponse?.summary
   const meta = realisasiResponse?.meta || { total: 0, totalPages: 1, page: 1 }
 
@@ -321,20 +336,27 @@ export default function RealisasiBulananPage() {
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
             <div className="w-full">
-              <SearchableCombobox
-                value={selectedSubUnit}
-                onValueChange={(val) => {
-                  setSelectedSubUnit(val)
-                  setPage(1)
-                }}
-                items={subUnitOptions}
-                placeholder={isLoadingSubUnit ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
-                searchPlaceholder="Ketik nama Sub Unit Kerja..."
-                emptyText="Sub Unit Kerja tidak ditemukan."
-                allLabel="-- Semua Sub Unit Kerja --"
-                icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                disabled={isLoadingSubUnit}
-              />
+              {!isSuperRole && !isKepalaOpd && userSubUnitNama ? (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
+                  <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span className="truncate">{userSubUnitNama}</span>
+                </div>
+              ) : (
+                <SearchableCombobox
+                  value={selectedSubUnit}
+                  onValueChange={(val) => {
+                    setSelectedSubUnit(val)
+                    setPage(1)
+                  }}
+                  items={subUnitOptions}
+                  placeholder={isLoadingSubUnit ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                  searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                  emptyText="Sub Unit Kerja tidak ditemukan."
+                  allLabel="-- Semua Sub Unit Kerja --"
+                  icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                  disabled={isLoadingSubUnit}
+                />
+              )}
             </div>
 
             {/* Filter Tahun Anggaran */}

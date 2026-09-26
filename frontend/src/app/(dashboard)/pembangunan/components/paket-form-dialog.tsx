@@ -41,6 +41,8 @@ import {
   Briefcase,
   Layers,
   ArrowRight,
+  ArrowLeft,
+  Lock,
   TrendingUp,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -98,6 +100,7 @@ interface PaketFormDialogProps {
     jenisPengadaan: string[]
     sumberDana: string[]
   }
+  defaultTab?: "info" | "targets"
 }
 
 const BULAN_NAMES = [
@@ -121,13 +124,32 @@ export function PaketFormDialog({
   initialData,
   opdList,
   constants,
+  defaultTab,
 }: PaketFormDialogProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userRoles: string[] =
+    user?.roles && user.roles.length > 0
+      ? user.roles
+      : user?.role
+      ? [user.role]
+      : []
+  const hasRole = (role: string) => userRoles.includes(role)
+  const isSuperRole = userRoles.length === 0 || userRoles.some((r) => ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r))
+  const isKepalaOpd = hasRole("KEPALA_OPD")
+  const isPerencana = hasRole("ADMIN_PERENCANAAN")
+  const isSirup = hasRole("ADMIN_SIRUP")
+
+  const canEditInfo = isSuperRole || isSirup
+  const canEditTarget = isSuperRole || isPerencana
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
+  const userSubUnitId = user?.subUnit?.id
+  const userSubUnitNama = user?.subUnit?.namaSubUnit
   const isEdit = !!initialData
+
+  const canSelectOpd = isSuperRole || !userOpdId
+  const canSelectSubUnit = isSuperRole || isKepalaOpd || !userSubUnitId
 
   // Active form tab
   const [activeTab, setActiveTab] = useState<string>("info")
@@ -187,7 +209,7 @@ export function PaketFormDialog({
     if (initialData) {
       setTahunAnggaran(initialData.tahunAnggaran || 2026)
       setOpdId(initialData.opdId || "")
-      setSubUnitId(initialData.subUnitId || "")
+      setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
       setLokasiKegiatan(initialData.lokasiKegiatan || "")
@@ -216,7 +238,7 @@ export function PaketFormDialog({
       setTahunAnggaran(2026)
       const defaultOpd = !isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")
       setOpdId(defaultOpd)
-      setSubUnitId("")
+      setSubUnitId(!canSelectSubUnit && userSubUnitId ? userSubUnitId : "")
       setNamaPaket("")
       setKodeRupKontrak("")
       setLokasiKegiatan("")
@@ -232,8 +254,14 @@ export function PaketFormDialog({
       setKeterangan("")
       setTargets(Array(12).fill(0))
     }
-    setActiveTab("info")
-  }, [initialData, open, opdList, constants, isSuperRole, userOpdId])
+    if (defaultTab) {
+      setActiveTab(defaultTab)
+    } else if (isPerencana) {
+      setActiveTab("targets")
+    } else {
+      setActiveTab("info")
+    }
+  }, [initialData, open, defaultTab, isPerencana, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
 
   // Calculated values
   const paguNum = parseFloat(nilaiPagu) || 0
@@ -327,7 +355,7 @@ export function PaketFormDialog({
       const payload = {
         tahunAnggaran,
         opdId,
-        subUnitId: subUnitId || undefined,
+        subUnitId: !canSelectSubUnit && userSubUnitId ? userSubUnitId : (subUnitId || undefined),
         namaPaket: namaPaket.trim(),
         kodeRupKontrak: kodeRupKontrak.trim() || undefined,
         lokasiKegiatan: lokasiKegiatan.trim() || undefined,
@@ -419,6 +447,19 @@ export function PaketFormDialog({
 
           {/* TAB 1: IDENTITAS & KONTRAK */}
           <TabsContent value="info" className="flex-1 overflow-y-auto p-6 space-y-6 m-0">
+            {/* Informasi wewenang Admin SiRUP */}
+            {!canEditInfo && (
+              <div className="flex items-start gap-2.5 p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs">
+                <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Kewenangan Khusus Admin SiRUP:</span>
+                  <p className="mt-0.5 text-muted-foreground">
+                    Rincian kontrak, pagu, dan mekanisme pengadaan diinput oleh <strong>Admin SiRUP</strong> (Mode Hanya Baca untuk Admin Perencanaan). Akun Anda bertugas menetapkan <strong>Target Fisik Bulanan (Tab 2)</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* SECTION 1: Identitas Paket & OPD */}
             <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
@@ -446,12 +487,14 @@ export function PaketFormDialog({
                   <Label className="text-xs font-medium">
                     Unit Kerja (OPD / SKPD) <span className="text-red-500">*</span>
                   </Label>
-                  {isSuperRole ? (
+                  {canSelectOpd ? (
                     <SearchableCombobox
                       value={opdId}
                       onValueChange={(val) => {
                         setOpdId(val)
-                        setSubUnitId("")
+                        if (canSelectSubUnit) {
+                          setSubUnitId("")
+                        }
                       }}
                       items={opdOptions}
                       placeholder="Ketik / Pilih Unit Kerja (OPD)..."
@@ -472,21 +515,33 @@ export function PaketFormDialog({
                   )}
                 </div>
 
-                {/* Sub Unit Kerja - SearchableCombobox */}
+                {/* Sub Unit Kerja */}
                 <div className="lg:col-span-5 space-y-1.5">
                   <Label className="text-xs font-medium">
                     Sub Unit Kerja (Bidang / Bagian)
                   </Label>
-                  <SearchableCombobox
-                    value={subUnitId}
-                    onValueChange={setSubUnitId}
-                    items={subUnitOptions}
-                    placeholder={isLoadingSubUnits ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit Kerja..."}
-                    searchPlaceholder="Ketik nama Sub Unit Kerja..."
-                    emptyText="Sub Unit Kerja tidak ditemukan."
-                    icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                    disabled={isLoadingSubUnits || !opdId}
-                  />
+                  {canSelectSubUnit ? (
+                    <SearchableCombobox
+                      value={subUnitId}
+                      onValueChange={setSubUnitId}
+                      items={subUnitOptions}
+                      placeholder={isLoadingSubUnits ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit Kerja..."}
+                      searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                      emptyText="Sub Unit Kerja tidak ditemukan."
+                      icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                      disabled={isLoadingSubUnits || !opdId}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between h-9 px-2.5 rounded-md border bg-muted/40 text-xs font-medium">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        <span className="truncate">{userSubUnitNama || "Sub Unit Anda"}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        Terkunci Sesuai Akun
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 {/* Nama Paket */}
@@ -789,6 +844,19 @@ export function PaketFormDialog({
 
           {/* TAB 2: TARGET FISIK BULANAN */}
           <TabsContent value="targets" className="flex-1 overflow-y-auto p-6 space-y-5 m-0">
+            {/* Banner kewenangan Admin Perencanaan */}
+            {!canEditTarget && (
+              <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-amber-900 dark:text-amber-100">Kewenangan Khusus Admin Perencanaan:</span>
+                  <p className="mt-0.5 text-muted-foreground">
+                    Penetapan target fisik bulanan (kurva rencana B01–B12) dilakukan oleh <strong>Admin Perencanaan</strong> setelah paket pengadaan dibuat oleh Admin SiRUP. Target bulanan paket ini saat ini diinisialisasi 0% (Mode Pratinjau untuk Admin SiRUP).
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Action Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border bg-gradient-to-r from-emerald-500/10 via-card to-card p-4">
               <div className="space-y-0.5">
@@ -801,27 +869,29 @@ export function PaketFormDialog({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={resetTargets}
-                  className="text-xs h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Reset ke 0%
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={autoDistributeTargets}
-                  className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Hitung Otomatis Berdasarkan Tanggal Kontrak
-                </Button>
-              </div>
+              {canEditTarget && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={resetTargets}
+                    className="text-xs h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset ke 0%
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={autoDistributeTargets}
+                    className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Hitung Otomatis Berdasarkan Tanggal Kontrak
+                  </Button>
+                </div>
+              )}
             </div>
 
             {/* Grid 12 Bulan (Spacious 6 columns on large screen, 3 on tablet, 2 on mobile) */}
@@ -848,7 +918,10 @@ export function PaketFormDialog({
                         step="0.1"
                         min="0"
                         max="100"
-                        className="text-right font-mono pr-7 text-sm font-semibold h-9"
+                        disabled={!canEditTarget}
+                        className={`text-right font-mono pr-7 text-sm font-semibold h-9 ${
+                          !canEditTarget ? "bg-muted/40 cursor-not-allowed opacity-80" : ""
+                        }`}
                         value={val}
                         onChange={(e) => handleTargetChange(idx, e.target.value)}
                       />
@@ -913,7 +986,7 @@ export function PaketFormDialog({
         {/* Modal Footer */}
         <DialogFooter className="p-4 sm:p-6 border-t bg-muted/20 shrink-0 flex-row items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground hidden sm:block">
-            {activeTab === "info" ? "Langkah 1 dari 2: Rincian PBJ" : "Langkah 2 dari 2: Target Bulanan"}
+            {activeTab === "info" ? "Tab 1: Rincian PBJ & Kontrak" : "Tab 2: Target Fisik Bulanan (B01–B12)"}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -927,33 +1000,76 @@ export function PaketFormDialog({
             </Button>
 
             {activeTab === "info" ? (
-              <Button
-                type="button"
-                onClick={() => setActiveTab("targets")}
-                className="gap-1.5"
-              >
-                <span>Target Fisik (12 Bulan)</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
-              >
-                {saveMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Menyimpan...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    {isEdit ? "Simpan Perubahan" : "Simpan Paket Pembangunan"}
-                  </>
+              <>
+                {/* Admin SiRUP bisa langsung simpan di Tab 1 tanpa harus isi target */}
+                {isSirup && (
+                  <Button
+                    type="button"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending}
+                  >
+                    {saveMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        {isEdit ? "Simpan Perubahan Pengadaan" : "Simpan Paket Pembangunan"}
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+
+                <Button
+                  type="button"
+                  variant={isSirup ? "outline" : "default"}
+                  onClick={() => setActiveTab("targets")}
+                  className="gap-1.5"
+                >
+                  <span>{isSirup ? "Pratinjau Target Fisik" : "Target Fisik (12 Bulan)"}</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveTab("info")}
+                  className="gap-1.5"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Kembali ke PBJ</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                >
+                  {saveMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      {isPerencana
+                        ? "Simpan Penetapan Target Fisik"
+                        : isSirup
+                        ? "Simpan Paket (Target Diisi Admin Perencanaan)"
+                        : isEdit
+                        ? "Simpan Perubahan"
+                        : "Simpan Paket Pembangunan"}
+                    </>
+                  )}
+                </Button>
+              </>
             )}
           </div>
         </DialogFooter>

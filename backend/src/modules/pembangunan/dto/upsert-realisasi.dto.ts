@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class RealisasiItemDto {
   @ApiProperty({ description: 'Bulan ke-1 s.d. 12', example: 1 })
@@ -10,20 +19,30 @@ export class RealisasiItemDto {
   @Max(12)
   bulan: number;
 
-  @ApiProperty({ description: 'Persentase realisasi fisik kumulatif (%)', example: 25.5 })
+  @ApiPropertyOptional({
+    description: 'Persentase realisasi fisik kumulatif (%)',
+    example: 25.5,
+  })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(100)
-  realisasiFisik: number;
+  realisasiFisik?: number;
 
-  @ApiProperty({ description: 'Realisasi keuangan kumulatif (Rp)', example: 150000000 })
+  @ApiPropertyOptional({
+    description: 'Realisasi keuangan kumulatif (Rp)',
+    example: 150000000,
+  })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  realisasiKeuangan: number;
+  realisasiKeuangan?: number;
 
-  @ApiPropertyOptional({ description: 'Catatan kendala lapangan atau keterangan progres' })
+  @ApiPropertyOptional({
+    description: 'Catatan kendala lapangan atau keterangan progres',
+  })
   @IsOptional()
   @IsString()
   catatanOperator?: string;
@@ -32,7 +51,10 @@ export class RealisasiItemDto {
 export class UpsertRealisasiDto extends RealisasiItemDto {}
 
 export class BulkUpsertRealisasiDto {
-  @ApiProperty({ type: [RealisasiItemDto], description: 'Daftar realisasi bulanan' })
+  @ApiProperty({
+    type: [RealisasiItemDto],
+    description: 'Daftar realisasi bulanan',
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => RealisasiItemDto)

@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
@@ -54,10 +49,7 @@ export class UsersService {
 
     if (role) {
       andConditions.push({
-        OR: [
-          { role: role },
-          { roles: { has: role } },
-        ],
+        OR: [{ role: role }, { roles: { has: role } }],
       });
     }
 
@@ -65,8 +57,14 @@ export class UsersService {
       andConditions.push({ opdId });
     }
 
-    if ((instansiId && instansiId !== 'all') || (unitKerjaId && unitKerjaId !== 'all')) {
-      const nips = await this.egovService.getNipsByInstansi(instansiId, unitKerjaId);
+    if (
+      (instansiId && instansiId !== 'all') ||
+      (unitKerjaId && unitKerjaId !== 'all')
+    ) {
+      const nips = await this.egovService.getNipsByInstansi(
+        instansiId,
+        unitKerjaId,
+      );
       andConditions.push({ nip: { in: nips } });
     }
 
@@ -91,32 +89,29 @@ export class UsersService {
           email: true,
           role: true,
           roles: true,
+          userRoles: {
+            include: { role: true },
+            orderBy: { role: { urutan: 'asc' } },
+          },
           status: true,
+          opdId: true,
+          subUnitId: true,
           lastLoginAt: true,
           createdAt: true,
-          opd: {
-            select: {
-              id: true,
-              kodeOpd: true,
-              namaOpd: true,
-              singkatan: true,
-            },
-          },
-          subUnit: {
-            select: {
-              id: true,
-              kodeSubUnit: true,
-              namaSubUnit: true,
-            },
-          },
         },
       }),
     ]);
 
     const totalPages = Math.ceil(total / limit) || 1;
 
+    const enrichedData = data.map((u) => ({
+      ...u,
+      opd: this.egovService.getOpdById(u.opdId),
+      subUnit: this.egovService.getSubUnitById(u.subUnitId),
+    }));
+
     return {
-      data,
+      data: enrichedData,
       meta: {
         page,
         limit,
@@ -127,14 +122,30 @@ export class UsersService {
   }
 
   /**
+   * Mengambil master list role resmi dari database
+   */
+  async getMasterRoles() {
+    return this.prisma.role.findMany({
+      orderBy: { urutan: 'asc' },
+      include: {
+        _count: {
+          select: { userRoles: true },
+        },
+      },
+    });
+  }
+
+  /**
    * Mengambil detail 1 user SIMANTAP
    */
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
-        opd: true,
-        subUnit: true,
+        userRoles: {
+          include: { role: true },
+          orderBy: { role: { urutan: 'asc' } },
+        },
         auditLogs: {
           take: 10,
           orderBy: { createdAt: 'desc' },
@@ -146,7 +157,12 @@ export class UsersService {
       throw new NotFoundException(`Pengguna dengan ID '${id}' tidak ditemukan`);
     }
 
-    const { password, ...safeUser } = user;
+    const safeUser = {
+      ...user,
+      opd: this.egovService.getOpdById(user.opdId),
+      subUnit: this.egovService.getSubUnitById(user.subUnitId),
+    };
+    delete (safeUser as any).password;
     return safeUser;
   }
 
@@ -184,22 +200,13 @@ export class UsersService {
         );
       }
 
-      // Cari atau cocokkan OPD dari database SIMPEG jika belum ditentukan
-      let assignedOpdId = dto.opdId;
-      if (!assignedOpdId && (egovProfile.instansiId || egovProfile.opd)) {
-        const existingOpd = await this.prisma.opd.findFirst({
-          where: {
-            OR: [
-              ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
-              { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
-              { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
-            ],
-          },
-        });
-        if (existingOpd) {
-          assignedOpdId = existingOpd.id;
-        }
-      }
+      // Tetapkan OPD & Sub Unit dari SIMPEG jika belum ditentukan
+      const assignedOpdId =
+        dto.opdId ||
+        (egovProfile.instansiId ? String(egovProfile.instansiId) : null);
+      const assignedSubUnitId =
+        dto.subUnitId ||
+        (egovProfile.unitKerjaId ? String(egovProfile.unitKerjaId) : null);
 
       const defaultPassword = await bcrypt.hash('Password123!', 10);
       const email = `${cleanNip}@konaweselatankab.go.id`;
@@ -214,7 +221,7 @@ export class UsersService {
           role: primaryRole,
           roles: assignedRoles,
           opdId: assignedOpdId,
-          subUnitId: dto.subUnitId,
+          subUnitId: assignedSubUnitId,
           status: 'AKTIF',
         },
       });
@@ -223,19 +230,17 @@ export class UsersService {
     } else {
       // 3. Jika sudah ada di lokal, perbarui role & status
       let finalOpdId = dto.opdId || user.opdId;
-      if (!finalOpdId) {
+      let finalSubUnitId = dto.subUnitId || user.subUnitId;
+
+      if (!finalOpdId || !finalSubUnitId) {
         const egovProfile = await this.egovService.getPegawaiByNip(cleanNip);
-        if (egovProfile && (egovProfile.instansiId || egovProfile.opd)) {
-          const matchedOpd = await this.prisma.opd.findFirst({
-            where: {
-              OR: [
-                ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
-                { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
-                { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
-              ],
-            },
-          });
-          if (matchedOpd) finalOpdId = matchedOpd.id;
+        if (egovProfile) {
+          if (!finalOpdId && egovProfile.instansiId) {
+            finalOpdId = String(egovProfile.instansiId);
+          }
+          if (!finalSubUnitId && egovProfile.unitKerjaId) {
+            finalSubUnitId = String(egovProfile.unitKerjaId);
+          }
         }
       }
 
@@ -245,9 +250,27 @@ export class UsersService {
           role: primaryRole,
           roles: assignedRoles,
           opdId: finalOpdId,
-          subUnitId: dto.subUnitId || user.subUnitId,
+          subUnitId: finalSubUnitId,
           status: 'AKTIF',
         },
+      });
+    }
+
+    // 4. Sinkronisasi tabel relasi master user_roles
+    const masterRoles = await this.prisma.role.findMany({
+      where: { kode: { in: assignedRoles } },
+    });
+
+    await this.prisma.userRole.deleteMany({
+      where: { userId: user.id },
+    });
+
+    if (masterRoles.length > 0) {
+      await this.prisma.userRole.createMany({
+        data: masterRoles.map((mr) => ({
+          userId: user.id,
+          roleId: mr.id,
+        })),
       });
     }
 
@@ -276,6 +299,7 @@ export class UsersService {
         jabatan: user.jabatan,
         role: user.role,
         roles: user.roles,
+        userRoles: masterRoles.map((mr) => ({ role: mr })),
         status: user.status,
       },
     };
@@ -292,7 +316,9 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Pengguna dengan NIP '${cleanNip}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Pengguna dengan NIP '${cleanNip}' tidak ditemukan`,
+      );
     }
 
     // Ubah status menjadi NON_AKTIF tanpa menghapus/mengubah role
@@ -337,7 +363,9 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Pengguna dengan NIP '${cleanNip}' tidak terdaftar di SIMANTAP`);
+      throw new NotFoundException(
+        `Pengguna dengan NIP '${cleanNip}' tidak terdaftar di SIMANTAP`,
+      );
     }
 
     // Invalidate dan hapus semua refresh token
@@ -383,7 +411,14 @@ export class UsersService {
    * Diperkaya dengan informasi status hak akses aktif di SIMANTAP
    */
   async getPegawaiDirectory(query: QueryPegawaiDirectoryDto) {
-    const { page = 1, limit = 10, search, opdName, instansiId, unitKerjaId } = query;
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      opdName,
+      instansiId,
+      unitKerjaId,
+    } = query;
 
     const result = await this.egovService.getDirectory({
       page,
@@ -395,7 +430,15 @@ export class UsersService {
     });
 
     if (!result.data || result.data.length === 0) {
-      return result;
+      return {
+        data: [],
+        meta: {
+          page: result.page || page,
+          limit: result.limit || limit,
+          total: result.total || 0,
+          totalPages: result.totalPages || 0,
+        },
+      };
     }
 
     // Ambil semua NIP dari halaman ini
@@ -422,7 +465,12 @@ export class UsersService {
         ...p,
         hasSimantapAccess: !!local && local.status === 'AKTIF',
         simantapRole: local?.role || null,
-        simantapRoles: local?.roles && local.roles.length > 0 ? local.roles : (local?.role ? [local.role] : []),
+        simantapRoles:
+          local?.roles && local.roles.length > 0
+            ? local.roles
+            : local?.role
+              ? [local.role]
+              : [],
         simantapStatus: local ? local.status : 'BELUM_DIBERI_AKSES',
         simantapUserId: local?.id || null,
       };
@@ -452,5 +500,4 @@ export class UsersService {
   async getUnitKerjaList(instansiId?: string) {
     return this.egovService.getUnitKerjaList(instansiId);
   }
-
 }

@@ -5,7 +5,23 @@ export type RoleEnum =
   | 'ADMIN_PPK'
   | 'BENDAHARA'
   | 'KEPALA_OPD'
-  | 'PIMPINAN_DAERAH';
+  | 'PIMPINAN_DAERAH'
+  | 'MONEV';
+
+export interface MasterRole {
+  id: string;
+  kode: RoleEnum;
+  nama: string;
+  deskripsi?: string | null;
+  urutan: number;
+}
+
+export interface UserRoleItem {
+  id?: string;
+  userId?: string;
+  roleId?: string;
+  role: MasterRole;
+}
 
 export interface UserProfile {
   id: string;
@@ -15,6 +31,7 @@ export interface UserProfile {
   email: string;
   role: RoleEnum;
   roles?: RoleEnum[];
+  userRoles?: UserRoleItem[];
   status: 'AKTIF' | 'NON_AKTIF' | 'TERKUNCI';
   opd?: {
     id: string;

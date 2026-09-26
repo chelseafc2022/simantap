@@ -7,6 +7,7 @@ export interface JwtPayload {
   role?: RoleEnum | null;
   roles?: RoleEnum[];
   opdId?: string | null;
+  subUnitId?: string | null;
   namaLengkap: string;
 }
 

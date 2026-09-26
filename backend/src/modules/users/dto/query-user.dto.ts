@@ -4,7 +4,10 @@ import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { RoleEnum } from '../../../common/enums/role.enum';
 
 export class QueryUserDto extends PaginationDto {
-  @ApiPropertyOptional({ enum: RoleEnum, description: 'Filter berdasarkan Role' })
+  @ApiPropertyOptional({
+    enum: RoleEnum,
+    description: 'Filter berdasarkan Role',
+  })
   @IsOptional()
   @IsEnum(RoleEnum)
   role?: RoleEnum;
@@ -14,17 +17,23 @@ export class QueryUserDto extends PaginationDto {
   @IsString()
   opdId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Instansi / Unit Kerja dari SIMPEG' })
+  @ApiPropertyOptional({
+    description: 'Filter berdasarkan ID Instansi / Unit Kerja dari SIMPEG',
+  })
   @IsOptional()
   @IsString()
   instansiId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter berdasarkan ID Sub Unit Kerja dari SIMPEG' })
+  @ApiPropertyOptional({
+    description: 'Filter berdasarkan ID Sub Unit Kerja dari SIMPEG',
+  })
   @IsOptional()
   @IsString()
   unitKerjaId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter berdasarkan status akun (AKTIF, NON_AKTIF, TERKUNCI)' })
+  @ApiPropertyOptional({
+    description: 'Filter berdasarkan status akun (AKTIF, NON_AKTIF, TERKUNCI)',
+  })
   @IsOptional()
   @IsString()
   status?: string;

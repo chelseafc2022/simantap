@@ -41,10 +41,16 @@ export class UsersController {
   @Get('pegawai/lookup')
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Lookup / Autocomplete Pegawai ASN langsung dari server E-Gov & SIMPEG',
-    description: 'Pencarian kata kunci minimal 3 karakter (NIP, Nama, atau OPD) untuk penugasan role.',
+    summary:
+      'Lookup / Autocomplete Pegawai ASN langsung dari server E-Gov & SIMPEG',
+    description:
+      'Pencarian kata kunci minimal 3 karakter (NIP, Nama, atau OPD) untuk penugasan role.',
   })
-  @ApiQuery({ name: 'q', required: true, description: 'Kata kunci pencarian NIP atau nama pegawai' })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    description: 'Kata kunci pencarian NIP atau nama pegawai',
+  })
   lookupPegawai(@Query('q') query: string) {
     return this.usersService.lookupPegawai(query || '');
   }
@@ -52,7 +58,8 @@ export class UsersController {
   @Get('pegawai/directory')
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Direktori seluruh Pegawai ASN E-Gov & SIMPEG terpaginasi beserta status hak akses SIMANTAP',
+    summary:
+      'Direktori seluruh Pegawai ASN E-Gov & SIMPEG terpaginasi beserta status hak akses SIMANTAP',
   })
   getPegawaiDirectory(@Query() query: QueryPegawaiDirectoryDto) {
     return this.usersService.getPegawaiDirectory(query);
@@ -63,13 +70,11 @@ export class UsersController {
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
     summary: 'Penetapan atau pembaruan hak akses Role Pengguna (7 Role RBAC)',
-    description: 'Mengadopsi mekanisme set_role konsel-setara. Otomatis menarik data dari E-Gov jika belum ada di lokal.',
+    description:
+      'Mengadopsi mekanisme set_role konsel-setara. Otomatis menarik data dari E-Gov jika belum ada di lokal.',
   })
   @ApiResponse({ status: 200, description: 'Role berhasil diberikan' })
-  setRole(
-    @Body() dto: SetRoleDto,
-    @CurrentUser('id') adminId: string,
-  ) {
+  setRole(@Body() dto: SetRoleDto, @CurrentUser('id') adminId: string) {
     return this.usersService.setRole(dto, adminId);
   }
 
@@ -77,12 +82,10 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Mencabut hak akses sistem SIMANTAP untuk pegawai (Non-aktifkan status, role tetap tersimpan)',
+    summary:
+      'Mencabut hak akses sistem SIMANTAP untuk pegawai (Non-aktifkan status, role tetap tersimpan)',
   })
-  revokeRole(
-    @Body() dto: RevokeRoleDto,
-    @CurrentUser('id') adminId: string,
-  ) {
+  revokeRole(@Body() dto: RevokeRoleDto, @CurrentUser('id') adminId: string) {
     return this.usersService.revokeRole(dto.nip, adminId);
   }
 
@@ -90,7 +93,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Mengembalikan role ke default (Belum Diberi Akses) dan membersihkan data dari SIMANTAP',
+    summary:
+      'Mengembalikan role ke default (Belum Diberi Akses) dan membersihkan data dari SIMANTAP',
   })
   resetToDefault(
     @Body() dto: RevokeRoleDto,
@@ -99,11 +103,11 @@ export class UsersController {
     return this.usersService.resetToDefault(dto.nip, adminId);
   }
 
-
   @Get('pegawai/instansi')
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Daftar Instansi / Unit Kerja dari database SIMPEG Konsel (READ-ONLY)',
+    summary:
+      'Daftar Instansi / Unit Kerja dari database SIMPEG Konsel (READ-ONLY)',
   })
   getInstansi() {
     return this.usersService.getInstansiList();
@@ -114,9 +118,19 @@ export class UsersController {
   @ApiOperation({
     summary: 'Daftar Sub Unit Kerja dari database SIMPEG Konsel (READ-ONLY)',
   })
-  @ApiQuery({ name: 'instansiId', required: false, description: 'ID Instansi untuk filter sub unit kerja' })
+  @ApiQuery({
+    name: 'instansiId',
+    required: false,
+    description: 'ID Instansi untuk filter sub unit kerja',
+  })
   getUnitKerja(@Query('instansiId') instansiId?: string) {
     return this.usersService.getUnitKerjaList(instansiId);
+  }
+
+  @Get('roles/master')
+  @ApiOperation({ summary: 'Daftar master role resmi SIMANTAP dari database' })
+  getMasterRoles() {
+    return this.usersService.getMasterRoles();
   }
 
   @Get(':id')

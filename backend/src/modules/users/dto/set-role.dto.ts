@@ -1,9 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { RoleEnum } from '../../../common/enums/role.enum';
 
 export class SetRoleDto {
-  @ApiProperty({ example: '198001012005011001', description: 'NIP Pegawai ASN dari SIMPEG' })
+  @ApiProperty({
+    example: '198001012005011001',
+    description: 'NIP Pegawai ASN dari SIMPEG',
+  })
   @IsNotEmpty({ message: 'NIP pegawai wajib diisi' })
   @IsString()
   nip: string;
@@ -24,7 +33,10 @@ export class SetRoleDto {
   @IsArray({ message: 'Roles harus berupa array' })
   roles?: RoleEnum[];
 
-  @ApiPropertyOptional({ description: 'ID OPD di SIMANTAP (opsional, otomatis ditarik dari SIMPEG jika kosong)' })
+  @ApiPropertyOptional({
+    description:
+      'ID OPD di SIMANTAP (opsional, otomatis ditarik dari SIMPEG jika kosong)',
+  })
   @IsOptional()
   @IsString()
   opdId?: string;
@@ -36,7 +48,10 @@ export class SetRoleDto {
 }
 
 export class RevokeRoleDto {
-  @ApiProperty({ example: '198001012005011001', description: 'NIP Pegawai yang akan dicabut hak aksesnya' })
+  @ApiProperty({
+    example: '198001012005011001',
+    description: 'NIP Pegawai yang akan dicabut hak aksesnya',
+  })
   @IsNotEmpty({ message: 'NIP wajib diisi' })
   @IsString()
   nip: string;

@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../constants/app.constants';
 import { RoleEnum } from '../enums/role.enum';
@@ -9,27 +14,31 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<RoleEnum[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<RoleEnum[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest<{ user: AuthenticatedUser }>();
+    const { user } = context
+      .switchToHttp()
+      .getRequest<{ user: AuthenticatedUser }>();
 
     if (!user) {
-      throw new ForbiddenException('Akses ditolak: Pengguna tidak terautentikasi');
+      throw new ForbiddenException(
+        'Akses ditolak: Pengguna tidak terautentikasi',
+      );
     }
 
     const userRoles: RoleEnum[] =
       user.roles && user.roles.length > 0
         ? user.roles
         : user.role
-        ? [user.role]
-        : [];
+          ? [user.role]
+          : [];
 
     // Administrator always has full access
     if (userRoles.includes(RoleEnum.ADMINISTRATOR)) {

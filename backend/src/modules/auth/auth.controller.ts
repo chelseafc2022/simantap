@@ -19,7 +19,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RoleEnum } from '../../common/enums/role.enum';
-import { AuthenticatedUser } from '../../common/interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -35,7 +34,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Login akun ASN via NIP / Email dan Password',
-    description: 'Mengembalikan Access Token (JWT 15m) dan Refresh Token (7d) untuk wrapper refresh token frontend.',
+    description:
+      'Mengembalikan Access Token (JWT 15m) dan Refresh Token (7d) untuk wrapper refresh token frontend.',
   })
   @ApiResponse({ status: 200, description: 'Login berhasil' })
   @ApiResponse({ status: 401, description: 'Kredensial tidak valid' })
@@ -53,10 +53,14 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Refresh Access Token menggunakan Refresh Token',
-    description: 'Mendukung rotasi token otomatis pada wrapper TanStack Query / Axios frontend.',
+    description:
+      'Mendukung rotasi token otomatis pada wrapper TanStack Query / Axios frontend.',
   })
   @ApiResponse({ status: 200, description: 'Token berhasil diperbarui' })
-  @ApiResponse({ status: 401, description: 'Refresh token tidak valid atau kedaluwarsa' })
+  @ApiResponse({
+    status: 401,
+    description: 'Refresh token tidak valid atau kedaluwarsa',
+  })
   refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto);
   }
@@ -64,14 +68,18 @@ export class AuthController {
   @ApiBearerAuth()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Logout akun dan mencabut seluruh refresh token aktif' })
+  @ApiOperation({
+    summary: 'Logout akun dan mencabut seluruh refresh token aktif',
+  })
   logout(@CurrentUser('id') userId: string) {
     return this.authService.logout(userId);
   }
 
   @ApiBearerAuth()
   @Get('me')
-  @ApiOperation({ summary: 'Mendapatkan data profil dan hak akses pengguna yang sedang login' })
+  @ApiOperation({
+    summary: 'Mendapatkan data profil dan hak akses pengguna yang sedang login',
+  })
   getProfile(@CurrentUser('id') userId: string) {
     return this.authService.getProfile(userId);
   }
@@ -79,7 +87,9 @@ export class AuthController {
   @ApiBearerAuth()
   @Roles(RoleEnum.ADMINISTRATOR)
   @Post('register')
-  @ApiOperation({ summary: 'Pendaftaran akun baru (Khusus Role Administrator)' })
+  @ApiOperation({
+    summary: 'Pendaftaran akun baru (Khusus Role Administrator)',
+  })
   register(@Body() dto: RegisterUserDto) {
     return this.authService.register(dto);
   }

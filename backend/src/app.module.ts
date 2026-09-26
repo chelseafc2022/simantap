@@ -33,7 +33,14 @@ import { UsersModule } from './modules/users/users.module';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, redisConfig, mailConfig, egovConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        redisConfig,
+        mailConfig,
+        egovConfig,
+      ],
       validationSchema,
     }),
 

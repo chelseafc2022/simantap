@@ -23,20 +23,47 @@ export interface EgovPegawaiProfile {
   unitKerjaId?: string | number;
 }
 
+export interface SimpegOpdInfo {
+  id: string;
+  kodeOpd: string;
+  namaOpd: string;
+  singkatan?: string;
+}
+
+export interface SimpegSubUnitInfo {
+  id: string;
+  kodeSubUnit: string;
+  namaSubUnit: string;
+  opdId: string;
+}
+
 @Injectable()
 export class EgovService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EgovService.name);
   private pool: mysql.Pool | null = null;
   private isConnected = false;
 
+  private instansiCache: Map<string, SimpegOpdInfo> = new Map();
+  private unitKerjaCache: Map<string, SimpegSubUnitInfo> = new Map();
+  private lastCacheTime = 0;
+
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    const host = this.configService.get<string>('egov.host', 'mysql.konaweselatankab.go.id');
+    const host = this.configService.get<string>(
+      'egov.host',
+      'mysql.konaweselatankab.go.id',
+    );
     const user = this.configService.get<string>('egov.user', 'diskominfosandi');
-    const password = this.configService.get<string>('egov.password', 'NewKominfo2018');
+    const password = this.configService.get<string>(
+      'egov.password',
+      'NewKominfo2018',
+    );
     const port = this.configService.get<number>('egov.port', 3306);
-    const connectionLimit = this.configService.get<number>('egov.connectionLimit', 20);
+    const connectionLimit = this.configService.get<number>(
+      'egov.connectionLimit',
+      20,
+    );
 
     try {
       this.pool = mysql.createPool({
@@ -54,11 +81,15 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       const conn = await this.pool.getConnection();
       conn.release();
       this.isConnected = true;
-      this.logger.log(`Berhasil terhubung ke Server Database E-Gov & SIMPEG Konsel (${host})`);
+      this.logger.log(
+        `Berhasil terhubung ke Server Database E-Gov & SIMPEG Konsel (${host})`,
+      );
+      // Muat cache referensi SIMPEG instansi & unit_kerja
+      await this.loadCache();
     } catch (error) {
       this.isConnected = false;
       this.logger.warn(
-        `Koneksi ke server database E-Gov & SIMPEG tidak dapat dibangun (${error.message}). Otentikasi fallback lokal tetap aktif.`,
+        `Koneksi ke server database E-Gov & SIMPEG tidak dapat dibangun (${error.message}).`,
       );
     }
   }
@@ -94,7 +125,10 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         ? `, ${r.gelar_belakang.trim()}`
         : '';
 
-    const rawNama = (r.nama || r.username || '').replace(/^[-,\s]+|[-,\s]+$/g, '');
+    const rawNama = (r.nama || r.username || '').replace(
+      /^[-,\s]+|[-,\s]+$/g,
+      '',
+    );
     return `${gDepan}${rawNama}${gBelakang}`.trim();
   }
 
@@ -135,13 +169,19 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LIMIT 1;
       `;
 
-      const [rows] = await this.pool.query<any[]>(sqlEgov, [cleanInput, cleanInput]);
+      const [rows] = await this.pool.query<any[]>(sqlEgov, [
+        cleanInput,
+        cleanInput,
+      ]);
       if (!rows || rows.length === 0) {
         return null;
       }
 
       const egovUser = rows[0];
-      const isMatch = await bcrypt.compare(passwordPlain, egovUser.egov_password);
+      const isMatch = await bcrypt.compare(
+        passwordPlain,
+        egovUser.egov_password,
+      );
       if (!isMatch) {
         return null;
       }
@@ -162,7 +202,10 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         gelarBelakang: egovUser.bio_gelar_belakang,
         namaLengkap,
         jabatan: egovUser.bio_jabatan || 'Pegawai ASN',
-        opd: egovUser.instansi_nama || egovUser.unit_kerja_nama || 'Pemerintah Kabupaten Konawe Selatan',
+        opd:
+          egovUser.instansi_nama ||
+          egovUser.unit_kerja_nama ||
+          'Pemerintah Kabupaten Konawe Selatan',
         unitKerja: egovUser.unit_kerja_nama || '-',
         instansiId: egovUser.instansi_id,
         unitKerjaId: egovUser.unit_kerja_id,
@@ -322,12 +365,14 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       const limit = Math.min(100, Math.max(1, params.limit || 10));
       const offset = (page - 1) * limit;
 
-      let whereClauses: string[] = ['simpeg.biodata.nama IS NOT NULL'];
-      let queryParams: any[] = [];
+      const whereClauses: string[] = ['simpeg.biodata.nama IS NOT NULL'];
+      const queryParams: any[] = [];
 
       if (params.search && params.search.trim() !== '') {
         const s = `%${params.search.trim()}%`;
-        whereClauses.push('(simpeg.biodata.nip LIKE ? OR simpeg.biodata.nama LIKE ?)');
+        whereClauses.push(
+          '(simpeg.biodata.nip LIKE ? OR simpeg.biodata.nama LIKE ?)',
+        );
         queryParams.push(s, s);
       }
 
@@ -445,7 +490,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
     try {
-      const sql = 'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;';
+      const sql =
+        'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;';
       const [rows] = await this.pool.query<any[]>(sql);
       return (rows || []).map((r) => ({
         id: String(r.id),
@@ -463,7 +509,10 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
   /**
    * Mengambil daftar NIP dari SIMPEG berdasarkan Instansi dan/atau Sub Unit Kerja (READ-ONLY)
    */
-  async getNipsByInstansi(instansiId?: string, unitKerjaId?: string): Promise<string[]> {
+  async getNipsByInstansi(
+    instansiId?: string,
+    unitKerjaId?: string,
+  ): Promise<string[]> {
     if (!this.pool || !this.isConnected) {
       return [];
     }
@@ -497,17 +546,50 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getUnitKerjaList(instansiId?: string): Promise<{ id: string; unitKerja: string; instansiId: string }[]> {
+  async getUnitKerjaList(
+    instansiId?: string,
+    namaInstansi?: string,
+  ): Promise<{ id: string; unitKerja: string; instansiId: string }[]> {
     if (!this.pool || !this.isConnected) {
       return [];
     }
     try {
+      let resolvedInstansiId = instansiId;
+
+      if (instansiId && instansiId !== 'all') {
+        // Cek apakah ada unit_kerja yang langsung cocok dengan ID ini
+        const [direct] = await this.pool.query<any[]>(
+          'SELECT id FROM simpeg.unit_kerja WHERE instansi = ? LIMIT 1',
+          [instansiId],
+        );
+
+        if (!direct || direct.length === 0) {
+          // Cari instansi di simpeg.instansi jika kode berupa alias (misal OPD-SETDA) atau namaInstansi
+          const terms = [
+            namaInstansi,
+            instansiId.replace(/^OPD-/, ''),
+            instansiId,
+          ].filter(Boolean) as string[];
+
+          for (const term of terms) {
+            const [matched] = await this.pool.query<any[]>(
+              'SELECT id, instansi FROM simpeg.instansi WHERE id = ? OR instansi LIKE ? LIMIT 1',
+              [term, `%${term}%`],
+            );
+            if (matched && matched.length > 0) {
+              resolvedInstansiId = String(matched[0].id);
+              break;
+            }
+          }
+        }
+      }
+
       let sql = 'SELECT id, unit_kerja, instansi FROM simpeg.unit_kerja';
       const params: any[] = [];
 
-      if (instansiId && instansiId !== 'all') {
+      if (resolvedInstansiId && resolvedInstansiId !== 'all') {
         sql += ' WHERE instansi = ?';
-        params.push(instansiId);
+        params.push(resolvedInstansiId);
       }
       sql += ' ORDER BY unit_kerja ASC;';
 
@@ -523,4 +605,141 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Muat dan perbarui Cache Instansi & Unit Kerja dari database SIMPEG
+   */
+  async loadCache(force = false) {
+    if (!this.pool || !this.isConnected) return;
+    const now = Date.now();
+    if (
+      !force &&
+      this.instansiCache.size > 0 &&
+      now - this.lastCacheTime < 30 * 60 * 1000
+    ) {
+      return;
+    }
+
+    try {
+      // 1. Ambil seluruh Instansi (OPD) dari SIMPEG
+      const [instansiRows] = await this.pool.query<any[]>(
+        'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;',
+      );
+      this.instansiCache.clear();
+      for (const r of instansiRows || []) {
+        const id = String(r.id);
+        const namaOpd = (r.instansi || '').trim();
+        this.instansiCache.set(id, {
+          id,
+          kodeOpd: id,
+          namaOpd,
+          singkatan: this.generateSingkatan(namaOpd),
+        });
+      }
+
+      // 2. Ambil seluruh Unit Kerja (Sub Unit) dari SIMPEG
+      const [unitKerjaRows] = await this.pool.query<any[]>(
+        'SELECT id, unit_kerja, instansi FROM simpeg.unit_kerja ORDER BY unit_kerja ASC;',
+      );
+      this.unitKerjaCache.clear();
+      for (const r of unitKerjaRows || []) {
+        const id = String(r.id);
+        const namaSubUnit = (r.unit_kerja || '').trim();
+        const opdId = String(r.instansi || '').trim();
+        this.unitKerjaCache.set(id, {
+          id,
+          kodeSubUnit: id,
+          namaSubUnit,
+          opdId,
+        });
+      }
+
+      this.lastCacheTime = now;
+      this.logger.log(
+        `Cache SIMPEG berhasil dimuat: ${this.instansiCache.size} Instansi (OPD), ${this.unitKerjaCache.size} Unit Kerja (Sub Unit)`,
+      );
+    } catch (err: any) {
+      this.logger.error(`Gagal memuat cache SIMPEG: ${err.message}`);
+    }
+  }
+
+  private generateSingkatan(nama: string): string {
+    if (!nama) return '';
+    const upper = nama.toUpperCase();
+    if (upper.includes('SEKRETARIAT DAERAH')) return 'SETDA';
+    if (upper.includes('SEKRETARIAT DPRD')) return 'SETWAN';
+    if (upper.includes('INSPEKTORAT')) return 'ITDA';
+    if (upper.includes('BADAN PENGELOLAAN KEUANGAN') || upper.includes('BADAN KEUANGAN'))
+      return 'BKAD';
+    if (upper.includes('PERENCANAAN PEMBANGUNAN')) return 'BAPPEDA';
+    if (upper.includes('PENDIDIKAN')) return 'DIKBUD';
+    if (upper.includes('KESEHATAN')) return 'DINKES';
+    if (upper.includes('PEKERJAAN UMUM')) return 'DPUPR';
+    if (upper.includes('KOMUNIKASI')) return 'DISKOMINFO';
+    if (upper.includes('PERHUBUNGAN')) return 'DISHUB';
+    if (upper.includes('SOSIAL')) return 'DINSOS';
+    if (upper.includes('PARIWISATA')) return 'DISPAR';
+    if (upper.includes('LINGKUNGAN HIDUP')) return 'DLH';
+    if (upper.includes('KEPENDUDUKAN')) return 'DUKCAPIL';
+    return '';
+  }
+
+  getOpdById(id?: string | null): SimpegOpdInfo | null {
+    if (!id) return null;
+    const cleanId = String(id).trim();
+    const found = this.instansiCache.get(cleanId);
+    if (found) return found;
+    for (const opd of this.instansiCache.values()) {
+      if (
+        opd.namaOpd.toLowerCase() === cleanId.toLowerCase() ||
+        opd.kodeOpd === cleanId
+      ) {
+        return opd;
+      }
+    }
+    return {
+      id: cleanId,
+      kodeOpd: cleanId,
+      namaOpd: cleanId,
+    };
+  }
+
+  getSubUnitById(id?: string | null): SimpegSubUnitInfo | null {
+    if (!id) return null;
+    const cleanId = String(id).trim();
+    const found = this.unitKerjaCache.get(cleanId);
+    if (found) return found;
+    for (const su of this.unitKerjaCache.values()) {
+      if (
+        su.namaSubUnit.toLowerCase() === cleanId.toLowerCase() ||
+        su.kodeSubUnit === cleanId
+      ) {
+        return su;
+      }
+    }
+    return {
+      id: cleanId,
+      kodeSubUnit: cleanId,
+      namaSubUnit: cleanId,
+      opdId: '',
+    };
+  }
+
+  async getOpdOptions(): Promise<SimpegOpdInfo[]> {
+    await this.loadCache();
+    return Array.from(this.instansiCache.values()).sort((a, b) =>
+      a.namaOpd.localeCompare(b.namaOpd),
+    );
+  }
+
+  async getSubUnitOptions(opdId?: string): Promise<SimpegSubUnitInfo[]> {
+    await this.loadCache();
+    const all = Array.from(this.unitKerjaCache.values());
+    if (!opdId || opdId === 'ALL' || opdId === 'all') {
+      return all.sort((a, b) => a.namaSubUnit.localeCompare(b.namaSubUnit));
+    }
+    const cleanOpdId = String(opdId).trim();
+    return all
+      .filter((su) => su.opdId === cleanOpdId)
+      .sort((a, b) => a.namaSubUnit.localeCompare(b.namaSubUnit));
+  }
 }

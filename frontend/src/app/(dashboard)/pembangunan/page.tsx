@@ -54,9 +54,19 @@ import {
 
 export default function PaketPembangunanPage() {
   const { user } = useAuth()
-  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userRoles: string[] =
+    user?.roles && user.roles.length > 0
+      ? user.roles
+      : user?.role
+      ? [user.role]
+      : []
+  const hasRole = (role: string) => userRoles.includes(role)
+  const isSuperRole = userRoles.length === 0 || userRoles.some((r) => ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r))
+  const isKepalaOpd = hasRole("KEPALA_OPD")
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
+  const userSubUnitId = user?.subUnit?.id
+  const userSubUnitNama = user?.subUnit?.namaSubUnit
 
   // Filters state
   const [search, setSearch] = useState("")
@@ -68,15 +78,19 @@ export default function PaketPembangunanPage() {
   const [page, setPage] = useState<number>(1)
   const limit = 10
 
-  // Lock selectedOpd if not super role
+  // Lock selectedOpd & selectedSubUnit if not super role
   useEffect(() => {
     if (!isSuperRole && userOpdId) {
       setSelectedOpd(userOpdId)
     }
-  }, [isSuperRole, userOpdId])
+    if (!isSuperRole && !isKepalaOpd && userSubUnitId) {
+      setSelectedSubUnit(userSubUnitId)
+    }
+  }, [isSuperRole, isKepalaOpd, userOpdId, userSubUnitId])
 
   // Dialogs state
   const [formOpen, setFormOpen] = useState<boolean>(false)
+  const [formDefaultTab, setFormDefaultTab] = useState<"info" | "targets">("info")
   const [detailOpen, setDetailOpen] = useState<boolean>(false)
   const [deleteOpen, setDeleteOpen] = useState<boolean>(false)
   const [selectedPaket, setSelectedPaket] = useState<PaketItem | null>(null)
@@ -193,11 +207,19 @@ export default function PaketPembangunanPage() {
 
   const handleOpenCreate = () => {
     setSelectedPaket(null)
+    setFormDefaultTab("info")
     setFormOpen(true)
   }
 
   const handleOpenEdit = (paket: PaketItem) => {
     setSelectedPaket(paket)
+    setFormDefaultTab("info")
+    setFormOpen(true)
+  }
+
+  const handleOpenTarget = (paket: PaketItem) => {
+    setSelectedPaket(paket)
+    setFormDefaultTab("targets")
     setFormOpen(true)
   }
 
@@ -253,14 +275,16 @@ export default function PaketPembangunanPage() {
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Segarkan Data</span>
           </Button>
-          <Button
-            size="sm"
-            onClick={handleOpenCreate}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Tambah Paket Baru</span>
-          </Button>
+          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+            <Button
+              size="sm"
+              onClick={handleOpenCreate}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Tambah Paket Baru</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -317,20 +341,27 @@ export default function PaketPembangunanPage() {
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
             <div className="w-full">
-              <SearchableCombobox
-                value={selectedSubUnit}
-                onValueChange={(val) => {
-                  setSelectedSubUnit(val)
-                  setPage(1)
-                }}
-                items={subUnitOptions}
-                placeholder={isLoadingSubUnit ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
-                searchPlaceholder="Ketik nama Sub Unit Kerja..."
-                emptyText="Sub Unit Kerja tidak ditemukan."
-                allLabel="-- Semua Sub Unit Kerja --"
-                icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                disabled={isLoadingSubUnit}
-              />
+              {!isSuperRole && !isKepalaOpd && userSubUnitNama ? (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
+                  <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span className="truncate">{userSubUnitNama}</span>
+                </div>
+              ) : (
+                <SearchableCombobox
+                  value={selectedSubUnit}
+                  onValueChange={(val) => {
+                    setSelectedSubUnit(val)
+                    setPage(1)
+                  }}
+                  items={subUnitOptions}
+                  placeholder={isLoadingSubUnit ? "Memuat Sub Unit..." : "Ketik / Pilih Sub Unit..."}
+                  searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                  emptyText="Sub Unit Kerja tidak ditemukan."
+                  allLabel="-- Semua Sub Unit Kerja --"
+                  icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                  disabled={isLoadingSubUnit}
+                />
+              )}
             </div>
 
             {/* Filter Tahun Anggaran */}
@@ -568,24 +599,45 @@ export default function PaketPembangunanPage() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                            title="Ubah Paket"
-                            onClick={() => handleOpenEdit(paket)}
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            title="Hapus Paket"
-                            onClick={() => handleOpenDelete(paket)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+
+                          {/* Tombol Khusus Admin Perencanaan: Tetapkan / Ubah Target Fisik */}
+                          {(isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              title="Tetapkan / Ubah Target Fisik (12 Bulan)"
+                              onClick={() => handleOpenTarget(paket)}
+                            >
+                              <TrendingUp className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {/* Tombol Ubah Rincian Pengadaan: Admin SiRUP & Administrator */}
+                          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                              title="Ubah Rincian PBJ / Kontrak"
+                              onClick={() => handleOpenEdit(paket)}
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {/* Tombol Hapus: Hanya Administrator & Admin SiRUP pembuat */}
+                          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              title="Hapus Paket"
+                              onClick={() => handleOpenDelete(paket)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -639,6 +691,7 @@ export default function PaketPembangunanPage() {
         initialData={selectedPaket}
         opdList={opdList}
         constants={constantsResponse}
+        defaultTab={formDefaultTab}
       />
 
       <PaketDetailDialog

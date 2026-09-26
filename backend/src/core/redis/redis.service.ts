@@ -29,7 +29,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         db,
         retryStrategy: (times) => {
           if (times > 3) {
-            this.logger.warn('Gagal terhubung ke Redis setelah 3 percobaan. Fitur cache Redis dinonaktifkan sementara.');
+            this.logger.warn(
+              'Gagal terhubung ke Redis setelah 3 percobaan. Fitur cache Redis dinonaktifkan sementara.',
+            );
             return null;
           }
           return Math.min(times * 1000, 3000);
@@ -49,7 +51,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.client.connect().catch((err) => {
-        this.logger.warn(`Redis tidak tersedia: ${err.message}. Aplikasi tetap dapat berjalan.`);
+        this.logger.warn(
+          `Redis tidak tersedia: ${err.message}. Aplikasi tetap dapat berjalan.`,
+        );
       });
     } catch (err) {
       this.logger.warn('Inisialisasi client Redis dilewati');
@@ -114,6 +118,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       if (keys.length > 0) {
         await this.client.del(...keys);
       }
-    } catch (err) {}
+    } catch {
+      // Abaikan jika gagal flush pattern
+    }
   }
 }

@@ -13,7 +13,10 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret', 'simantap-jwt-access-secret-super-secure-key-2026'),
+        secret: configService.get<string>(
+          'jwt.secret',
+          'simantap-jwt-access-secret-super-secure-key-2026',
+        ),
         signOptions: {
           expiresIn: configService.get<string>('jwt.expiresIn', '15m') as any,
         },

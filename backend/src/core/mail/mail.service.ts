@@ -34,7 +34,10 @@ export class MailService {
       this.logger.log(`Email berhasil dikirim ke: ${options.to}`);
       return true;
     } catch (error) {
-      this.logger.error(`Gagal mengirim email ke ${options.to}:`, error.message);
+      this.logger.error(
+        `Gagal mengirim email ke ${options.to}:`,
+        error.message,
+      );
       return false;
     }
   }

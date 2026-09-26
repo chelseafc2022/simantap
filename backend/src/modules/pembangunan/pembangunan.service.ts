@@ -5,7 +5,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, StatusVerifikasi } from '@prisma/client';
+import { unlink } from 'fs/promises';
+import { existsSync } from 'fs';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService } from '../../core/egov/egov.service';
@@ -14,7 +16,11 @@ import { QueryPaketDto } from './dto/query-paket.dto';
 import { QueryRealisasiDto } from './dto/query-realisasi.dto';
 import { SetTargetsDto } from './dto/set-targets.dto';
 import { UpdatePaketDto } from './dto/update-paket.dto';
-import { BulkUpsertRealisasiDto, UpsertRealisasiDto } from './dto/upsert-realisasi.dto';
+import {
+  BulkUpsertRealisasiDto,
+  UpsertRealisasiDto,
+} from './dto/upsert-realisasi.dto';
+import { VerifikasiRealisasiDto } from './dto/verifikasi-realisasi.dto';
 
 @Injectable()
 export class PembangunanService {
@@ -26,14 +32,74 @@ export class PembangunanService {
   ) {}
 
   /**
-   * Helper pengecekan hak akses scope OPD
+   * Helper pengecekan hak akses scope OPD & Sub Unit Kerja
    */
-  private checkOpdAccess(user: any, opdId: string) {
+  private checkOpdAccess(user: any, opdId: string, subUnitId?: string | null) {
     if (!user) return;
-    const isSuperRole = [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
-    if (!isSuperRole && user.opdId && user.opdId !== opdId) {
+    const isSuperRole = [
+      RoleEnum.ADMINISTRATOR,
+      RoleEnum.PIMPINAN_DAERAH,
+      RoleEnum.MONEV,
+    ].includes(user.role);
+    if (isSuperRole) return;
+
+    if (user.opdId && user.opdId !== opdId) {
       throw new ForbiddenException('Anda tidak memiliki akses ke data OPD ini');
     }
+
+    if (user.subUnitId && user.role !== RoleEnum.KEPALA_OPD) {
+      if (!subUnitId || user.subUnitId !== subUnitId) {
+        throw new ForbiddenException(
+          'Anda hanya memiliki hak akses untuk data pada Sub Unit Kerja Anda',
+        );
+      }
+    }
+  }
+
+  /**
+   * Helper untuk membentuk filter scope OPD / Sub Unit Kerja pada query database
+   */
+  private buildScopeFilter(user?: any): Prisma.PaketPembangunanWhereInput {
+    const userRoles: RoleEnum[] =
+      user?.roles && user.roles.length > 0
+        ? user.roles
+        : user?.role
+          ? [user.role]
+          : [];
+
+    if (userRoles.length === 0) return {};
+
+    const isSuperRole = userRoles.some((r) =>
+      [
+        RoleEnum.ADMINISTRATOR,
+        RoleEnum.PIMPINAN_DAERAH,
+        RoleEnum.MONEV,
+      ].includes(r),
+    );
+
+    if (isSuperRole) return {};
+
+    // Semua role non-super HANYA bisa melihat yang di-upload di sub unit kerja masing-masing
+    if (!userRoles.includes(RoleEnum.KEPALA_OPD)) {
+      if (user.subUnitId) {
+        return { subUnitId: user.subUnitId };
+      }
+      return { subUnitId: 'UNASSIGNED_SUB_UNIT' };
+    }
+
+    // Jika Kepala OPD, kunci ke OPD penanggung jawab
+    if (user.opdId) {
+      return { opdId: user.opdId };
+    }
+
+    return {};
+  }
+
+  /**
+   * Helper: apakah user boleh mengedit data (bukan role read-only)
+   */
+  private getSuperRoles() {
+    return [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH, RoleEnum.MONEV];
   }
 
   /**
@@ -62,17 +128,22 @@ export class PembangunanService {
       andConditions.push({ tahunAnggaran });
     }
 
-    // Role-based OPD Scoping
-    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
-    if (!isSuperRole && user?.opdId) {
-      andConditions.push({ opdId: user.opdId });
-    } else if (opdId && opdId !== 'ALL' && opdId !== 'all') {
-      andConditions.push({ opdId });
-    }
-
-    // Filter Sub Unit Kerja
-    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-      andConditions.push({ subUnitId });
+    // Role-based OPD & SubUnit Scoping (Administrator & MONEV can see all)
+    const scopeFilter = this.buildScopeFilter(user);
+    if (scopeFilter.subUnitId) {
+      andConditions.push({ subUnitId: scopeFilter.subUnitId });
+    } else if (scopeFilter.opdId) {
+      andConditions.push({ opdId: scopeFilter.opdId });
+      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+        andConditions.push({ subUnitId });
+      }
+    } else {
+      if (opdId && opdId !== 'ALL' && opdId !== 'all') {
+        andConditions.push({ opdId });
+      }
+      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+        andConditions.push({ subUnitId });
+      }
     }
 
     // Filter kategori pengadaan
@@ -116,21 +187,6 @@ export class PembangunanService {
         take: limit,
         orderBy,
         include: {
-          opd: {
-            select: {
-              id: true,
-              kodeOpd: true,
-              namaOpd: true,
-              singkatan: true,
-            },
-          },
-          subUnit: {
-            select: {
-              id: true,
-              kodeSubUnit: true,
-              namaSubUnit: true,
-            },
-          },
           targetBulanan: {
             orderBy: { bulan: 'asc' },
           },
@@ -143,8 +199,14 @@ export class PembangunanService {
 
     const totalPages = Math.ceil(total / limit) || 1;
 
+    const enrichedData = data.map((paket) => ({
+      ...paket,
+      opd: this.egovService.getOpdById(paket.opdId),
+      subUnit: this.egovService.getSubUnitById(paket.subUnitId),
+    }));
+
     return {
-      data,
+      data: enrichedData,
       meta: {
         page,
         limit,
@@ -161,8 +223,6 @@ export class PembangunanService {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id },
       include: {
-        opd: true,
-        subUnit: true,
         targetBulanan: {
           orderBy: { bulan: 'asc' },
         },
@@ -190,31 +250,47 @@ export class PembangunanService {
     });
 
     if (!paket) {
-      throw new NotFoundException(`Paket pembangunan dengan ID '${id}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Paket pembangunan dengan ID '${id}' tidak ditemukan`,
+      );
     }
 
-    this.checkOpdAccess(user, paket.opdId);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
 
-    return paket;
+    return {
+      ...paket,
+      opd: this.egovService.getOpdById(paket.opdId),
+      subUnit: this.egovService.getSubUnitById(paket.subUnitId),
+    };
   }
 
   /**
    * Tambah paket pembangunan baru beserta inisialisasi target bulanan B01-B12
    */
   async create(dto: CreatePaketDto, user?: any) {
-    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
+    const isSuperRole =
+      user?.role &&
+      [
+        RoleEnum.ADMINISTRATOR,
+        RoleEnum.PIMPINAN_DAERAH,
+        RoleEnum.MONEV,
+      ].includes(user.role);
     const assignedOpdId = !isSuperRole && user?.opdId ? user.opdId : dto.opdId;
+    const assignedSubUnitId =
+      !isSuperRole && user?.subUnitId && user.role !== RoleEnum.KEPALA_OPD
+        ? user.subUnitId
+        : dto.subUnitId;
 
     if (!assignedOpdId) {
       throw new BadRequestException('OPD penanggung jawab paket wajib diisi');
     }
 
-    // Verifikasi keberadaan OPD
-    const opdExists = await this.prisma.opd.findUnique({
-      where: { id: assignedOpdId },
-    });
+    // Verifikasi keberadaan OPD di SIMPEG
+    const opdExists = this.egovService.getOpdById(assignedOpdId);
     if (!opdExists) {
-      throw new NotFoundException(`OPD dengan ID '${assignedOpdId}' tidak ditemukan di sistem`);
+      throw new NotFoundException(
+        `OPD dengan ID '${assignedOpdId}' tidak ditemukan di SIMPEG`,
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -223,7 +299,7 @@ export class PembangunanService {
         data: {
           tahunAnggaran: dto.tahunAnggaran || 2026,
           opdId: assignedOpdId,
-          subUnitId: dto.subUnitId || null,
+          subUnitId: assignedSubUnitId || null,
           kodeRupKontrak: dto.kodeRupKontrak || null,
           namaPaket: dto.namaPaket.trim(),
           lokasiKegiatan: dto.lokasiKegiatan || null,
@@ -234,7 +310,9 @@ export class PembangunanService {
           sumberDana: dto.sumberDana || null,
           nomorKontrak: dto.nomorKontrak || null,
           tanggalMulai: dto.tanggalMulai ? new Date(dto.tanggalMulai) : null,
-          tanggalSelesai: dto.tanggalSelesai ? new Date(dto.tanggalSelesai) : null,
+          tanggalSelesai: dto.tanggalSelesai
+            ? new Date(dto.tanggalSelesai)
+            : null,
           pemenangRekanan: dto.pemenangRekanan || null,
           keterangan: dto.keterangan || null,
           createdById: user?.id || null,
@@ -242,9 +320,19 @@ export class PembangunanService {
       });
 
       // 2. Buat otomatis 12 baris target bulanan (B01 - B12)
+      // Hanya ADMINISTRATOR & ADMIN_PERENCANAAN yang berwenang menetapkan target kurva fisik.
+      // Jika diinput oleh ADMIN_SIRUP, seluruh target bulanan diinisialisasi 0% menunggu input Admin Perencanaan.
+      const canSetTargets =
+        !user?.role ||
+        [RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PERENCANAAN].includes(
+          user.role,
+        );
+
       const targetItems = [];
       for (let bulan = 1; bulan <= 12; bulan++) {
-        const item = dto.targetBulanan?.find((t) => t.bulan === bulan);
+        const item = canSetTargets
+          ? dto.targetBulanan?.find((t) => t.bulan === bulan)
+          : null;
         targetItems.push({
           paketId: paket.id,
           bulan,
@@ -273,14 +361,18 @@ export class PembangunanService {
         });
       }
 
-      return tx.paketPembangunan.findUnique({
+      const createdPaket = await tx.paketPembangunan.findUnique({
         where: { id: paket.id },
         include: {
-          opd: true,
-          subUnit: true,
           targetBulanan: { orderBy: { bulan: 'asc' } },
         },
       });
+
+      return {
+        ...createdPaket,
+        opd: this.egovService.getOpdById(createdPaket?.opdId),
+        subUnit: this.egovService.getSubUnitById(createdPaket?.subUnitId),
+      };
     });
   }
 
@@ -292,40 +384,90 @@ export class PembangunanService {
       where: { id },
     });
     if (!existing) {
-      throw new NotFoundException(`Paket pembangunan dengan ID '${id}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Paket pembangunan dengan ID '${id}' tidak ditemukan`,
+      );
     }
 
-    this.checkOpdAccess(user, existing.opdId);
+    this.checkOpdAccess(user, existing.opdId, existing.subUnitId);
 
-    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
-    const assignedOpdId = !isSuperRole && user?.opdId ? user.opdId : dto.opdId || existing.opdId;
+    const isSuperRole =
+      user?.role &&
+      [
+        RoleEnum.ADMINISTRATOR,
+        RoleEnum.PIMPINAN_DAERAH,
+        RoleEnum.MONEV,
+      ].includes(user.role);
+    const assignedOpdId =
+      !isSuperRole && user?.opdId ? user.opdId : dto.opdId || existing.opdId;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Update data pokok paket
       const updatedPaket = await tx.paketPembangunan.update({
         where: { id },
         data: {
-          tahunAnggaran: dto.tahunAnggaran !== undefined ? dto.tahunAnggaran : existing.tahunAnggaran,
+          tahunAnggaran:
+            dto.tahunAnggaran !== undefined
+              ? dto.tahunAnggaran
+              : existing.tahunAnggaran,
           opdId: assignedOpdId,
-          subUnitId: dto.subUnitId !== undefined ? dto.subUnitId : existing.subUnitId,
-          kodeRupKontrak: dto.kodeRupKontrak !== undefined ? dto.kodeRupKontrak : existing.kodeRupKontrak,
-          namaPaket: dto.namaPaket !== undefined ? dto.namaPaket.trim() : existing.namaPaket,
-          lokasiKegiatan: dto.lokasiKegiatan !== undefined ? dto.lokasiKegiatan : existing.lokasiKegiatan,
-          metodePemilihan: dto.metodePemilihan !== undefined ? dto.metodePemilihan : existing.metodePemilihan,
-          jenisPengadaan: dto.jenisPengadaan !== undefined ? dto.jenisPengadaan : existing.jenisPengadaan,
-          nilaiPagu: dto.nilaiPagu !== undefined ? dto.nilaiPagu : existing.nilaiPagu,
-          nilaiKontrak: dto.nilaiKontrak !== undefined ? dto.nilaiKontrak : existing.nilaiKontrak,
-          sumberDana: dto.sumberDana !== undefined ? dto.sumberDana : existing.sumberDana,
-          nomorKontrak: dto.nomorKontrak !== undefined ? dto.nomorKontrak : existing.nomorKontrak,
-          tanggalMulai: dto.tanggalMulai ? new Date(dto.tanggalMulai) : existing.tanggalMulai,
-          tanggalSelesai: dto.tanggalSelesai ? new Date(dto.tanggalSelesai) : existing.tanggalSelesai,
-          pemenangRekanan: dto.pemenangRekanan !== undefined ? dto.pemenangRekanan : existing.pemenangRekanan,
-          keterangan: dto.keterangan !== undefined ? dto.keterangan : existing.keterangan,
+          subUnitId:
+            dto.subUnitId !== undefined ? dto.subUnitId : existing.subUnitId,
+          kodeRupKontrak:
+            dto.kodeRupKontrak !== undefined
+              ? dto.kodeRupKontrak
+              : existing.kodeRupKontrak,
+          namaPaket:
+            dto.namaPaket !== undefined
+              ? dto.namaPaket.trim()
+              : existing.namaPaket,
+          lokasiKegiatan:
+            dto.lokasiKegiatan !== undefined
+              ? dto.lokasiKegiatan
+              : existing.lokasiKegiatan,
+          metodePemilihan:
+            dto.metodePemilihan !== undefined
+              ? dto.metodePemilihan
+              : existing.metodePemilihan,
+          jenisPengadaan:
+            dto.jenisPengadaan !== undefined
+              ? dto.jenisPengadaan
+              : existing.jenisPengadaan,
+          nilaiPagu:
+            dto.nilaiPagu !== undefined ? dto.nilaiPagu : existing.nilaiPagu,
+          nilaiKontrak:
+            dto.nilaiKontrak !== undefined
+              ? dto.nilaiKontrak
+              : existing.nilaiKontrak,
+          sumberDana:
+            dto.sumberDana !== undefined ? dto.sumberDana : existing.sumberDana,
+          nomorKontrak:
+            dto.nomorKontrak !== undefined
+              ? dto.nomorKontrak
+              : existing.nomorKontrak,
+          tanggalMulai: dto.tanggalMulai
+            ? new Date(dto.tanggalMulai)
+            : existing.tanggalMulai,
+          tanggalSelesai: dto.tanggalSelesai
+            ? new Date(dto.tanggalSelesai)
+            : existing.tanggalSelesai,
+          pemenangRekanan:
+            dto.pemenangRekanan !== undefined
+              ? dto.pemenangRekanan
+              : existing.pemenangRekanan,
+          keterangan:
+            dto.keterangan !== undefined ? dto.keterangan : existing.keterangan,
         },
       });
 
-      // 2. Update target bulanan jika disertakan
-      if (dto.targetBulanan && dto.targetBulanan.length > 0) {
+      // 2. Update target bulanan jika disertakan dan role berwenang (ADMINISTRATOR / ADMIN_PERENCANAAN)
+      const canUpdateTargets =
+        !user?.role ||
+        [RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PERENCANAAN].includes(
+          user.role,
+        );
+
+      if (canUpdateTargets && dto.targetBulanan && dto.targetBulanan.length > 0) {
         for (const item of dto.targetBulanan) {
           await tx.targetBulanan.upsert({
             where: {
@@ -362,14 +504,18 @@ export class PembangunanService {
         });
       }
 
-      return tx.paketPembangunan.findUnique({
+      const updated = await tx.paketPembangunan.findUnique({
         where: { id },
         include: {
-          opd: true,
-          subUnit: true,
           targetBulanan: { orderBy: { bulan: 'asc' } },
         },
       });
+
+      return {
+        ...updated,
+        opd: this.egovService.getOpdById(updated?.opdId),
+        subUnit: this.egovService.getSubUnitById(updated?.subUnitId),
+      };
     });
   }
 
@@ -381,10 +527,12 @@ export class PembangunanService {
       where: { id },
     });
     if (!existing) {
-      throw new NotFoundException(`Paket pembangunan dengan ID '${id}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Paket pembangunan dengan ID '${id}' tidak ditemukan`,
+      );
     }
 
-    this.checkOpdAccess(user, existing.opdId);
+    this.checkOpdAccess(user, existing.opdId, existing.subUnitId);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.paketPembangunan.delete({
@@ -418,10 +566,12 @@ export class PembangunanService {
       where: { id },
     });
     if (!existing) {
-      throw new NotFoundException(`Paket pembangunan dengan ID '${id}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Paket pembangunan dengan ID '${id}' tidak ditemukan`,
+      );
     }
 
-    this.checkOpdAccess(user, existing.opdId);
+    this.checkOpdAccess(user, existing.opdId, existing.subUnitId);
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of dto.targets) {
@@ -452,74 +602,18 @@ export class PembangunanService {
 
   /**
    * Mengambil daftar referensi OPD dari lokal database untuk dropdown
+  /**
+   * Mengambil daftar referensi OPD aktif dari SIMPEG
    */
   async getOpdOptions() {
-    return this.prisma.opd.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        kodeOpd: true,
-        namaOpd: true,
-        singkatan: true,
-      },
-      orderBy: { namaOpd: 'asc' },
-    });
+    return this.egovService.getOpdOptions();
   }
 
   /**
-   * Mengambil daftar Sub Unit Kerja berdasarkan OPD (sinkron dari SIMPEG)
+   * Mengambil daftar Sub Unit Kerja langsung dari SIMPEG berdasarkan OPD
    */
   async getSubUnitOptions(opdId?: string) {
-    if (!opdId || opdId === 'ALL' || opdId === 'all') {
-      return this.prisma.subUnit.findMany({
-        select: {
-          id: true,
-          kodeSubUnit: true,
-          namaSubUnit: true,
-          opdId: true,
-        },
-        orderBy: { namaSubUnit: 'asc' },
-      });
-    }
-
-    const opd = await this.prisma.opd.findUnique({
-      where: { id: opdId },
-    });
-    if (!opd) return [];
-
-    // Tarik daftar sub-unit dari SIMPEG
-    const simpegSubUnits = await this.egovService.getUnitKerjaList(opd.kodeOpd);
-
-    // Sinkronkan ke tabel lokal sub_unit
-    for (const su of simpegSubUnits) {
-      await this.prisma.subUnit.upsert({
-        where: {
-          opdId_kodeSubUnit: {
-            opdId: opd.id,
-            kodeSubUnit: su.id,
-          },
-        },
-        create: {
-          opdId: opd.id,
-          kodeSubUnit: su.id,
-          namaSubUnit: su.unitKerja,
-        },
-        update: {
-          namaSubUnit: su.unitKerja,
-        },
-      });
-    }
-
-    return this.prisma.subUnit.findMany({
-      where: { opdId: opd.id },
-      select: {
-        id: true,
-        kodeSubUnit: true,
-        namaSubUnit: true,
-        opdId: true,
-      },
-      orderBy: { namaSubUnit: 'asc' },
-    });
+    return this.egovService.getSubUnitOptions(opdId);
   }
 
   /**
@@ -578,25 +672,37 @@ export class PembangunanService {
       statusDeviasi,
     } = query;
 
-    const activeBulan = bulan ? Math.min(12, Math.max(1, Number(bulan))) : (new Date().getMonth() + 1);
+    const activeBulan = bulan
+      ? Math.min(12, Math.max(1, Number(bulan)))
+      : new Date().getMonth() + 1;
 
     const andConditions: Prisma.PaketPembangunanWhereInput[] = [
       { tahunAnggaran: Number(tahunAnggaran) },
     ];
 
-    // Filter scope role
-    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
-    if (!isSuperRole && user?.opdId) {
-      andConditions.push({ opdId: user.opdId });
-    } else if (opdId && opdId !== 'ALL' && opdId !== 'all') {
-      andConditions.push({ opdId });
+    // Filter scope role (Administrator & MONEV can see all)
+    const scopeFilter = this.buildScopeFilter(user);
+    if (scopeFilter.subUnitId) {
+      andConditions.push({ subUnitId: scopeFilter.subUnitId });
+    } else if (scopeFilter.opdId) {
+      andConditions.push({ opdId: scopeFilter.opdId });
+      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+        andConditions.push({ subUnitId });
+      }
+    } else {
+      if (opdId && opdId !== 'ALL' && opdId !== 'all') {
+        andConditions.push({ opdId });
+      }
+      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+        andConditions.push({ subUnitId });
+      }
     }
 
-    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-      andConditions.push({ subUnitId });
-    }
-
-    if (metodePemilihan && metodePemilihan !== 'ALL' && metodePemilihan !== 'all') {
+    if (
+      metodePemilihan &&
+      metodePemilihan !== 'ALL' &&
+      metodePemilihan !== 'all'
+    ) {
       andConditions.push({ metodePemilihan });
     }
 
@@ -618,26 +724,8 @@ export class PembangunanService {
     // Ambil seluruh paket yang sesuai kriteria filter untuk perhitungan aggregat & deviasi
     const pakets = await this.prisma.paketPembangunan.findMany({
       where,
-      orderBy: [
-        { opd: { namaOpd: 'asc' } },
-        { namaPaket: 'asc' },
-      ],
+      orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
       include: {
-        opd: {
-          select: {
-            id: true,
-            kodeOpd: true,
-            namaOpd: true,
-            singkatan: true,
-          },
-        },
-        subUnit: {
-          select: {
-            id: true,
-            kodeSubUnit: true,
-            namaSubUnit: true,
-          },
-        },
         targetBulanan: {
           orderBy: { bulan: 'asc' },
         },
@@ -658,22 +746,33 @@ export class PembangunanService {
 
     // Proses kalkulasi target vs realisasi bulan berjalan
     const processed = pakets.map((paket) => {
-      const targetItem = paket.targetBulanan.find((t) => t.bulan === activeBulan);
-      const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === activeBulan);
+      const targetItem = paket.targetBulanan.find(
+        (t) => t.bulan === activeBulan,
+      );
+      const realisasiItem = paket.realisasiBulanan.find(
+        (r) => r.bulan === activeBulan,
+      );
 
       const nilaiPagu = Number(paket.nilaiPagu) || 0;
       const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
       const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-      const realisasiFisik = realisasiItem ? Number(realisasiItem.realisasiFisik) : 0;
-      const realisasiKeuangan = realisasiItem ? Number(realisasiItem.realisasiKeuangan) : 0;
+      const realisasiFisik = realisasiItem
+        ? Number(realisasiItem.realisasiFisik)
+        : 0;
+      const realisasiKeuangan = realisasiItem
+        ? Number(realisasiItem.realisasiKeuangan)
+        : 0;
       const catatanOperator = realisasiItem?.catatanOperator || null;
       const inputBy = realisasiItem?.inputBy || null;
       const updatedAt = realisasiItem?.updatedAt || null;
 
-      const deviasiFisik = parseFloat((realisasiFisik - targetFisik).toFixed(2));
-      const persenKeuangan = nilaiKontrak > 0
-        ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
-        : 0;
+      const deviasiFisik = parseFloat(
+        (realisasiFisik - targetFisik).toFixed(2),
+      );
+      const persenKeuangan =
+        nilaiKontrak > 0
+          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+          : 0;
 
       // Status capaian berdasarkan standar deviasi fisik
       let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
@@ -701,8 +800,8 @@ export class PembangunanService {
         pemenangRekanan: paket.pemenangRekanan,
         nilaiPagu,
         nilaiKontrak,
-        opd: paket.opd,
-        subUnit: paket.subUnit,
+        opd: this.egovService.getOpdById(paket.opdId),
+        subUnit: this.egovService.getSubUnitById(paket.subUnitId),
         targetFisik,
         realisasiFisik,
         deviasiFisik,
@@ -716,17 +815,25 @@ export class PembangunanService {
     });
 
     // Filter berdasarkan status deviasi jika dipilih
-    const filtered = statusDeviasi && statusDeviasi !== 'ALL'
-      ? processed.filter((item) => item.status === statusDeviasi)
-      : processed;
+    const filtered =
+      statusDeviasi && statusDeviasi !== 'ALL'
+        ? processed.filter((item) => item.status === statusDeviasi)
+        : processed;
 
     // Perhitungan Ringkasan / Stat Cards (Aggregat)
     const totalPagu = filtered.reduce((acc, cur) => acc + cur.nilaiPagu, 0);
-    const totalKontrak = filtered.reduce((acc, cur) => acc + cur.nilaiKontrak, 0);
-    const totalRealisasiKeuangan = filtered.reduce((acc, cur) => acc + cur.realisasiKeuangan, 0);
-    const persenSerapanKeuangan = totalKontrak > 0
-      ? parseFloat(((totalRealisasiKeuangan / totalKontrak) * 100).toFixed(2))
-      : 0;
+    const totalKontrak = filtered.reduce(
+      (acc, cur) => acc + cur.nilaiKontrak,
+      0,
+    );
+    const totalRealisasiKeuangan = filtered.reduce(
+      (acc, cur) => acc + cur.realisasiKeuangan,
+      0,
+    );
+    const persenSerapanKeuangan =
+      totalKontrak > 0
+        ? parseFloat(((totalRealisasiKeuangan / totalKontrak) * 100).toFixed(2))
+        : 0;
 
     const countStatus = {
       aman: filtered.filter((i) => i.status === 'AMAN').length,
@@ -735,13 +842,27 @@ export class PembangunanService {
       belumMulai: filtered.filter((i) => i.status === 'BELUM_MULAI').length,
     };
 
-    const avgTargetFisik = filtered.length > 0
-      ? parseFloat((filtered.reduce((acc, cur) => acc + cur.targetFisik, 0) / filtered.length).toFixed(2))
-      : 0;
-    const avgRealisasiFisik = filtered.length > 0
-      ? parseFloat((filtered.reduce((acc, cur) => acc + cur.realisasiFisik, 0) / filtered.length).toFixed(2))
-      : 0;
-    const avgDeviasiFisik = parseFloat((avgRealisasiFisik - avgTargetFisik).toFixed(2));
+    const avgTargetFisik =
+      filtered.length > 0
+        ? parseFloat(
+            (
+              filtered.reduce((acc, cur) => acc + cur.targetFisik, 0) /
+              filtered.length
+            ).toFixed(2),
+          )
+        : 0;
+    const avgRealisasiFisik =
+      filtered.length > 0
+        ? parseFloat(
+            (
+              filtered.reduce((acc, cur) => acc + cur.realisasiFisik, 0) /
+              filtered.length
+            ).toFixed(2),
+          )
+        : 0;
+    const avgDeviasiFisik = parseFloat(
+      (avgRealisasiFisik - avgTargetFisik).toFixed(2),
+    );
 
     // Paginasi array hasil
     const skip = (Number(page) - 1) * Number(limit);
@@ -772,23 +893,28 @@ export class PembangunanService {
   }
 
   /**
-   * Mengambil riwayat realisasi 12 bulan untuk 1 paket pembangunan
+   * Mengambil riwayat realisasi 12 bulan untuk 1 paket pembangunan — termasuk bukti fisik
    */
   async getRealisasiPaket(paketId: string, user?: any) {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id: paketId },
       include: {
-        opd: true,
-        subUnit: true,
         targetBulanan: { orderBy: { bulan: 'asc' } },
         realisasiBulanan: {
           orderBy: { bulan: 'asc' },
           include: {
             inputBy: {
-              select: {
-                id: true,
-                namaLengkap: true,
-                nip: true,
+              select: { id: true, namaLengkap: true, nip: true },
+            },
+            verifikasiOleh: {
+              select: { id: true, namaLengkap: true, nip: true, role: true },
+            },
+            buktiFisik: {
+              orderBy: { createdAt: 'asc' },
+              include: {
+                uploadOleh: {
+                  select: { id: true, namaLengkap: true, nip: true },
+                },
               },
             },
           },
@@ -797,27 +923,37 @@ export class PembangunanService {
     });
 
     if (!paket) {
-      throw new NotFoundException(`Paket pembangunan '${paketId}' tidak ditemukan`);
+      throw new NotFoundException(
+        `Paket pembangunan '${paketId}' tidak ditemukan`,
+      );
     }
 
-    this.checkOpdAccess(user, paket.opdId);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
 
     const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
     const nilaiPagu = Number(paket.nilaiPagu) || 0;
 
-    // Susun timeline 12 bulan (1..12)
     const timeline = Array.from({ length: 12 }, (_, idx) => {
       const bulan = idx + 1;
       const targetItem = paket.targetBulanan.find((t) => t.bulan === bulan);
-      const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === bulan);
+      const realisasiItem = paket.realisasiBulanan.find(
+        (r) => r.bulan === bulan,
+      );
 
       const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-      const realisasiFisik = realisasiItem ? Number(realisasiItem.realisasiFisik) : 0;
-      const realisasiKeuangan = realisasiItem ? Number(realisasiItem.realisasiKeuangan) : 0;
-      const deviasiFisik = parseFloat((realisasiFisik - targetFisik).toFixed(2));
-      const persenKeuangan = nilaiKontrak > 0
-        ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+      const realisasiFisik = realisasiItem
+        ? Number(realisasiItem.realisasiFisik)
         : 0;
+      const realisasiKeuangan = realisasiItem
+        ? Number(realisasiItem.realisasiKeuangan)
+        : 0;
+      const deviasiFisik = parseFloat(
+        (realisasiFisik - targetFisik).toFixed(2),
+      );
+      const persenKeuangan =
+        nilaiKontrak > 0
+          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+          : 0;
 
       let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
       if (targetFisik === 0 && realisasiFisik === 0) {
@@ -840,6 +976,24 @@ export class PembangunanService {
         catatanOperator: realisasiItem?.catatanOperator || '',
         inputBy: realisasiItem?.inputBy || null,
         updatedAt: realisasiItem?.updatedAt || null,
+        // Verifikasi MONEV
+        statusVerifikasi: realisasiItem?.statusVerifikasi || 'DRAFT',
+        catatanVerifikasi: realisasiItem?.catatanVerifikasi || null,
+        verifikasiOleh: realisasiItem?.verifikasiOleh || null,
+        verifikasiAt: realisasiItem?.verifikasiAt || null,
+        diajukanAt: realisasiItem?.diajukanAt || null,
+        // Bukti fisik lapangan
+        buktiFisik:
+          realisasiItem?.buktiFisik?.map((b) => ({
+            id: b.id,
+            namaFile: b.namaFile,
+            pathFile: `/uploads/bukti-fisik/${b.namaFile.split('/').pop()}`,
+            mimeType: b.mimeType,
+            ukuranBytes: b.ukuranBytes,
+            deskripsi: b.deskripsi,
+            uploadOleh: b.uploadOleh,
+            createdAt: b.createdAt,
+          })) || [],
         status,
       };
     });
@@ -858,8 +1012,8 @@ export class PembangunanService {
         sumberDana: paket.sumberDana,
         nilaiPagu,
         nilaiKontrak,
-        opd: paket.opd,
-        subUnit: paket.subUnit,
+        opd: this.egovService.getOpdById(paket.opdId),
+        subUnit: this.egovService.getSubUnitById(paket.subUnitId),
         tanggalMulai: paket.tanggalMulai,
         tanggalSelesai: paket.tanggalSelesai,
       },
@@ -868,29 +1022,73 @@ export class PembangunanService {
   }
 
   /**
-   * Menyimpan / memperbarui realisasi 1 bulan untuk sebuah paket
+   * Menyimpan / memperbarui realisasi 1 bulan (dengan field-level protection)
+   * - ADMIN_PPK: hanya boleh mengisi realisasiFisik
+   * - BENDAHARA : hanya boleh mengisi realisasiKeuangan
+   * - ADMINISTRATOR: boleh mengisi keduanya
    */
   async upsertRealisasi(paketId: string, dto: UpsertRealisasiDto, user?: any) {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id: paketId },
     });
-    if (!paket) {
-      throw new NotFoundException(`Paket pembangunan '${paketId}' tidak ditemukan`);
-    }
+    if (!paket)
+      throw new NotFoundException(
+        `Paket pembangunan '${paketId}' tidak ditemukan`,
+      );
 
-    this.checkOpdAccess(user, paket.opdId);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
 
     const bulan = Math.min(12, Math.max(1, Number(dto.bulan)));
-    const realisasiFisik = Math.min(100, Math.max(0, Number(dto.realisasiFisik) || 0));
-    const realisasiKeuangan = Math.max(0, Number(dto.realisasiKeuangan) || 0);
+    const userRoles: RoleEnum[] =
+      user?.roles && user.roles.length > 0
+        ? user.roles
+        : user?.role
+          ? [user.role]
+          : [];
+    const userRole: RoleEnum = user?.role || userRoles[0];
+    const isPPK = userRoles.includes(RoleEnum.ADMIN_PPK);
+    const isBendahara = userRoles.includes(RoleEnum.BENDAHARA);
+    const isAdmin = userRoles.includes(RoleEnum.ADMINISTRATOR);
+
+    // Cek status verifikasi — jika sudah TERVERIFIKASI, tidak boleh diubah tanpa unlock
+    const existing = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (
+      existing?.statusVerifikasi === StatusVerifikasi.TERVERIFIKASI &&
+      !isAdmin
+    ) {
+      throw new ForbiddenException(
+        'Data bulan ini sudah terverifikasi oleh MONEV dan terkunci. Hubungi Administrator untuk membuka kunci.',
+      );
+    }
+
+    // Field-level protection
+    let realisasiFisik: number | undefined;
+    let realisasiKeuangan: number | undefined;
+    if (isAdmin || (isPPK && isBendahara)) {
+      realisasiFisik = Math.min(
+        100,
+        Math.max(0, Number(dto.realisasiFisik) || 0),
+      );
+      realisasiKeuangan = Math.max(0, Number(dto.realisasiKeuangan) || 0);
+    } else if (isPPK) {
+      realisasiFisik = Math.min(
+        100,
+        Math.max(0, Number(dto.realisasiFisik) || 0),
+      );
+      realisasiKeuangan = existing ? Number(existing.realisasiKeuangan) : 0; // pertahankan angka keuangan existing
+    } else if (isBendahara) {
+      realisasiFisik = existing ? Number(existing.realisasiFisik) : 0; // pertahankan angka fisik existing
+      realisasiKeuangan = Math.max(0, Number(dto.realisasiKeuangan) || 0);
+    } else {
+      throw new ForbiddenException(
+        'Akses ditolak: Akun Anda tidak memiliki peran PPK atau Bendahara untuk menginput realisasi',
+      );
+    }
 
     const record = await this.prisma.realisasiBulanan.upsert({
-      where: {
-        paketId_bulan: {
-          paketId,
-          bulan,
-        },
-      },
+      where: { paketId_bulan: { paketId, bulan } },
       create: {
         paketId,
         bulan,
@@ -898,25 +1096,33 @@ export class PembangunanService {
         realisasiKeuangan,
         catatanOperator: dto.catatanOperator?.trim() || null,
         inputById: user?.id || null,
+        statusVerifikasi: StatusVerifikasi.DRAFT,
       },
       update: {
         realisasiFisik,
         realisasiKeuangan,
-        catatanOperator: dto.catatanOperator !== undefined ? dto.catatanOperator.trim() || null : undefined,
+        catatanOperator:
+          dto.catatanOperator !== undefined
+            ? dto.catatanOperator.trim() || null
+            : undefined,
         inputById: user?.id || null,
+        // Reset ke DRAFT jika data diubah setelah diajukan (kecuali oleh ADMINISTRATOR)
+        statusVerifikasi:
+          existing?.statusVerifikasi === StatusVerifikasi.DIAJUKAN &&
+          userRole !== RoleEnum.ADMINISTRATOR
+            ? StatusVerifikasi.DRAFT
+            : undefined,
+        diajukanAt:
+          existing?.statusVerifikasi === StatusVerifikasi.DIAJUKAN &&
+          userRole !== RoleEnum.ADMINISTRATOR
+            ? null
+            : undefined,
       },
       include: {
-        inputBy: {
-          select: {
-            id: true,
-            namaLengkap: true,
-            nip: true,
-          },
-        },
+        inputBy: { select: { id: true, namaLengkap: true, nip: true } },
       },
     });
 
-    // Audit log
     if (user?.id) {
       await this.prisma.auditLog.create({
         data: {
@@ -929,40 +1135,82 @@ export class PembangunanService {
             bulan,
             realisasiFisik,
             realisasiKeuangan,
+            userRole,
           },
         },
       });
     }
-
     return record;
   }
 
   /**
-   * Menyimpan / memperbarui realisasi beberapa bulan sekaligus (Bulk)
+   * Bulk upsert realisasi beberapa bulan (dengan field-level protection)
    */
-  async bulkUpsertRealisasi(paketId: string, dto: BulkUpsertRealisasiDto, user?: any) {
+  async bulkUpsertRealisasi(
+    paketId: string,
+    dto: BulkUpsertRealisasiDto,
+    user?: any,
+  ) {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id: paketId },
     });
-    if (!paket) {
-      throw new NotFoundException(`Paket pembangunan '${paketId}' tidak ditemukan`);
-    }
+    if (!paket)
+      throw new NotFoundException(
+        `Paket pembangunan '${paketId}' tidak ditemukan`,
+      );
 
-    this.checkOpdAccess(user, paket.opdId);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    const userRoles: RoleEnum[] =
+      user?.roles && user.roles.length > 0
+        ? user.roles
+        : user?.role
+          ? [user.role]
+          : [];
+    const userRole: RoleEnum = user?.role || userRoles[0];
+    const isPPK = userRoles.includes(RoleEnum.ADMIN_PPK);
+    const isBendahara = userRoles.includes(RoleEnum.BENDAHARA);
+    const isAdmin = userRoles.includes(RoleEnum.ADMINISTRATOR);
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of dto.items) {
         const bulan = Math.min(12, Math.max(1, Number(item.bulan)));
-        const realisasiFisik = Math.min(100, Math.max(0, Number(item.realisasiFisik) || 0));
-        const realisasiKeuangan = Math.max(0, Number(item.realisasiKeuangan) || 0);
+
+        // Cek apakah sudah TERVERIFIKASI
+        const existing = await tx.realisasiBulanan.findUnique({
+          where: { paketId_bulan: { paketId, bulan } },
+        });
+        if (
+          existing?.statusVerifikasi === StatusVerifikasi.TERVERIFIKASI &&
+          !isAdmin
+        ) {
+          continue; // skip bulan yang sudah terkunci
+        }
+
+        // Field-level protection
+        let realisasiFisik: number;
+        let realisasiKeuangan: number;
+        if (isAdmin || (isPPK && isBendahara)) {
+          realisasiFisik = Math.min(
+            100,
+            Math.max(0, Number(item.realisasiFisik) || 0),
+          );
+          realisasiKeuangan = Math.max(0, Number(item.realisasiKeuangan) || 0);
+        } else if (isPPK) {
+          realisasiFisik = Math.min(
+            100,
+            Math.max(0, Number(item.realisasiFisik) || 0),
+          );
+          realisasiKeuangan = existing ? Number(existing.realisasiKeuangan) : 0;
+        } else if (isBendahara) {
+          realisasiFisik = existing ? Number(existing.realisasiFisik) : 0;
+          realisasiKeuangan = Math.max(0, Number(item.realisasiKeuangan) || 0);
+        } else {
+          continue;
+        }
 
         await tx.realisasiBulanan.upsert({
-          where: {
-            paketId_bulan: {
-              paketId,
-              bulan,
-            },
-          },
+          where: { paketId_bulan: { paketId, bulan } },
           create: {
             paketId,
             bulan,
@@ -970,12 +1218,21 @@ export class PembangunanService {
             realisasiKeuangan,
             catatanOperator: item.catatanOperator?.trim() || null,
             inputById: user?.id || null,
+            statusVerifikasi: StatusVerifikasi.DRAFT,
           },
           update: {
             realisasiFisik,
             realisasiKeuangan,
-            catatanOperator: item.catatanOperator !== undefined ? item.catatanOperator.trim() || null : undefined,
+            catatanOperator:
+              item.catatanOperator !== undefined
+                ? item.catatanOperator.trim() || null
+                : undefined,
             inputById: user?.id || null,
+            statusVerifikasi:
+              existing?.statusVerifikasi === StatusVerifikasi.DIAJUKAN &&
+              userRole !== RoleEnum.ADMINISTRATOR
+                ? StatusVerifikasi.DRAFT
+                : undefined,
           },
         });
       }
@@ -987,9 +1244,7 @@ export class PembangunanService {
             action: 'BULK_UPSERT_REALISASI_BULANAN',
             resource: 'REALISASI_BULANAN',
             resourceId: paketId,
-            payload: {
-              totalBulanDiperbarui: dto.items.length,
-            },
+            payload: { totalBulanDiperbarui: dto.items.length, userRole },
           },
         });
       }
@@ -1019,15 +1274,22 @@ export class PembangunanService {
       { tahunAnggaran: activeTahun },
     ];
 
-    const isSuperRole = user?.role && [RoleEnum.ADMINISTRATOR, RoleEnum.PIMPINAN_DAERAH].includes(user.role);
-    if (!isSuperRole && user?.opdId) {
-      andConditions.push({ opdId: user.opdId });
-    } else if (opdId && opdId !== 'ALL') {
-      andConditions.push({ opdId });
-    }
-
-    if (subUnitId && subUnitId !== 'ALL') {
-      andConditions.push({ subUnitId });
+    // Filter scope role (Administrator & MONEV can see all)
+    const scopeFilter = this.buildScopeFilter(user);
+    if (scopeFilter.subUnitId) {
+      andConditions.push({ subUnitId: scopeFilter.subUnitId });
+    } else if (scopeFilter.opdId) {
+      andConditions.push({ opdId: scopeFilter.opdId });
+      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+        andConditions.push({ subUnitId });
+      }
+    } else {
+      if (opdId && opdId !== 'ALL') {
+        andConditions.push({ opdId });
+      }
+      if (subUnitId && subUnitId !== 'ALL') {
+        andConditions.push({ subUnitId });
+      }
     }
 
     if (metodePemilihan && metodePemilihan !== 'ALL') {
@@ -1049,26 +1311,8 @@ export class PembangunanService {
 
     const pakets = await this.prisma.paketPembangunan.findMany({
       where: { AND: andConditions },
-      orderBy: [
-        { opd: { namaOpd: 'asc' } },
-        { namaPaket: 'asc' },
-      ],
+      orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
       include: {
-        opd: {
-          select: {
-            id: true,
-            kodeOpd: true,
-            namaOpd: true,
-            singkatan: true,
-          },
-        },
-        subUnit: {
-          select: {
-            id: true,
-            kodeSubUnit: true,
-            namaSubUnit: true,
-          },
-        },
         targetBulanan: {
           orderBy: { bulan: 'asc' },
         },
@@ -1088,12 +1332,19 @@ export class PembangunanService {
         const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === b);
 
         const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-        const realisasiFisik = realisasiItem ? Number(realisasiItem.realisasiFisik) : 0;
-        const realisasiKeuangan = realisasiItem ? Number(realisasiItem.realisasiKeuangan) : 0;
-        const deviasiFisik = parseFloat((realisasiFisik - targetFisik).toFixed(2));
-        const persenKeuangan = nilaiKontrak > 0
-          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+        const realisasiFisik = realisasiItem
+          ? Number(realisasiItem.realisasiFisik)
           : 0;
+        const realisasiKeuangan = realisasiItem
+          ? Number(realisasiItem.realisasiKeuangan)
+          : 0;
+        const deviasiFisik = parseFloat(
+          (realisasiFisik - targetFisik).toFixed(2),
+        );
+        const persenKeuangan =
+          nilaiKontrak > 0
+            ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+            : 0;
 
         let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
         if (targetFisik === 0 && realisasiFisik === 0) {
@@ -1133,8 +1384,8 @@ export class PembangunanService {
         pemenangRekanan: paket.pemenangRekanan,
         nilaiPagu,
         nilaiKontrak,
-        opd: paket.opd,
-        subUnit: paket.subUnit,
+        opd: this.egovService.getOpdById(paket.opdId),
+        subUnit: this.egovService.getSubUnitById(paket.subUnitId),
         timeline,
         posisiEvaluasi: {
           bulan: activeBulan,
@@ -1148,9 +1399,10 @@ export class PembangunanService {
       };
     });
 
-    const filtered = statusDeviasi && statusDeviasi !== 'ALL'
-      ? items.filter((item) => item.posisiEvaluasi.status === statusDeviasi)
-      : items;
+    const filtered =
+      statusDeviasi && statusDeviasi !== 'ALL'
+        ? items.filter((item) => item.posisiEvaluasi.status === statusDeviasi)
+        : items;
 
     return {
       tahunAnggaran: activeTahun,
@@ -1172,76 +1424,113 @@ export class PembangunanService {
     const activeTahun = Number(tahunAnggaran);
     const activeBulan = Math.min(12, Math.max(1, Number(bulan)));
 
-    const opds = await this.prisma.opd.findMany({
-      orderBy: { namaOpd: 'asc' },
+    const isSuperRole = [
+      RoleEnum.ADMINISTRATOR,
+      RoleEnum.PIMPINAN_DAERAH,
+      RoleEnum.MONEV,
+    ].includes(user?.role);
+
+    const whereConditions: Prisma.PaketPembangunanWhereInput = {
+      tahunAnggaran: activeTahun,
+      ...(!isSuperRole && user?.opdId ? { opdId: user.opdId } : {}),
+      ...(!isSuperRole && user?.subUnitId && user?.role !== RoleEnum.KEPALA_OPD
+        ? { subUnitId: user.subUnitId }
+        : {}),
+    };
+
+    const pakets = await this.prisma.paketPembangunan.findMany({
+      where: whereConditions,
       include: {
-        paketPembangunan: {
-          where: { tahunAnggaran: activeTahun },
-          include: {
-            targetBulanan: { where: { bulan: activeBulan } },
-            realisasiBulanan: { where: { bulan: activeBulan } },
-          },
-        },
+        targetBulanan: { where: { bulan: activeBulan } },
+        realisasiBulanan: { where: { bulan: activeBulan } },
       },
     });
 
-    const rekap = opds
-      .filter((opd) => opd.paketPembangunan.length > 0)
-      .map((opd) => {
-        const totalPaket = opd.paketPembangunan.length;
-        const totalPagu = opd.paketPembangunan.reduce((acc, p) => acc + (Number(p.nilaiPagu) || 0), 0);
-        const totalKontrak = opd.paketPembangunan.reduce((acc, p) => acc + (Number(p.nilaiKontrak) || 0), 0);
+    // Grouping berdasarkan opdId
+    const opdGroups = new Map<string, typeof pakets>();
+    for (const p of pakets) {
+      const list = opdGroups.get(p.opdId) || [];
+      list.push(p);
+      opdGroups.set(p.opdId, list);
+    }
 
-        let sumTarget = 0;
-        let sumRealisasiFisik = 0;
-        let sumRealisasiKeuangan = 0;
-        let countAman = 0;
-        let countPerhatian = 0;
-        let countKritis = 0;
-        let countBelumMulai = 0;
+    const rekap = Array.from(opdGroups.entries()).map(([opdId, groupPakets]) => {
+      const opdInfo = this.egovService.getOpdById(opdId);
+      const totalPaket = groupPakets.length;
+      const totalPagu = groupPakets.reduce(
+        (acc, p) => acc + (Number(p.nilaiPagu) || 0),
+        0,
+      );
+      const totalKontrak = groupPakets.reduce(
+        (acc, p) => acc + (Number(p.nilaiKontrak) || 0),
+        0,
+      );
 
-        for (const p of opd.paketPembangunan) {
-          const target = p.targetBulanan[0] ? Number(p.targetBulanan[0].targetFisik) : 0;
-          const realFisik = p.realisasiBulanan[0] ? Number(p.realisasiBulanan[0].realisasiFisik) : 0;
-          const realKeu = p.realisasiBulanan[0] ? Number(p.realisasiBulanan[0].realisasiKeuangan) : 0;
-          const dev = parseFloat((realFisik - target).toFixed(2));
+      let sumTarget = 0;
+      let sumRealisasiFisik = 0;
+      let sumRealisasiKeuangan = 0;
+      let countAman = 0;
+      let countPerhatian = 0;
+      let countKritis = 0;
+      let countBelumMulai = 0;
 
-          sumTarget += target;
-          sumRealisasiFisik += realFisik;
-          sumRealisasiKeuangan += realKeu;
+      for (const p of groupPakets) {
+        const target = p.targetBulanan[0]
+          ? Number(p.targetBulanan[0].targetFisik)
+          : 0;
+        const realFisik = p.realisasiBulanan[0]
+          ? Number(p.realisasiBulanan[0].realisasiFisik)
+          : 0;
+        const realKeu = p.realisasiBulanan[0]
+          ? Number(p.realisasiBulanan[0].realisasiKeuangan)
+          : 0;
+        const dev = parseFloat((realFisik - target).toFixed(2));
 
-          if (target === 0 && realFisik === 0) countBelumMulai++;
-          else if (dev >= 0) countAman++;
-          else if (dev >= -10) countPerhatian++;
-          else countKritis++;
-        }
+        sumTarget += target;
+        sumRealisasiFisik += realFisik;
+        sumRealisasiKeuangan += realKeu;
 
-        const avgTargetFisik = parseFloat((sumTarget / totalPaket).toFixed(2));
-        const avgRealisasiFisik = parseFloat((sumRealisasiFisik / totalPaket).toFixed(2));
-        const avgDeviasiFisik = parseFloat((avgRealisasiFisik - avgTargetFisik).toFixed(2));
-        const persenSerapanKeuangan = totalKontrak > 0
-          ? parseFloat(((sumRealisasiKeuangan / totalKontrak) * 100).toFixed(2))
+        if (target === 0 && realFisik === 0) countBelumMulai++;
+        else if (dev >= 0) countAman++;
+        else if (dev >= -10) countPerhatian++;
+        else countKritis++;
+      }
+
+      const avgTargetFisik = parseFloat((sumTarget / totalPaket).toFixed(2));
+      const avgRealisasiFisik = parseFloat(
+        (sumRealisasiFisik / totalPaket).toFixed(2),
+      );
+      const avgDeviasiFisik = parseFloat(
+        (avgRealisasiFisik - avgTargetFisik).toFixed(2),
+      );
+      const persenSerapanKeuangan =
+        totalKontrak > 0
+          ? parseFloat(
+              ((sumRealisasiKeuangan / totalKontrak) * 100).toFixed(2),
+            )
           : 0;
 
-        return {
-          opdId: opd.id,
-          kodeOpd: opd.kodeOpd,
-          namaOpd: opd.namaOpd,
-          singkatan: opd.singkatan,
-          totalPaket,
-          totalPagu,
-          totalKontrak,
-          totalRealisasiKeuangan: sumRealisasiKeuangan,
-          persenSerapanKeuangan,
-          avgTargetFisik,
-          avgRealisasiFisik,
-          avgDeviasiFisik,
-          countAman,
-          countPerhatian,
-          countKritis,
-          countBelumMulai,
-        };
-      });
+      return {
+        opdId,
+        kodeOpd: opdInfo?.kodeOpd || opdId,
+        namaOpd: opdInfo?.namaOpd || opdId,
+        singkatan: opdInfo?.singkatan || '',
+        totalPaket,
+        totalPagu,
+        totalKontrak,
+        avgTargetFisik,
+        avgRealisasiFisik,
+        avgDeviasiFisik,
+        totalRealisasiKeuangan: sumRealisasiKeuangan,
+        persenSerapanKeuangan,
+        rekapStatus: {
+          aman: countAman,
+          perhatian: countPerhatian,
+          kritis: countKritis,
+          belumMulai: countBelumMulai,
+        },
+      };
+    });
 
     return {
       tahunAnggaran: activeTahun,
@@ -1249,5 +1538,333 @@ export class PembangunanService {
       rekap,
     };
   }
-}
 
+  /**
+   * PPK/Bendahara mengajukan realisasi bulan tertentu ke MONEV
+   */
+  async ajukanRealisasi(paketId: string, bulan: number, user?: any) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    const realisasi = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (!realisasi)
+      throw new NotFoundException(
+        `Data realisasi Bulan ${bulan} belum ada. Isi dulu sebelum diajukan.`,
+      );
+    if (realisasi.statusVerifikasi === StatusVerifikasi.TERVERIFIKASI) {
+      throw new BadRequestException(
+        'Data ini sudah terverifikasi oleh MONEV dan tidak perlu diajukan ulang.',
+      );
+    }
+    if (realisasi.statusVerifikasi === StatusVerifikasi.DIAJUKAN) {
+      throw new BadRequestException('Data ini sudah dalam antrian MONEV.');
+    }
+
+    const updated = await this.prisma.realisasiBulanan.update({
+      where: { paketId_bulan: { paketId, bulan } },
+      data: {
+        statusVerifikasi: StatusVerifikasi.DIAJUKAN,
+        diajukanAt: new Date(),
+      },
+    });
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'AJUKAN_REALISASI',
+          resource: 'REALISASI_BULANAN',
+          resourceId: `${paketId}_B${bulan}`,
+          payload: { paketId, bulan },
+        },
+      });
+    }
+    return {
+      message: `Realisasi Bulan ${bulan} berhasil diajukan ke MONEV untuk diverifikasi.`,
+      data: updated,
+    };
+  }
+
+  /**
+   * MONEV/Administrator menyetujui (ACC) realisasi
+   */
+  async accRealisasi(
+    paketId: string,
+    bulan: number,
+    dto: VerifikasiRealisasiDto,
+    user?: any,
+  ) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+
+    const realisasi = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (!realisasi)
+      throw new NotFoundException(
+        `Data realisasi Bulan ${bulan} tidak ditemukan.`,
+      );
+    if (realisasi.statusVerifikasi !== StatusVerifikasi.DIAJUKAN) {
+      throw new BadRequestException(
+        'Hanya realisasi dengan status DIAJUKAN yang dapat di-ACC.',
+      );
+    }
+
+    const updated = await this.prisma.realisasiBulanan.update({
+      where: { paketId_bulan: { paketId, bulan } },
+      data: {
+        statusVerifikasi: StatusVerifikasi.TERVERIFIKASI,
+        catatanVerifikasi: dto.catatanVerifikasi?.trim() || null,
+        verifikasiOlehId: user?.id || null,
+        verifikasiAt: new Date(),
+      },
+    });
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'ACC_REALISASI_MONEV',
+          resource: 'REALISASI_BULANAN',
+          resourceId: `${paketId}_B${bulan}`,
+          payload: { paketId, bulan, catatan: dto.catatanVerifikasi },
+        },
+      });
+    }
+    return {
+      message: `Realisasi Bulan ${bulan} berhasil diverifikasi (ACC) oleh MONEV. Data terkunci.`,
+      data: updated,
+    };
+  }
+
+  /**
+   * MONEV/Administrator menolak realisasi (dikembalikan ke PPK)
+   */
+  async tolakRealisasi(
+    paketId: string,
+    bulan: number,
+    dto: VerifikasiRealisasiDto,
+    user?: any,
+  ) {
+    if (!dto.catatanVerifikasi?.trim()) {
+      throw new BadRequestException(
+        'Alasan penolakan wajib diisi saat menolak realisasi.',
+      );
+    }
+
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+
+    const realisasi = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (!realisasi)
+      throw new NotFoundException(
+        `Data realisasi Bulan ${bulan} tidak ditemukan.`,
+      );
+    if (realisasi.statusVerifikasi !== StatusVerifikasi.DIAJUKAN) {
+      throw new BadRequestException(
+        'Hanya realisasi dengan status DIAJUKAN yang dapat ditolak.',
+      );
+    }
+
+    const updated = await this.prisma.realisasiBulanan.update({
+      where: { paketId_bulan: { paketId, bulan } },
+      data: {
+        statusVerifikasi: StatusVerifikasi.DITOLAK,
+        catatanVerifikasi: dto.catatanVerifikasi.trim(),
+        verifikasiOlehId: user?.id || null,
+        verifikasiAt: new Date(),
+      },
+    });
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'TOLAK_REALISASI_MONEV',
+          resource: 'REALISASI_BULANAN',
+          resourceId: `${paketId}_B${bulan}`,
+          payload: { paketId, bulan, alasanPenolakan: dto.catatanVerifikasi },
+        },
+      });
+    }
+    return {
+      message: `Realisasi Bulan ${bulan} ditolak oleh MONEV. Data dikembalikan ke PPK untuk diperbaiki.`,
+      data: updated,
+    };
+  }
+
+  /**
+   * Upload bukti fisik (foto/video) oleh PPK
+   */
+  async uploadBuktiFisik(
+    paketId: string,
+    bulan: number,
+    files: Express.Multer.File[],
+    deskripsi: string,
+    user?: any,
+  ) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Tidak ada file yang diupload.');
+    }
+
+    // Pastikan realisasi bulanan sudah ada — buat jika belum
+    let realisasi = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (!realisasi) {
+      realisasi = await this.prisma.realisasiBulanan.create({
+        data: { paketId, bulan, inputById: user?.id || null },
+      });
+    }
+
+    // Hitung jumlah bukti yang sudah ada
+    const existingCount = await this.prisma.buktiFisik.count({
+      where: { realisasiId: realisasi.id },
+    });
+    if (existingCount + files.length > 5) {
+      // Hapus file yang baru diupload karena melebihi batas
+      for (const file of files) {
+        if (existsSync(file.path)) await unlink(file.path).catch(() => {});
+      }
+      throw new BadRequestException(
+        `Batas maksimal 5 foto per bulan sudah tercapai (saat ini: ${existingCount}).`,
+      );
+    }
+
+    const saved = await this.prisma.$transaction(
+      files.map((file) =>
+        this.prisma.buktiFisik.create({
+          data: {
+            realisasiId: realisasi.id,
+            namaFile: file.filename,
+            pathFile: file.path,
+            mimeType: file.mimetype,
+            ukuranBytes: file.size,
+            deskripsi: deskripsi?.trim() || null,
+            uploadOlehId: user?.id || null,
+          },
+        }),
+      ),
+    );
+
+    return {
+      message: `${files.length} file bukti fisik berhasil diupload untuk Bulan ${bulan}.`,
+      data: saved.map((b) => ({
+        id: b.id,
+        namaFile: b.namaFile,
+        mimeType: b.mimeType,
+        ukuranBytes: b.ukuranBytes,
+        deskripsi: b.deskripsi,
+      })),
+    };
+  }
+
+  /**
+   * Hapus satu bukti fisik
+   */
+  async deleteBuktiFisik(buktiFisikId: string, user?: any) {
+    const bukti = await this.prisma.buktiFisik.findUnique({
+      where: { id: buktiFisikId },
+      include: { realisasi: { include: { paket: true } } },
+    });
+    if (!bukti) throw new NotFoundException('Bukti fisik tidak ditemukan.');
+
+    // Cek akses OPD & SubUnit
+    this.checkOpdAccess(
+      user,
+      bukti.realisasi.paket.opdId,
+      bukti.realisasi.paket.subUnitId,
+    );
+
+    // Hapus file dari disk
+    if (existsSync(bukti.pathFile)) {
+      await unlink(bukti.pathFile).catch(() =>
+        this.logger.warn(`File tidak ditemukan di disk: ${bukti.pathFile}`),
+      );
+    }
+
+    await this.prisma.buktiFisik.delete({ where: { id: buktiFisikId } });
+    return { message: 'Bukti fisik berhasil dihapus.' };
+  }
+
+  /**
+   * Antrian verifikasi MONEV — daftar realisasi yang sudah diajukan PPK
+   */
+  async getAntrianVerifikasi(query: QueryRealisasiDto, user?: any) {
+    const { tahunAnggaran = new Date().getFullYear(), opdId } = query;
+    const activeTahun = Number(tahunAnggaran);
+
+    const whereScope = this.buildScopeFilter(user);
+    const filterWhere: Prisma.PaketPembangunanWhereInput = {
+      tahunAnggaran: activeTahun,
+      ...whereScope,
+      ...(opdId && opdId !== 'ALL' && Object.keys(whereScope).length === 0
+        ? { opdId }
+        : {}),
+    };
+
+    const antrian = await this.prisma.realisasiBulanan.findMany({
+      where: {
+        statusVerifikasi: StatusVerifikasi.DIAJUKAN,
+        paket: filterWhere,
+      },
+      orderBy: { diajukanAt: 'asc' },
+      include: {
+        paket: true,
+        inputBy: {
+          select: { id: true, namaLengkap: true, nip: true, jabatan: true },
+        },
+        buktiFisik: {
+          select: {
+            id: true,
+            namaFile: true,
+            mimeType: true,
+            deskripsi: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    return {
+      tahunAnggaran: activeTahun,
+      total: antrian.length,
+      items: antrian.map((r) => ({
+        realisasiId: r.id,
+        paketId: r.paketId,
+        namaPaket: r.paket.namaPaket,
+        opd: this.egovService.getOpdById(r.paket.opdId),
+        subUnit: this.egovService.getSubUnitById(r.paket.subUnitId),
+        bulan: r.bulan,
+        realisasiFisik: Number(r.realisasiFisik),
+        realisasiKeuangan: Number(r.realisasiKeuangan),
+        catatanOperator: r.catatanOperator,
+        inputBy: r.inputBy,
+        diajukanAt: r.diajukanAt,
+        jumlahBukti: r.buktiFisik.length,
+        buktiFisik: r.buktiFisik,
+      })),
+    };
+  }
+}

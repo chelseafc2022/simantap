@@ -10,7 +10,10 @@ import {
 import { RoleEnum } from '../../../common/enums/role.enum';
 
 export class RegisterUserDto {
-  @ApiProperty({ example: '198001012005011001', description: 'Nomor Induk Pegawai (NIP)' })
+  @ApiProperty({
+    example: '198001012005011001',
+    description: 'Nomor Induk Pegawai (NIP)',
+  })
   @IsNotEmpty({ message: 'NIP wajib diisi' })
   @IsString()
   nip: string;

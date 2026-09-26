@@ -6,87 +6,88 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Memulai proses seeding data master SIMANTAP...');
 
-  // 1. Seed Master OPD
-  const opdSetda = await prisma.opd.upsert({
-    where: { kodeOpd: 'OPD-SETDA' },
-    update: {},
-    create: {
-      kodeOpd: 'OPD-SETDA',
-      namaOpd: 'Sekretariat Daerah',
-      singkatan: 'SETDA',
-      alamat: 'Jl. Poros Andoolo Kompleks Perkantoran Pemkab Konawe Selatan',
-      namaKepalaOpd: 'Ir. H. Chairun Anas, MT',
-      nipKepalaOpd: '197001011995011001',
-    },
-  });
-
-  const opdDpu = await prisma.opd.upsert({
-    where: { kodeOpd: 'OPD-DPUPR' },
-    update: {},
-    create: {
-      kodeOpd: 'OPD-DPUPR',
-      namaOpd: 'Dinas Pekerjaan Umum dan Penataan Ruang',
-      singkatan: 'DPUPR',
-      alamat: 'Jl. Poros Andoolo No. 12, Konawe Selatan',
-      namaKepalaOpd: 'Drs. Muhammad Rizki, M.Si',
-      nipKepalaOpd: '197505152000011002',
-    },
-  });
-
-  const opdDinkes = await prisma.opd.upsert({
-    where: { kodeOpd: 'OPD-DINKES' },
-    update: {},
-    create: {
-      kodeOpd: 'OPD-DINKES',
-      namaOpd: 'Dinas Kesehatan',
-      singkatan: 'DINKES',
-      alamat: 'Jl. Kompleks Perkantoran Pemkab Konsel',
-      namaKepalaOpd: 'dr. Budi Setiawan, M.Kes',
-      nipKepalaOpd: '197803122005011003',
-    },
-  });
-
-  const opdDikbud = await prisma.opd.upsert({
-    where: { kodeOpd: 'OPD-DIKBUD' },
-    update: {},
-    create: {
-      kodeOpd: 'OPD-DIKBUD',
-      namaOpd: 'Dinas Pendidikan dan Kebudayaan',
-      singkatan: 'DIKBUD',
-      alamat: 'Jl. Poros Kendari - Andoolo KM 45',
-      namaKepalaOpd: 'H. Ruslan, S.Pd., M.Si',
-      nipKepalaOpd: '197211101998021002',
-    },
-  });
-
-  console.log('✅ Master OPD berhasil dibuat');
-
-  // 2. Default Password: Password123!
+  // 1. Default Password: Password123!
   const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
 
-  // 3. Seed OPD Diskominfo & Administrator Utama Resmi (Riswan M. Rizal dari E-Gov)
-  const opdKominfo = await prisma.opd.upsert({
-    where: { kodeOpd: 'OPD-KOMINFO' },
-    update: {},
-    create: {
-      kodeOpd: 'OPD-KOMINFO',
-      namaOpd: 'Dinas Komunikasi, Informatika dan Persandian',
-      singkatan: 'DISKOMINFO',
-      alamat: 'Jl. Poros Andoolo Kompleks Perkantoran',
-      namaKepalaOpd: '-',
-      nipKepalaOpd: '-',
+  // 2. Master Roles SIMANTAP
+  const MASTER_ROLES = [
+    {
+      kode: RoleEnum.ADMINISTRATOR,
+      nama: 'Administrator Utama',
+      deskripsi: 'Akses penuh sistem, manajemen user, dan pengaturan global (Bagian Adm. Pembangunan Setda).',
+      urutan: 1,
     },
-  });
+    {
+      kode: RoleEnum.ADMIN_SIRUP,
+      nama: 'Admin SiRUP',
+      deskripsi: 'Input data awal kegiatan pembangunan: kode RUP, pagu, nomor kontrak, rekanan, lokasi dari SiRUP LKPP.',
+      urutan: 2,
+    },
+    {
+      kode: RoleEnum.ADMIN_PERENCANAAN,
+      nama: 'Admin Perencanaan',
+      deskripsi: 'Menyusun rencana target fisik bulanan B01-B12 (Kurva-S): target 30%, 60%, 100% per paket.',
+      urutan: 3,
+    },
+    {
+      kode: RoleEnum.ADMIN_PPK,
+      nama: 'Admin PPK (Pejabat Pembuat Komitmen)',
+      deskripsi: 'Input realisasi fisik (%) kumulatif bulanan, kendala lapangan, upload bukti foto/video, dan pengajuan ke MONEV.',
+      urutan: 4,
+    },
+    {
+      kode: RoleEnum.BENDAHARA,
+      nama: 'Bendahara Pengeluaran',
+      deskripsi: 'Input realisasi keuangan kumulatif berbasis SP2D / Kas yang sudah dicairkan BPKAD per paket.',
+      urutan: 5,
+    },
+    {
+      kode: RoleEnum.KEPALA_OPD,
+      nama: 'Kepala OPD / Pengguna Anggaran',
+      deskripsi: 'Monitoring, evaluasi, dan pertanggungjawaban capaian realisasi paket pembangunan di tingkat OPD.',
+      urutan: 6,
+    },
+    {
+      kode: RoleEnum.PIMPINAN_DAERAH,
+      nama: 'Pimpinan Daerah (Bupati / Sekda)',
+      deskripsi: 'Executive dashboard pemantauan makro capaian pembangunan lintas seluruh OPD se-Kabupaten Konawe Selatan.',
+      urutan: 7,
+    },
+    {
+      kode: RoleEnum.MONEV,
+      nama: 'Tim MONEV Pembangunan',
+      deskripsi: 'Verifikasi, validasi, approval atau penolakan pengajuan realisasi PPK & Bendahara serta analisis deviasi.',
+      urutan: 8,
+    },
+  ];
 
-  await prisma.user.upsert({
+  const roleMap = new Map<RoleEnum, string>();
+  for (const r of MASTER_ROLES) {
+    const roleRecord = await prisma.role.upsert({
+      where: { kode: r.kode },
+      update: {
+        nama: r.nama,
+        deskripsi: r.deskripsi,
+        urutan: r.urutan,
+      },
+      create: r,
+    });
+    roleMap.set(r.kode, roleRecord.id);
+  }
+  console.log('✅ 8 Master roles SIMANTAP berhasil disiapkan');
+
+  // 3. Seed Administrator Utama Resmi (Riswan M. Rizal dari E-Gov / SIMPEG)
+  const adminUser = await prisma.user.upsert({
     where: { nip: '199506082024211001' },
     update: {
       namaLengkap: 'RISWAN M. RIZAL, S.T',
       jabatan: 'Pranata Komputer / Pegawai Diskominfo',
       email: 'rfbriswanmrizal@gmail.com',
       role: RoleEnum.ADMINISTRATOR,
+      roles: [RoleEnum.ADMINISTRATOR],
       status: StatusAkun.AKTIF,
-      opdId: opdKominfo.id,
+      opdId: 'e7A5wqWrMYJB6iYC8', // Sekretariat Daerah
+      subUnitId: '3CB2cqdwEihsq9yK4', // Bagian Administrasi Pembangunan
       password: defaultPasswordHash,
     },
     create: {
@@ -96,12 +97,31 @@ async function main() {
       email: 'rfbriswanmrizal@gmail.com',
       password: defaultPasswordHash,
       role: RoleEnum.ADMINISTRATOR,
+      roles: [RoleEnum.ADMINISTRATOR],
       status: StatusAkun.AKTIF,
-      opdId: opdKominfo.id,
+      opdId: 'e7A5wqWrMYJB6iYC8',
+      subUnitId: '3CB2cqdwEihsq9yK4',
     },
   });
 
-  console.log('✅ Akun Administrator Utama Riswan M. Rizal (E-Gov) berhasil disiapkan');
+  const adminRoleId = roleMap.get(RoleEnum.ADMINISTRATOR);
+  if (adminRoleId) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: adminUser.id,
+          roleId: adminRoleId,
+        },
+      },
+      update: {},
+      create: {
+        userId: adminUser.id,
+        roleId: adminRoleId,
+      },
+    });
+  }
+
+  console.log('✅ Akun Administrator Utama Riswan M. Rizal & UserRole berhasil disiapkan');
 
   // 4. Seed System Settings
   const existingSetting = await prisma.systemSetting.findFirst();

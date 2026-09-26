@@ -2,7 +2,10 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { AuthenticatedUser, JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
+import {
+  AuthenticatedUser,
+  JwtPayload,
+} from '../../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../../core/database/prisma.service';
 
 @Injectable()
@@ -14,7 +17,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.secret', 'simantap-jwt-access-secret-super-secure-key-2026'),
+      secretOrKey: configService.get<string>(
+        'jwt.secret',
+        'simantap-jwt-access-secret-super-secure-key-2026',
+      ),
     });
   }
 
@@ -35,7 +41,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
 
     if (!user || user.status !== 'AKTIF') {
-      throw new UnauthorizedException('Sesi tidak valid atau akun dinonaktifkan');
+      throw new UnauthorizedException(
+        'Sesi tidak valid atau akun dinonaktifkan',
+      );
     }
 
     return {
@@ -44,7 +52,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       email: user.email,
       namaLengkap: user.namaLengkap,
       role: user.role as any,
-      roles: (user.roles && user.roles.length > 0) ? (user.roles as any) : [user.role as any],
+      roles:
+        user.roles && user.roles.length > 0
+          ? (user.roles as any)
+          : [user.role as any],
       opdId: user.opdId,
       subUnitId: user.subUnitId,
     };

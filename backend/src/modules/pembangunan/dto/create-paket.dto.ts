@@ -14,7 +14,11 @@ import {
 import { TargetBulananItemDto } from './target-bulanan.dto';
 
 export class CreatePaketDto {
-  @ApiPropertyOptional({ description: 'Tahun Anggaran', default: 2026, example: 2026 })
+  @ApiPropertyOptional({
+    description: 'Tahun Anggaran',
+    default: 2026,
+    example: 2026,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -46,7 +50,8 @@ export class CreatePaketDto {
   lokasiKegiatan?: string;
 
   @ApiPropertyOptional({
-    description: 'Metode Pemilihan Pengadaan (E-Purchasing, Pengadaan Langsung, Tender, Swakelola, Penunjukan Langsung)',
+    description:
+      'Metode Pemilihan Pengadaan (E-Purchasing, Pengadaan Langsung, Tender, Swakelola, Penunjukan Langsung)',
     example: 'Tender',
   })
   @IsOptional()
@@ -54,7 +59,8 @@ export class CreatePaketDto {
   metodePemilihan?: string;
 
   @ApiPropertyOptional({
-    description: 'Jenis Pengadaan (Pekerjaan Konstruksi, Pengadaan Barang, Jasa Konsultansi, Jasa Lainnya)',
+    description:
+      'Jenis Pengadaan (Pekerjaan Konstruksi, Pengadaan Barang, Jasa Konsultansi, Jasa Lainnya)',
     example: 'Pekerjaan Konstruksi',
   })
   @IsOptional()
@@ -67,13 +73,19 @@ export class CreatePaketDto {
   @Min(0, { message: 'Nilai pagu minimal 0' })
   nilaiPagu: number;
 
-  @ApiProperty({ description: 'Nilai Kontrak Hasil Pengadaan (Rp)', example: 485000000 })
+  @ApiProperty({
+    description: 'Nilai Kontrak Hasil Pengadaan (Rp)',
+    example: 485000000,
+  })
   @Type(() => Number)
   @IsNumber()
   @Min(0, { message: 'Nilai kontrak minimal 0' })
   nilaiKontrak: number;
 
-  @ApiPropertyOptional({ description: 'Sumber Dana (DAU, DAK Fisik, DBH, PAD, dll)', example: 'DAU' })
+  @ApiPropertyOptional({
+    description: 'Sumber Dana (DAU, DAK Fisik, DBH, PAD, dll)',
+    example: 'DAU',
+  })
   @IsOptional()
   @IsString()
   sumberDana?: string;
@@ -83,17 +95,25 @@ export class CreatePaketDto {
   @IsString()
   nomorKontrak?: string;
 
-  @ApiPropertyOptional({ description: 'Tanggal Mulai Kontrak', example: '2026-03-01' })
+  @ApiPropertyOptional({
+    description: 'Tanggal Mulai Kontrak',
+    example: '2026-03-01',
+  })
   @IsOptional()
   @IsDateString()
   tanggalMulai?: string;
 
-  @ApiPropertyOptional({ description: 'Tanggal Selesai Kontrak', example: '2026-10-31' })
+  @ApiPropertyOptional({
+    description: 'Tanggal Selesai Kontrak',
+    example: '2026-10-31',
+  })
   @IsOptional()
   @IsDateString()
   tanggalSelesai?: string;
 
-  @ApiPropertyOptional({ description: 'Nama Perusahaan / Penyedia / Rekanan Pemenang' })
+  @ApiPropertyOptional({
+    description: 'Nama Perusahaan / Penyedia / Rekanan Pemenang',
+  })
   @IsOptional()
   @IsString()
   pemenangRekanan?: string;

@@ -1,7 +1,9 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import {
   APP_DESCRIPTION,
@@ -11,12 +13,19 @@ import {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Sajikan folder uploads/ sebagai file statis (foto bukti fisik PPK)
+  const uploadDir = join(process.cwd(), 'uploads');
+  app.useStaticAssets(uploadDir, { prefix: '/uploads' });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port', 4000);
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
-  const clientUrl = configService.get<string>('app.clientUrl', 'http://localhost:3000');
+  const clientUrl = configService.get<string>(
+    'app.clientUrl',
+    'http://localhost:3000',
+  );
 
   // Enable graceful shutdown
   app.enableShutdownHooks();
@@ -60,8 +69,14 @@ async function bootstrap() {
       },
       'bearer',
     )
-    .addTag('Authentication', 'Endpoint otentikasi, login NIP/Email, refresh token, profil')
-    .addTag('Health', 'Endpoint pemantauan kesehatan server, basis data, dan memori')
+    .addTag(
+      'Authentication',
+      'Endpoint otentikasi, login NIP/Email, refresh token, profil',
+    )
+    .addTag(
+      'Health',
+      'Endpoint pemantauan kesehatan server, basis data, dan memori',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -77,10 +92,14 @@ async function bootstrap() {
   await app.listen(port);
 
   logger.log(`========================================================`);
-  logger.log(`🚀 ${APP_NAME} berjalan pada: http://localhost:${port}/${apiPrefix}`);
+  logger.log(
+    `🚀 ${APP_NAME} berjalan pada: http://localhost:${port}/${apiPrefix}`,
+  );
   logger.log(`📚 Dokumentasi Swagger API:   http://localhost:${port}/docs`);
-  logger.log(`🩺 Health Check Endpoint:     http://localhost:${port}/${apiPrefix}/health`);
+  logger.log(
+    `🩺 Health Check Endpoint:     http://localhost:${port}/${apiPrefix}/health`,
+  );
   logger.log(`========================================================`);
 }
 
-bootstrap();
+void bootstrap();

@@ -71,9 +71,19 @@ export const BULAN_NAMES = [
 
 export default function LaporanDanEvaluasiPage() {
   const { user } = useAuth()
-  const isSuperRole = !user?.role || ["ADMINISTRATOR", "PIMPINAN_DAERAH"].includes(user.role)
+  const userRoles: string[] =
+    user?.roles && user.roles.length > 0
+      ? user.roles
+      : user?.role
+      ? [user.role]
+      : []
+  const hasRole = (role: string) => userRoles.includes(role)
+  const isSuperRole = userRoles.length === 0 || userRoles.some((r) => ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r))
+  const isKepalaOpd = hasRole("KEPALA_OPD")
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
+  const userSubUnitId = user?.subUnit?.id
+  const userSubUnitNama = user?.subUnit?.namaSubUnit
 
   const currentMonthNo = new Date().getMonth() + 1
 
@@ -89,12 +99,15 @@ export default function LaporanDanEvaluasiPage() {
   const [limit] = useState<number>(15)
   const [activeTab, setActiveTab] = useState<string>("evaluasi")
 
-  // Bind OPD otomatis untuk non-super role
+  // Bind OPD & Sub Unit otomatis untuk non-super role
   useEffect(() => {
     if (!isSuperRole && userOpdId) {
       setSelectedOpd(userOpdId)
     }
-  }, [isSuperRole, userOpdId])
+    if (!isSuperRole && !isKepalaOpd && userSubUnitId) {
+      setSelectedSubUnit(userSubUnitId)
+    }
+  }, [isSuperRole, isKepalaOpd, userOpdId, userSubUnitId])
 
   // Reset Sub Unit jika OPD berubah
   const handleOpdChange = (val: string) => {
@@ -186,7 +199,7 @@ export default function LaporanDanEvaluasiPage() {
       }
 
       const res = await apiClient.get("/pembangunan/realisasi", { params })
-      return res.data?.data || null
+      return res.data
     },
   })
 
@@ -254,11 +267,17 @@ export default function LaporanDanEvaluasiPage() {
   })
 
   // Ambil list items & summary
-  const items = useMemo(() => rfkData?.data || [], [rfkData])
+  const items = useMemo(() => {
+    if (Array.isArray(rfkData?.data)) return rfkData.data
+    if (Array.isArray(rfkData)) return rfkData
+    return []
+  }, [rfkData])
+
   const summary = useMemo(
     () =>
       rfkData?.summary || {
-        totalPaket: 0,
+        activeBulan: bulan,
+        totalPaket: items.length,
         totalPagu: 0,
         totalKontrak: 0,
         totalRealisasiKeuangan: 0,
@@ -268,12 +287,12 @@ export default function LaporanDanEvaluasiPage() {
         avgDeviasiFisik: 0,
         countStatus: { aman: 0, perhatian: 0, kritis: 0, belumMulai: 0 },
       },
-    [rfkData]
+    [rfkData, items.length, bulan]
   )
 
   const meta = useMemo(
-    () => rfkData?.meta || { total: 0, totalPages: 1, page: 1, limit: 15 },
-    [rfkData]
+    () => rfkData?.meta || { total: items.length, totalPages: 1, page: 1, limit: 15 },
+    [rfkData, items.length]
   )
 
   // Filter paket yang berkategori KRITIS (Deviasi < -10%)
@@ -327,8 +346,12 @@ export default function LaporanDanEvaluasiPage() {
       }
 
       const res = await apiClient.get("/pembangunan/realisasi", { params })
-      const allItems = res.data?.data?.data || items
-      const allSummary = res.data?.data?.summary || summary
+      const allItems = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.data?.data)
+        ? res.data.data.data
+        : items
+      const allSummary = res.data?.summary || res.data?.data?.summary || summary
 
       let opdList: any[] = []
       try {
@@ -504,26 +527,33 @@ export default function LaporanDanEvaluasiPage() {
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
             <div className="w-full">
-              <SearchableCombobox
-                value={selectedSubUnit === "ALL" ? "all" : selectedSubUnit}
-                onValueChange={(val) => {
-                  setSelectedSubUnit(val === "all" ? "ALL" : val)
-                  setPage(1)
-                }}
-                items={subUnitComboboxItems}
-                placeholder={
-                  selectedOpd === "ALL" || selectedOpd === "all"
-                    ? "Pilih OPD Dahulu"
-                    : isLoadingSubUnits
-                    ? "Memuat Sub Unit..."
-                    : "Ketik / Pilih Sub Unit..."
-                }
-                searchPlaceholder="Ketik nama Sub Unit Kerja..."
-                emptyText="Sub Unit Kerja tidak ditemukan."
-                allLabel="-- Semua Sub Unit Kerja --"
-                icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                disabled={selectedOpd === "ALL" || selectedOpd === "all" || isLoadingSubUnits}
-              />
+              {isSuperRole || isKepalaOpd ? (
+                <SearchableCombobox
+                  value={selectedSubUnit === "ALL" ? "all" : selectedSubUnit}
+                  onValueChange={(val) => {
+                    setSelectedSubUnit(val === "all" ? "ALL" : val)
+                    setPage(1)
+                  }}
+                  items={subUnitComboboxItems}
+                  placeholder={
+                    selectedOpd === "ALL" || selectedOpd === "all"
+                      ? "Pilih OPD Dahulu"
+                      : isLoadingSubUnits
+                      ? "Memuat Sub Unit..."
+                      : "Ketik / Pilih Sub Unit..."
+                  }
+                  searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                  emptyText="Sub Unit Kerja tidak ditemukan."
+                  allLabel="-- Semua Sub Unit Kerja --"
+                  icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                  disabled={selectedOpd === "ALL" || selectedOpd === "all" || isLoadingSubUnits}
+                />
+              ) : (
+                <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
+                  <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span className="truncate">{userSubUnitNama || "Sub Unit Anda"}</span>
+                </div>
+              )}
             </div>
 
             {/* Filter Tahun Anggaran */}

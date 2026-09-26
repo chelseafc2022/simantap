@@ -6,4 +6,5 @@ export enum RoleEnum {
   BENDAHARA = 'BENDAHARA',
   KEPALA_OPD = 'KEPALA_OPD',
   PIMPINAN_DAERAH = 'PIMPINAN_DAERAH',
+  MONEV = 'MONEV',
 }

@@ -22,7 +22,9 @@ export class HealthController {
   @Public()
   @Get()
   @HealthCheck()
-  @ApiOperation({ summary: 'Periksa status kesehatan sistem (DB, Memori, Server)' })
+  @ApiOperation({
+    summary: 'Periksa status kesehatan sistem (DB, Memori, Server)',
+  })
   check() {
     return this.health.check([
       () => this.prismaHealth.pingCheck('database', this.prisma),

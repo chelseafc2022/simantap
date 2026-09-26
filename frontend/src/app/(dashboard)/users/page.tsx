@@ -137,11 +137,19 @@ export default function UsersManagementPage() {
     },
   })
 
-  const usersList = usersResponse?.data || []
-  const usersMeta = usersResponse?.meta || { page: 1, totalPages: 1, total: 0 }
+  const usersList = Array.isArray(usersResponse?.data)
+    ? usersResponse.data
+    : Array.isArray(usersResponse?.data?.data)
+    ? usersResponse.data.data
+    : []
+  const usersMeta = usersResponse?.meta || usersResponse?.data?.meta || { page: 1, totalPages: 1, total: 0 }
 
-  const directoryList = directoryResponse?.data || []
-  const directoryMeta = directoryResponse?.meta || { page: 1, totalPages: 1, total: 0 }
+  const directoryList = Array.isArray(directoryResponse?.data)
+    ? directoryResponse.data
+    : Array.isArray(directoryResponse?.data?.data)
+    ? directoryResponse.data.data
+    : []
+  const directoryMeta = directoryResponse?.meta || directoryResponse?.data?.meta || { page: 1, totalPages: 1, total: 0 }
   const instansiList = instansiResponse || []
   const unitKerjaList = unitKerjaResponse || []
 

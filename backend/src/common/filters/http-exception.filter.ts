@@ -3,7 +3,6 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
-  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -33,7 +32,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
-    this.logger.warn(`[${request.method}] ${request.url} - ${status} - ${message}`);
+    this.logger.warn(
+      `[${request.method}] ${request.url} - ${status} - ${message}`,
+    );
 
     const errorResponse: ApiResponse = {
       success: false,

@@ -53,6 +53,8 @@ function formatRole(role?: string): string {
       return "Kepala OPD"
     case "PIMPINAN_DAERAH":
       return "Pimpinan Daerah"
+    case "MONEV":
+      return "Tim MONEV"
     default:
       return role || "Pengguna"
   }

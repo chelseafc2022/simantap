@@ -37,7 +37,9 @@ export class AuthService {
     });
 
     if (existing) {
-      throw new BadRequestException('NIP atau Email sudah terdaftar dalam sistem');
+      throw new BadRequestException(
+        'NIP atau Email sudah terdaftar dalam sistem',
+      );
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -75,7 +77,7 @@ export class AuthService {
    * Mengadopsi alur multi-database konsel-setara
    */
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
-    const rawInput = dto.nipOrEmail || dto.identifier || "";
+    const rawInput = dto.nipOrEmail || dto.identifier || '';
     const cleanInput = rawInput.trim();
 
     // 1. Coba Autentikasi ke Database Lokal SIMANTAP
@@ -87,27 +89,15 @@ export class AuthService {
           targetNip = egovInfo.nip;
         }
       } catch (err) {
-        this.logger.warn(`Lookup E-Gov username ${cleanInput} gagal: ${err.message}`);
+        this.logger.warn(
+          `Lookup E-Gov username ${cleanInput} gagal: ${err.message}`,
+        );
       }
     }
 
     let user = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { nip: cleanInput },
-          { nip: targetNip },
-          { email: cleanInput },
-        ],
-      },
-      include: {
-        opd: {
-          select: {
-            id: true,
-            kodeOpd: true,
-            namaOpd: true,
-            singkatan: true,
-          },
-        },
+        OR: [{ nip: cleanInput }, { nip: targetNip }, { email: cleanInput }],
       },
     });
 
@@ -117,6 +107,30 @@ export class AuthService {
       const isMatch = await bcrypt.compare(dto.password, user.password);
       if (isMatch) {
         isAuthenticated = true;
+
+        // Jika user belum terhubung ke OPD atau Sub Unit, sinkronkan otomatis dari SIMPEG
+        if (!user.subUnitId || !user.opdId) {
+          try {
+            const egovInfo = await this.egovService.getPegawaiByNip(user.nip);
+            if (egovInfo?.instansiId || egovInfo?.unitKerjaId) {
+              user = await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                  opdId:
+                    user.opdId ||
+                    (egovInfo.instansiId ? String(egovInfo.instansiId) : null),
+                  subUnitId:
+                    user.subUnitId ||
+                    (egovInfo.unitKerjaId ? String(egovInfo.unitKerjaId) : null),
+                },
+              });
+            }
+          } catch (err: any) {
+            this.logger.warn(
+              `Auto-sync SubUnit untuk user '${user.nip}' gagal: ${err.message}`,
+            );
+          }
+        }
       }
     }
 
@@ -137,16 +151,6 @@ export class AuthService {
       if (!user) {
         user = await this.prisma.user.findFirst({
           where: { nip: egovProfile.nip },
-          include: {
-            opd: {
-              select: {
-                id: true,
-                kodeOpd: true,
-                namaOpd: true,
-                singkatan: true,
-              },
-            },
-          },
         });
       }
 
@@ -158,22 +162,12 @@ export class AuthService {
       }
 
       // Update data nama & jabatan pegawai dari SIMPEG jika ada pembaruan
-      // Dan sinkronkan OPD jika user belum terhubung ke OPD
-      let updatedOpdId = user.opdId;
-      if (!updatedOpdId && (egovProfile.instansiId || egovProfile.opd)) {
-        const matchedOpd = await this.prisma.opd.findFirst({
-          where: {
-            OR: [
-              ...(egovProfile.instansiId ? [{ kodeOpd: String(egovProfile.instansiId) }] : []),
-              { namaOpd: { equals: egovProfile.opd, mode: 'insensitive' } },
-              { namaOpd: { contains: egovProfile.opd, mode: 'insensitive' } },
-            ],
-          },
-        });
-        if (matchedOpd) {
-          updatedOpdId = matchedOpd.id;
-        }
-      }
+      const updatedOpdId =
+        user.opdId ||
+        (egovProfile.instansiId ? String(egovProfile.instansiId) : null);
+      const updatedSubUnitId =
+        user.subUnitId ||
+        (egovProfile.unitKerjaId ? String(egovProfile.unitKerjaId) : null);
 
       user = await this.prisma.user.update({
         where: { id: user.id },
@@ -181,16 +175,7 @@ export class AuthService {
           namaLengkap: egovProfile.namaLengkap,
           jabatan: egovProfile.jabatan || user.jabatan,
           opdId: updatedOpdId,
-        },
-        include: {
-          opd: {
-            select: {
-              id: true,
-              kodeOpd: true,
-              namaOpd: true,
-              singkatan: true,
-            },
-          },
+          subUnitId: updatedSubUnitId,
         },
       });
 
@@ -252,8 +237,9 @@ export class AuthService {
         jabatan: user.jabatan,
         email: user.email,
         role: user.role,
-        roles: (user.roles && user.roles.length > 0) ? user.roles : [user.role],
-        opd: user.opd,
+        roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
+        opd: this.egovService.getOpdById(user.opdId),
+        subUnit: this.egovService.getSubUnitById(user.subUnitId),
       },
     };
   }
@@ -270,11 +256,6 @@ export class AuthService {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        include: {
-          opd: {
-            select: { id: true, kodeOpd: true, namaOpd: true, singkatan: true },
-          },
-        },
       });
 
       if (!user || user.status !== 'AKTIF') {
@@ -300,7 +281,9 @@ export class AuthService {
       }
 
       if (!validTokenRecord) {
-        throw new UnauthorizedException('Refresh token tidak valid atau telah ditarik');
+        throw new UnauthorizedException(
+          'Refresh token tidak valid atau telah ditarik',
+        );
       }
 
       // Revoke old token (token rotation)
@@ -336,12 +319,15 @@ export class AuthService {
           jabatan: user.jabatan,
           email: user.email,
           role: user.role,
-          roles: (user.roles && user.roles.length > 0) ? user.roles : [user.role],
-          opd: user.opd,
+          roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
+          opd: this.egovService.getOpdById(user.opdId),
+          subUnit: this.egovService.getSubUnitById(user.subUnitId),
         },
       };
-    } catch (error) {
-      throw new UnauthorizedException('Refresh token kedaluwarsa atau tidak valid');
+    } catch {
+      throw new UnauthorizedException(
+        'Refresh token kedaluwarsa atau tidak valid',
+      );
     }
   }
 
@@ -364,9 +350,13 @@ export class AuthService {
         email: true,
         role: true,
         roles: true,
+        userRoles: {
+          include: { role: true },
+          orderBy: { role: { urutan: 'asc' } },
+        },
         status: true,
-        opd: true,
-        subUnit: true,
+        opdId: true,
+        subUnitId: true,
         lastLoginAt: true,
         createdAt: true,
       },
@@ -376,7 +366,11 @@ export class AuthService {
       throw new UnauthorizedException('Pengguna tidak ditemukan');
     }
 
-    return user;
+    return {
+      ...user,
+      opd: this.egovService.getOpdById(user.opdId),
+      subUnit: this.egovService.getSubUnitById(user.subUnitId),
+    };
   }
 
   private async generateTokens(user: {
@@ -386,9 +380,15 @@ export class AuthService {
     role: any;
     roles?: any;
     opdId?: string | null;
+    subUnitId?: string | null;
     namaLengkap: string;
   }) {
-    const userRoles = (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []);
+    const userRoles =
+      user.roles && user.roles.length > 0
+        ? user.roles
+        : user.role
+          ? [user.role]
+          : [];
     const payload: JwtPayload = {
       sub: user.id,
       nip: user.nip,
@@ -396,6 +396,7 @@ export class AuthService {
       role: (user.role as RoleEnum) || (userRoles[0] as RoleEnum) || null,
       roles: userRoles as RoleEnum[],
       opdId: user.opdId,
+      subUnitId: user.subUnitId,
       namaLengkap: user.namaLengkap,
     };
 
@@ -403,7 +404,10 @@ export class AuthService {
       'jwt.secret',
       'simantap-jwt-access-secret-super-secure-key-2026',
     );
-    const accessExpires = this.configService.get<string>('jwt.expiresIn', '15m');
+    const accessExpires = this.configService.get<string>(
+      'jwt.expiresIn',
+      '15m',
+    );
 
     const refreshSecret = this.configService.get<string>(
       'jwt.refreshSecret',

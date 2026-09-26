@@ -5,5 +5,7 @@ export default registerAs('mail', () => ({
   port: parseInt(process.env.MAIL_PORT || '2525', 10),
   user: process.env.MAIL_USER || '',
   pass: process.env.MAIL_PASSWORD || '',
-  from: process.env.MAIL_FROM || '"SIMANTAP Pemkab Konawe Selatan" <noreply@konaweselatankab.go.id>',
+  from:
+    process.env.MAIL_FROM ||
+    '"SIMANTAP Pemkab Konawe Selatan" <noreply@konaweselatankab.go.id>',
 }));
