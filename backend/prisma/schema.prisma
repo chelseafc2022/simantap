@@ -39,6 +39,7 @@ model Opd {
 
   subUnits       SubUnit[]
   users          User[]
+  paketPembangunan PaketPembangunan[]
 
   @@map("opd")
 }
@@ -53,6 +54,7 @@ model SubUnit {
 
   opd         Opd      @relation(fields: [opdId], references: [id], onDelete: Cascade)
   users       User[]
+  paketPembangunan PaketPembangunan[]
 
   @@unique([opdId, kodeSubUnit])
   @@map("sub_unit")
@@ -74,10 +76,12 @@ model User {
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
-  opd          Opd?          @relation(fields: [opdId], references: [id], onDelete: SetNull)
-  subUnit      SubUnit?      @relation(fields: [subUnitId], references: [id], onDelete: SetNull)
-  refreshTokens RefreshToken[]
-  auditLogs    AuditLog[]
+  opd              Opd?               @relation(fields: [opdId], references: [id], onDelete: SetNull)
+  subUnit          SubUnit?           @relation(fields: [subUnitId], references: [id], onDelete: SetNull)
+  refreshTokens     RefreshToken[]
+  auditLogs        AuditLog[]
+  paketCreated     PaketPembangunan[] @relation("UserPaketCreated")
+  realisasiInput   RealisasiBulanan[] @relation("UserRealisasiInput")
 
   @@map("users")
 }
@@ -140,4 +144,70 @@ model LockingPeriod {
 
   @@unique([tahun, bulan])
   @@map("locking_periods")
+}
+
+model PaketPembangunan {
+  id              String             @id @default(uuid())
+  tahunAnggaran   Int                @default(2026) @map("tahun_anggaran")
+  opdId           String             @map("opd_id")
+  subUnitId       String?            @map("sub_unit_id")
+  kodeRupKontrak  String?            @map("kode_rup_kontrak")
+  namaPaket       String             @map("nama_paket")
+  lokasiKegiatan  String?            @map("lokasi_kegiatan")
+  metodePemilihan String?            @map("metode_pemilihan")
+  jenisPengadaan  String?            @map("jenis_pengadaan")
+  nilaiPagu       Decimal            @default(0) @db.Decimal(18, 2) @map("nilai_pagu")
+  nilaiKontrak    Decimal            @default(0) @db.Decimal(18, 2) @map("nilai_kontrak")
+  sumberDana      String?            @map("sumber_dana")
+  nomorKontrak    String?            @map("nomor_kontrak")
+  tanggalMulai    DateTime?          @map("tanggal_mulai")
+  tanggalSelesai  DateTime?          @map("tanggal_selesai")
+  pemenangRekanan String?            @map("pemenang_rekanan")
+  keterangan      String?
+  createdById     String?            @map("created_by_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  opd             Opd                @relation(fields: [opdId], references: [id], onDelete: Cascade)
+  subUnit         SubUnit?           @relation(fields: [subUnitId], references: [id], onDelete: SetNull)
+  createdBy       User?              @relation("UserPaketCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  targetBulanan   TargetBulanan[]
+  realisasiBulanan RealisasiBulanan[]
+
+  @@index([tahunAnggaran, opdId])
+  @@map("paket_pembangunan")
+}
+
+model TargetBulanan {
+  id          String           @id @default(uuid())
+  paketId     String           @map("paket_id")
+  bulan       Int
+  targetFisik Float            @default(0) @map("target_fisik")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  paket       PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+
+  @@unique([paketId, bulan])
+  @@index([paketId])
+  @@map("target_bulanan")
+}
+
+model RealisasiBulanan {
+  id                String           @id @default(uuid())
+  paketId           String           @map("paket_id")
+  bulan             Int
+  realisasiFisik    Float            @default(0) @map("realisasi_fisik")
+  realisasiKeuangan Decimal          @default(0) @db.Decimal(18, 2) @map("realisasi_keuangan")
+  catatanOperator   String?          @map("catatan_operator")
+  inputById         String?          @map("input_by_id")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  paket             PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  inputBy           User?            @relation("UserRealisasiInput", fields: [inputById], references: [id], onDelete: SetNull)
+
+  @@unique([paketId, bulan])
+  @@index([paketId])
+  @@map("realisasi_bulanan")
 }
