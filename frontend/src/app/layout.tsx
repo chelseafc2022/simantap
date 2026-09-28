@@ -7,6 +7,14 @@ import './globals.css';
 export const metadata: Metadata = {
   title: `${siteConfig.name} - ${siteConfig.fullName}`,
   description: siteConfig.description,
+  icons: {
+    icon: [
+      { url: '/simantap_logo.png', sizes: 'any', type: 'image/png' },
+      { url: '/favicon.ico' },
+    ],
+    shortcut: '/simantap_logo.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({

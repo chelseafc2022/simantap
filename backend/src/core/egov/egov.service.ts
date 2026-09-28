@@ -50,6 +50,46 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
+    await this.ensureConnection();
+  }
+
+  async onModuleDestroy() {
+    if (this.pool) {
+      await this.pool.end();
+      this.logger.log('Koneksi pool E-Gov & SIMPEG ditutup');
+    }
+  }
+
+  /**
+   * Memastikan koneksi pool MySQL E-Gov & SIMPEG aktif dan siap pakai.
+   * Mendukung retry on-demand jika server MySQL sempat offline saat startup.
+   */
+  async ensureConnection(): Promise<mysql.Pool | null> {
+    if (this.pool && this.isConnected) {
+      return this.pool;
+    }
+
+    if (this.pool) {
+      try {
+        const conn = await this.pool.getConnection();
+        conn.release();
+        this.isConnected = true;
+        if (this.instansiCache.size === 0) {
+          await this.loadCache();
+        }
+        return this.pool;
+      } catch (err: any) {
+        this.isConnected = false;
+        this.logger.warn(
+          `Cek koneksi MySQL E-Gov & SIMPEG gagal (${err.message}). Mencoba inisialisasi ulang pool...`,
+        );
+        try {
+          await this.pool.end();
+        } catch {}
+        this.pool = null;
+      }
+    }
+
     const host = this.configService.get<string>(
       'egov.host',
       'mysql.konaweselatankab.go.id',
@@ -74,30 +114,25 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         connectionLimit,
         waitForConnections: true,
         queueLimit: 0,
-        connectTimeout: 7000,
+        connectTimeout: 10000,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 10000,
       });
 
-      // Test connection
       const conn = await this.pool.getConnection();
       conn.release();
       this.isConnected = true;
       this.logger.log(
         `Berhasil terhubung ke Server Database E-Gov & SIMPEG Konsel (${host})`,
       );
-      // Muat cache referensi SIMPEG instansi & unit_kerja
       await this.loadCache();
-    } catch (error) {
+      return this.pool;
+    } catch (error: any) {
       this.isConnected = false;
       this.logger.warn(
         `Koneksi ke server database E-Gov & SIMPEG tidak dapat dibangun (${error.message}).`,
       );
-    }
-  }
-
-  async onModuleDestroy() {
-    if (this.pool) {
-      await this.pool.end();
-      this.logger.log('Koneksi pool E-Gov & SIMPEG ditutup');
+      return null;
     }
   }
 
@@ -140,7 +175,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     usernameOrNip: string,
     passwordPlain: string,
   ): Promise<EgovPegawaiProfile | null> {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return null;
     }
 
@@ -169,7 +205,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LIMIT 1;
       `;
 
-      const [rows] = await this.pool.query<any[]>(sqlEgov, [
+      const [rows] = await pool.query<any[]>(sqlEgov, [
         cleanInput,
         cleanInput,
       ]);
@@ -221,7 +257,12 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
    * Mengadopsi pola dari konsel-setara/backend/apiMysql/pegawai.js (lookup)
    */
   async lookupPegawai(cari: string, limit = 20): Promise<EgovPegawaiProfile[]> {
-    if (!this.pool || !this.isConnected || !cari || cari.trim().length < 3) {
+    if (!cari || cari.trim().length < 3) {
+      return [];
+    }
+
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return [];
     }
 
@@ -267,7 +308,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LIMIT ?;
       `;
 
-      const [rows] = await this.pool.query<any[]>(sql, [q, q, q, limit]);
+      const [rows] = await pool.query<any[]>(sql, [q, q, q, limit]);
 
       return (rows || []).map((r) => ({
         egovId: String(r.egov_id),
@@ -293,7 +334,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
    * Mengambil detail lengkap 1 pegawai berdasarkan NIP
    */
   async getPegawaiByNip(nip: string): Promise<EgovPegawaiProfile | null> {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return null;
     }
 
@@ -320,7 +362,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LIMIT 1;
       `;
 
-      const [rows] = await this.pool.query<any[]>(sql, [nip, nip]);
+      const [rows] = await pool.query<any[]>(sql, [nip, nip]);
       if (!rows || rows.length === 0) return null;
 
       const r = rows[0];
@@ -356,7 +398,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     instansiId?: string;
     unitKerjaId?: string;
   }) {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return { data: [], total: 0, totalPages: 0 };
     }
 
@@ -403,7 +446,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         WHERE ${whereStr};
       `;
 
-      const [countRows] = await this.pool.query<any[]>(countSql, queryParams);
+      const [countRows] = await pool.query<any[]>(countSql, queryParams);
       const total = countRows[0]?.total || 0;
       const totalPages = Math.ceil(total / limit) || 1;
 
@@ -448,7 +491,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LIMIT ?, ?;
       `;
 
-      const [dataRows] = await this.pool.query<any[]>(dataSql, [
+      const [dataRows] = await pool.query<any[]>(dataSql, [
         ...queryParams,
         offset,
         limit,
@@ -486,13 +529,14 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
    * Mengambil daftar Instansi / Unit Kerja dari SIMPEG (READ-ONLY)
    */
   async getInstansiList(): Promise<{ id: string; instansi: string }[]> {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return [];
     }
     try {
       const sql =
         'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;';
-      const [rows] = await this.pool.query<any[]>(sql);
+      const [rows] = await pool.query<any[]>(sql);
       return (rows || []).map((r) => ({
         id: String(r.id),
         instansi: r.instansi,
@@ -513,7 +557,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     instansiId?: string,
     unitKerjaId?: string,
   ): Promise<string[]> {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return [];
     }
     try {
@@ -538,7 +583,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         WHERE ${whereClauses.join(' AND ')};
       `;
 
-      const [rows] = await this.pool.query<any[]>(sql, params);
+      const [rows] = await pool.query<any[]>(sql, params);
       return (rows || []).map((r) => String(r.nip));
     } catch (error) {
       this.logger.error('Error saat getNipsByInstansi:', error.message);
@@ -550,7 +595,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
     instansiId?: string,
     namaInstansi?: string,
   ): Promise<{ id: string; unitKerja: string; instansiId: string }[]> {
-    if (!this.pool || !this.isConnected) {
+    const pool = await this.ensureConnection();
+    if (!pool) {
       return [];
     }
     try {
@@ -558,7 +604,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
 
       if (instansiId && instansiId !== 'all') {
         // Cek apakah ada unit_kerja yang langsung cocok dengan ID ini
-        const [direct] = await this.pool.query<any[]>(
+        const [direct] = await pool.query<any[]>(
           'SELECT id FROM simpeg.unit_kerja WHERE instansi = ? LIMIT 1',
           [instansiId],
         );
@@ -572,7 +618,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
           ].filter(Boolean) as string[];
 
           for (const term of terms) {
-            const [matched] = await this.pool.query<any[]>(
+            const [matched] = await pool.query<any[]>(
               'SELECT id, instansi FROM simpeg.instansi WHERE id = ? OR instansi LIKE ? LIMIT 1',
               [term, `%${term}%`],
             );
@@ -593,7 +639,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       }
       sql += ' ORDER BY unit_kerja ASC;';
 
-      const [rows] = await this.pool.query<any[]>(sql, params);
+      const [rows] = await pool.query<any[]>(sql, params);
       return (rows || []).map((r) => ({
         id: String(r.id),
         unitKerja: r.unit_kerja,
@@ -609,7 +655,8 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
    * Muat dan perbarui Cache Instansi & Unit Kerja dari database SIMPEG
    */
   async loadCache(force = false) {
-    if (!this.pool || !this.isConnected) return;
+    const pool = await this.ensureConnection();
+    if (!pool) return;
     const now = Date.now();
     if (
       !force &&
@@ -621,7 +668,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // 1. Ambil seluruh Instansi (OPD) dari SIMPEG
-      const [instansiRows] = await this.pool.query<any[]>(
+      const [instansiRows] = await pool.query<any[]>(
         'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;',
       );
       this.instansiCache.clear();
@@ -637,7 +684,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       }
 
       // 2. Ambil seluruh Unit Kerja (Sub Unit) dari SIMPEG
-      const [unitKerjaRows] = await this.pool.query<any[]>(
+      const [unitKerjaRows] = await pool.query<any[]>(
         'SELECT id, unit_kerja, instansi FROM simpeg.unit_kerja ORDER BY unit_kerja ASC;',
       );
       this.unitKerjaCache.clear();

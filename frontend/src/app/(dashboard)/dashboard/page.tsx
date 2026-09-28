@@ -46,6 +46,7 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from "lucide-react"
+import { TerpaduHeritageCard } from "@/components/dashboard/terpadu-heritage-card"
 
 // ────────────────────────────────────────────────────────────
 // Helpers
@@ -1151,6 +1152,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── APRESIASI INTEGRASI TERPADU (SIDAPEM & MONEV) ─── */}
+      <TerpaduHeritageCard />
 
     </div>
   )

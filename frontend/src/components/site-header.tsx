@@ -36,34 +36,38 @@ function DynamicBreadcrumb() {
   const pageTitle = matched ? matched[1] : null
   const isRoot = pathname === "/dashboard"
 
-  if (!pageTitle) return (
-    <span className="text-sm font-semibold tracking-tight text-foreground hidden sm:inline-block">
-      SIMANTAP
-    </span>
-  )
-
   return (
-    <Breadcrumb className="hidden sm:flex">
-      <BreadcrumbList>
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href="/dashboard" className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
-              SIMANTAP
-            </Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-        {!isRoot && (
-          <>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage className="text-xs font-semibold text-foreground">
-                {pageTitle}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </>
-        )}
-      </BreadcrumbList>
-    </Breadcrumb>
+    <div className="flex items-center gap-2 min-w-0">
+      <Breadcrumb className="flex min-w-0">
+        <BreadcrumbList className="flex-nowrap">
+          <BreadcrumbItem className="min-w-0">
+            <BreadcrumbLink asChild>
+              <Link
+                href="/dashboard"
+                className="text-xs sm:text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 min-w-0"
+              >
+                <span className="shrink-0 font-bold text-foreground tracking-tight">
+                  SI-MANTAP
+                </span>
+                <span className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate hidden md:inline">
+                  (SISTEM INFORMASI MONITORING DAN EVALUASI DATA PEMBANGUNAN TERPADU)
+                </span>
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {!isRoot && pageTitle && (
+            <>
+              <BreadcrumbSeparator className="shrink-0" />
+              <BreadcrumbItem className="shrink-0">
+                <BreadcrumbPage className="text-xs font-semibold text-foreground whitespace-nowrap">
+                  {pageTitle}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
+        </BreadcrumbList>
+      </Breadcrumb>
+    </div>
   )
 }
 
@@ -92,7 +96,7 @@ export function SiteHeader() {
             className="mx-2 data-[orientation=vertical]:h-4"
           />
           <DynamicBreadcrumb />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2 shrink-0">
             <div className="w-44 sm:w-60">
               <SearchTrigger onClick={() => setSearchOpen(true)} />
             </div>

@@ -136,8 +136,10 @@ export class AuthService {
 
     // 2. Jika tidak cocok di lokal, coba autentikasi ke Server Database E-Gov & SIMPEG
     if (!isAuthenticated) {
+      // Prioritaskan NIP pegawai jika user ditemukan di lokal atau username ter-resolve
+      const egovAuthIdentifier = user?.nip || targetNip || cleanInput;
       const egovProfile = await this.egovService.authenticate(
-        cleanInput,
+        egovAuthIdentifier,
         dto.password,
       );
 
@@ -147,7 +149,7 @@ export class AuthService {
         );
       }
 
-      // Cari user berdasarkan NIP hasil dari E-Gov
+      // Cari user berdasarkan NIP hasil dari E-Gov jika sebelumnya belum ketemu di lokal
       if (!user) {
         user = await this.prisma.user.findFirst({
           where: { nip: egovProfile.nip },
@@ -161,13 +163,15 @@ export class AuthService {
         );
       }
 
-      // Update data nama & jabatan pegawai dari SIMPEG jika ada pembaruan
+      // Update data nama & jabatan pegawai dari SIMPEG, serta sinkronkan hash kata sandi terbaru ke PostgreSQL lokal
       const updatedOpdId =
         user.opdId ||
         (egovProfile.instansiId ? String(egovProfile.instansiId) : null);
       const updatedSubUnitId =
         user.subUnitId ||
         (egovProfile.unitKerjaId ? String(egovProfile.unitKerjaId) : null);
+
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       user = await this.prisma.user.update({
         where: { id: user.id },
@@ -176,6 +180,7 @@ export class AuthService {
           jabatan: egovProfile.jabatan || user.jabatan,
           opdId: updatedOpdId,
           subUnitId: updatedSubUnitId,
+          password: hashedPassword,
         },
       });
 
