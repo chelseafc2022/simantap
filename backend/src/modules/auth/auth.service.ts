@@ -108,28 +108,27 @@ export class AuthService {
       if (isMatch) {
         isAuthenticated = true;
 
-        // Jika user belum terhubung ke OPD atau Sub Unit, sinkronkan otomatis dari SIMPEG
-        if (!user.subUnitId || !user.opdId) {
-          try {
-            const egovInfo = await this.egovService.getPegawaiByNip(user.nip);
-            if (egovInfo?.instansiId || egovInfo?.unitKerjaId) {
+        // Sinkronkan otomatis OPD & Sub Unit dari SIMPEG jika terhubung
+        try {
+          const egovInfo = await this.egovService.getPegawaiByNip(user.nip);
+          if (egovInfo?.instansiId || egovInfo?.unitKerjaId) {
+            const nextOpdId = egovInfo.instansiId ? String(egovInfo.instansiId) : user.opdId;
+            const nextSubUnitId = egovInfo.unitKerjaId ? String(egovInfo.unitKerjaId) : user.subUnitId;
+            if (user.opdId !== nextOpdId || user.subUnitId !== nextSubUnitId) {
               user = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                  opdId:
-                    user.opdId ||
-                    (egovInfo.instansiId ? String(egovInfo.instansiId) : null),
-                  subUnitId:
-                    user.subUnitId ||
-                    (egovInfo.unitKerjaId ? String(egovInfo.unitKerjaId) : null),
+                  opdId: nextOpdId,
+                  subUnitId: nextSubUnitId,
+                  jabatan: egovInfo.jabatan || user.jabatan,
                 },
               });
             }
-          } catch (err: any) {
-            this.logger.warn(
-              `Auto-sync SubUnit untuk user '${user.nip}' gagal: ${err.message}`,
-            );
           }
+        } catch (err: any) {
+          this.logger.warn(
+            `Auto-sync SIMPEG untuk user '${user.nip}' gagal: ${err.message}`,
+          );
         }
       }
     }
@@ -164,12 +163,12 @@ export class AuthService {
       }
 
       // Update data nama & jabatan pegawai dari SIMPEG, serta sinkronkan hash kata sandi terbaru ke PostgreSQL lokal
-      const updatedOpdId =
-        user.opdId ||
-        (egovProfile.instansiId ? String(egovProfile.instansiId) : null);
-      const updatedSubUnitId =
-        user.subUnitId ||
-        (egovProfile.unitKerjaId ? String(egovProfile.unitKerjaId) : null);
+      const updatedOpdId = egovProfile.instansiId
+        ? String(egovProfile.instansiId)
+        : user.opdId;
+      const updatedSubUnitId = egovProfile.unitKerjaId
+        ? String(egovProfile.unitKerjaId)
+        : user.subUnitId;
 
       const hashedPassword = await bcrypt.hash(dto.password, 10);
 

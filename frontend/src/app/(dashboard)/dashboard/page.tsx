@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
+import { getUserUnitLabel } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -442,12 +443,20 @@ export default function DashboardPage() {
                   {r.replace(/_/g, " ")}
                 </Badge>
               ))}
-              {user?.opd?.singkatan && (
-                <Badge variant="outline" className="text-[10px] py-0 text-blue-300 border-blue-700/50 bg-blue-950/50">
-                  <Building2 className="h-2.5 w-2.5 mr-1" />
-                  {user.opd.singkatan}
-                </Badge>
-              )}
+              {(() => {
+                const unitInfo = getUserUnitLabel(user)
+                if (unitInfo.short === "-") return null
+                return (
+                  <Badge
+                    variant="outline"
+                    title={unitInfo.full}
+                    className="text-[10px] py-0 text-blue-300 border-blue-700/50 bg-blue-950/50"
+                  >
+                    <Building2 className="h-2.5 w-2.5 mr-1" />
+                    {unitInfo.short}
+                  </Badge>
+                )
+              })()}
             </div>
           </div>
 

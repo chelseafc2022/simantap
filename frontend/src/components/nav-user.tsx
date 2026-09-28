@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
+import { getUserUnitLabel } from "@/lib/utils"
 
 function getInitials(name?: string): string {
   if (!name) return "AD"
@@ -97,7 +98,8 @@ export function NavUser({
     ? formatRole(activeUser.role)
     : (initialUser?.email || "admin@konaweselatankab.go.id")
   const roleName = activeUser?.role ? formatRole(activeUser.role) : "Administrator"
-  const opdName = activeUser?.opd?.singkatan || activeUser?.opd?.namaOpd
+  const unitInfo = getUserUnitLabel(activeUser)
+  const displayUnit = unitInfo.short !== "-" ? unitInfo.short : undefined
   const initials = getInitials(displayName)
 
   return (
@@ -175,10 +177,13 @@ export function NavUser({
                       <span className="truncate">{activeUser.jabatan}</span>
                     </span>
                   )}
-                  {opdName && (
-                    <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium truncate flex items-center gap-1">
+                  {displayUnit && (
+                    <span
+                      title={unitInfo.full}
+                      className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium truncate flex items-center gap-1"
+                    >
                       <Building2 className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                      <span className="truncate">{opdName}</span>
+                      <span className="truncate">{displayUnit}</span>
                     </span>
                   )}
                 </div>

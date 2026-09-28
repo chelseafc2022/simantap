@@ -86,8 +86,8 @@ async function main() {
       role: RoleEnum.ADMINISTRATOR,
       roles: [RoleEnum.ADMINISTRATOR],
       status: StatusAkun.AKTIF,
-      opdId: 'e7A5wqWrMYJB6iYC8', // Sekretariat Daerah
-      subUnitId: '3CB2cqdwEihsq9yK4', // Bagian Administrasi Pembangunan
+      opdId: 'diskominfo&sandi', // Dinas Komunikasi, Informatika dan Persandian
+      subUnitId: 'EtTbFb6EzYZt9mMJL', // Dinas Komunikasi, Informatika dan Persandian
       password: defaultPasswordHash,
     },
     create: {
@@ -99,8 +99,8 @@ async function main() {
       role: RoleEnum.ADMINISTRATOR,
       roles: [RoleEnum.ADMINISTRATOR],
       status: StatusAkun.AKTIF,
-      opdId: 'e7A5wqWrMYJB6iYC8',
-      subUnitId: '3CB2cqdwEihsq9yK4',
+      opdId: 'diskominfo&sandi',
+      subUnitId: 'EtTbFb6EzYZt9mMJL',
     },
   });
 
