@@ -6,6 +6,7 @@ import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import { SearchableCombobox } from "@/components/searchable-combobox"
+import { isExcludedOpd } from "@/lib/utils"
 import { PembangunanStatCards } from "./components/pembangunan-stat-cards"
 import {
   PaketFormDialog,
@@ -172,10 +173,12 @@ export default function PaketPembangunanPage() {
   // Combobox options for Unit Kerja & Sub Unit
   const opdOptions = useMemo(() => {
     const list = Array.isArray(opdList) ? opdList : []
-    return list.map((opd) => ({
-      id: opd.id,
-      label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
-    }))
+    return list
+      .filter((opd) => !isExcludedOpd(opd.id) && !isExcludedOpd(opd.namaOpd))
+      .map((opd) => ({
+        id: opd.id,
+        label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
+      }))
   }, [opdList])
 
   const subUnitOptions = useMemo(() => {

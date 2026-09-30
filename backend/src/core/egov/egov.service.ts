@@ -37,6 +37,52 @@ export interface SimpegSubUnitInfo {
   opdId: string;
 }
 
+export const EXCLUDED_OPD_PATTERNS = [
+  'KEPALA DAERAH DAN WAKIL KEPALA DAERAH',
+  'PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN',
+  'BADAN LAYANAN UMUM DAERAH RSUD',
+];
+
+export const EXCLUDED_OPD_IDS = [
+  'i33wtjx0k2hcbcgo',
+  'GRJM9p35D43j64yFq',
+  'i33wtjx0k2hc463b',
+];
+
+export function isExcludedOpd(idOrName?: string | null): boolean {
+  if (!idOrName) return false;
+  const str = String(idOrName).trim();
+  const upper = str.toUpperCase();
+
+  if (EXCLUDED_OPD_IDS.some((id) => id.toLowerCase() === str.toLowerCase())) {
+    return true;
+  }
+
+  if (
+    upper === 'KEPALA DAERAH DAN WAKIL KEPALA DAERAH' ||
+    upper.includes('KEPALA DAERAH DAN WAKIL KEPALA DAERAH')
+  ) {
+    return true;
+  }
+
+  if (
+    upper === 'PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN' ||
+    upper.includes('PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN')
+  ) {
+    return true;
+  }
+
+  if (
+    upper === 'BADAN LAYANAN UMUM DAERAH RSUD' ||
+    upper.includes('BADAN LAYANAN UMUM DAERAH RSUD') ||
+    upper === 'BLUD RSUD'
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 @Injectable()
 export class EgovService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EgovService.name);
@@ -201,15 +247,20 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
         LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
         LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
-        WHERE egov.users.username = ? OR simpeg.biodata.nip = ?
+        WHERE egov.users.username = ? OR egov.users.nama_nip = ? OR simpeg.biodata.nip = ? OR egov.users.email = ?
         LIMIT 1;
       `;
 
       const [rows] = await pool.query<any[]>(sqlEgov, [
         cleanInput,
         cleanInput,
+        cleanInput,
+        cleanInput,
       ]);
       if (!rows || rows.length === 0) {
+        this.logger.warn(
+          `Autentikasi E-Gov: Akun '${cleanInput}' tidak ditemukan di database egov.users maupun simpeg.biodata`,
+        );
         return null;
       }
 
@@ -219,8 +270,15 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
         egovUser.egov_password,
       );
       if (!isMatch) {
+        this.logger.warn(
+          `Autentikasi E-Gov: Kata sandi untuk '${cleanInput}' (username: ${egovUser.egov_username}, nip: ${egovUser.bio_nip || egovUser.egov_username}) tidak cocok`,
+        );
         return null;
       }
+
+      this.logger.log(
+        `Autentikasi E-Gov BERHASIL untuk '${cleanInput}' (nama: ${egovUser.bio_nama || egovUser.egov_username})`,
+      );
 
       const namaLengkap = this.formatNamaLengkap({
         nama: egovUser.bio_nama,
@@ -354,15 +412,21 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
           simpeg.instansi.id AS instansi_id,
           simpeg.instansi.instansi AS opd
         FROM egov.users
-        INNER JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
+        LEFT JOIN simpeg.biodata ON egov.users.nama_nip = simpeg.biodata.nip
         LEFT JOIN simpeg.jabatan ON simpeg.biodata.jabatan = simpeg.jabatan._id
         LEFT JOIN simpeg.unit_kerja ON COALESCE(NULLIF(simpeg.biodata.unit_kerja, ''), egov.users.unit_kerja) = simpeg.unit_kerja.id
         LEFT JOIN simpeg.instansi ON simpeg.instansi.id = simpeg.unit_kerja.instansi
-        WHERE simpeg.biodata.nip = ? OR egov.users.username = ?
+        WHERE egov.users.username = ? OR egov.users.nama_nip = ? OR simpeg.biodata.nip = ? OR egov.users.email = ?
         LIMIT 1;
       `;
 
-      const [rows] = await pool.query<any[]>(sql, [nip, nip]);
+      const cleanNip = nip.trim();
+      const [rows] = await pool.query<any[]>(sql, [
+        cleanNip,
+        cleanNip,
+        cleanNip,
+        cleanNip,
+      ]);
       if (!rows || rows.length === 0) return null;
 
       const r = rows[0];
@@ -537,10 +601,12 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       const sql =
         'SELECT id, instansi FROM simpeg.instansi ORDER BY instansi ASC;';
       const [rows] = await pool.query<any[]>(sql);
-      return (rows || []).map((r) => ({
-        id: String(r.id),
-        instansi: r.instansi,
-      }));
+      return (rows || [])
+        .map((r) => ({
+          id: String(r.id),
+          instansi: r.instansi,
+        }))
+        .filter((r) => !isExcludedOpd(r.id) && !isExcludedOpd(r.instansi));
     } catch (error) {
       this.logger.error('Error saat getInstansiList:', error.message);
       return [];
@@ -640,11 +706,13 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       sql += ' ORDER BY unit_kerja ASC;';
 
       const [rows] = await pool.query<any[]>(sql, params);
-      return (rows || []).map((r) => ({
-        id: String(r.id),
-        unitKerja: r.unit_kerja,
-        instansiId: String(r.instansi),
-      }));
+      return (rows || [])
+        .map((r) => ({
+          id: String(r.id),
+          unitKerja: r.unit_kerja,
+          instansiId: String(r.instansi),
+        }))
+        .filter((r) => !isExcludedOpd(r.instansiId) && !isExcludedOpd(r.unitKerja));
     } catch (error) {
       this.logger.error('Error saat getUnitKerjaList:', error.message);
       return [];
@@ -773,14 +841,26 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
 
   async getOpdOptions(): Promise<SimpegOpdInfo[]> {
     await this.loadCache();
-    return Array.from(this.instansiCache.values()).sort((a, b) =>
-      a.namaOpd.localeCompare(b.namaOpd),
-    );
+    return Array.from(this.instansiCache.values())
+      .filter((opd) => !isExcludedOpd(opd.id) && !isExcludedOpd(opd.namaOpd))
+      .sort((a, b) => a.namaOpd.localeCompare(b.namaOpd));
   }
 
   async getSubUnitOptions(opdId?: string): Promise<SimpegSubUnitInfo[]> {
     await this.loadCache();
-    const all = Array.from(this.unitKerjaCache.values());
+    const excludedOpdIds = new Set(
+      Array.from(this.instansiCache.values())
+        .filter((opd) => isExcludedOpd(opd.id) || isExcludedOpd(opd.namaOpd))
+        .map((opd) => opd.id),
+    );
+
+    const all = Array.from(this.unitKerjaCache.values()).filter(
+      (su) =>
+        !excludedOpdIds.has(su.opdId) &&
+        !isExcludedOpd(su.opdId) &&
+        !isExcludedOpd(su.namaSubUnit),
+    );
+
     if (!opdId || opdId === 'ALL' || opdId === 'all') {
       return all.sort((a, b) => a.namaSubUnit.localeCompare(b.namaSubUnit));
     }

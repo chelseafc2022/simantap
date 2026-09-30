@@ -91,12 +91,11 @@ export function NavMain({
                       <SidebarMenuButton
                         tooltip={item.title}
                         className={cn(
-                          "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button",
+                          "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none",
                           isItemActive &&
                             cn(
                               theme.activeGlow,
-                              "border-l-2 font-semibold",
-                              theme.borderActive
+                              "font-semibold"
                             )
                         )}
                       >
@@ -168,12 +167,11 @@ export function NavMain({
                     tooltip={item.title}
                     isActive={isItemActive}
                     className={cn(
-                      "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button",
+                      "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none",
                       isItemActive &&
                         cn(
                           theme.activeGlow,
-                          "border-l-2 font-semibold",
-                          theme.borderActive
+                          "font-semibold"
                         )
                     )}
                   >

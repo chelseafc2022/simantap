@@ -47,3 +47,49 @@ export function getUserUnitLabel(user?: {
   return { short, full }
 }
 
+export const EXCLUDED_OPD_PATTERNS = [
+  "KEPALA DAERAH DAN WAKIL KEPALA DAERAH",
+  "PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN",
+  "BADAN LAYANAN UMUM DAERAH RSUD",
+]
+
+export const EXCLUDED_OPD_IDS = [
+  "i33wtjx0k2hcbcgo",
+  "GRJM9p35D43j64yFq",
+  "i33wtjx0k2hc463b",
+]
+
+export function isExcludedOpd(idOrName?: string | null): boolean {
+  if (!idOrName) return false
+  const str = String(idOrName).trim()
+  const upper = str.toUpperCase()
+
+  if (EXCLUDED_OPD_IDS.some((id) => id.toLowerCase() === str.toLowerCase())) {
+    return true
+  }
+
+  if (
+    upper === "KEPALA DAERAH DAN WAKIL KEPALA DAERAH" ||
+    upper.includes("KEPALA DAERAH DAN WAKIL KEPALA DAERAH")
+  ) {
+    return true
+  }
+
+  if (
+    upper === "PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN" ||
+    upper.includes("PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN")
+  ) {
+    return true
+  }
+
+  if (
+    upper === "BADAN LAYANAN UMUM DAERAH RSUD" ||
+    upper.includes("BADAN LAYANAN UMUM DAERAH RSUD") ||
+    upper === "BLUD RSUD"
+  ) {
+    return true
+  }
+
+  return false
+}
+

@@ -6,6 +6,7 @@ import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import { SearchableCombobox } from "@/components/searchable-combobox"
+import { isExcludedOpd } from "@/lib/utils"
 import { RealisasiStatCards } from "./components/realisasi-stat-cards"
 import { InputRealisasiDialog, BULAN_LIST } from "./components/input-realisasi-dialog"
 import { cetakLaporanRealisasiPDF, CetakRealisasiItem } from "./lib/cetak-pdf"
@@ -168,10 +169,12 @@ export default function RealisasiBulananPage() {
 
   // Combobox options
   const opdOptions = useMemo(() => {
-    return opdList.map((opd: any) => ({
-      id: opd.id,
-      label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
-    }))
+    return opdList
+      .filter((opd: any) => !isExcludedOpd(opd.id) && !isExcludedOpd(opd.namaOpd))
+      .map((opd: any) => ({
+        id: opd.id,
+        label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
+      }))
   }, [opdList])
 
   const subUnitOptions = useMemo(() => {

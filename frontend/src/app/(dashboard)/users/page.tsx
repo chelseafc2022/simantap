@@ -10,6 +10,7 @@ import { StatCards } from "./components/stat-cards"
 import { SetRoleDialog, SIMANTAP_ROLES, TargetPegawai } from "./components/set-role-dialog"
 import { RevokeRoleDialog } from "./components/revoke-role-dialog"
 import { SearchableCombobox } from "./components/searchable-combobox"
+import { isExcludedOpd } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -170,10 +171,12 @@ export default function UsersManagementPage() {
 
   // Options for SearchableCombobox (typeable filter)
   const instansiOptions = useMemo(() => {
-    return instansiList.map((ins: any) => ({
-      id: String(ins.id),
-      label: ins.instansi,
-    }))
+    return instansiList
+      .filter((ins: any) => !isExcludedOpd(ins.id) && !isExcludedOpd(ins.instansi))
+      .map((ins: any) => ({
+        id: String(ins.id),
+        label: ins.instansi,
+      }))
   }, [instansiList])
 
   const unitKerjaOptions = useMemo(() => {

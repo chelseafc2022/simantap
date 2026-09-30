@@ -6,6 +6,7 @@ import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import { SearchableCombobox } from "@/components/searchable-combobox"
+import { isExcludedOpd } from "@/lib/utils"
 import { LaporanStatCards } from "./components/laporan-stat-cards"
 import { KontrakKritisAlert } from "./components/kontrak-kritis-alert"
 import { exportLaporanToExcel } from "./lib/export-excel"
@@ -128,10 +129,12 @@ export default function LaporanDanEvaluasiPage() {
 
   // Format OPD untuk SearchableCombobox ({ id, label })
   const opdComboboxItems = useMemo(() => {
-    return rawOpds.map((o: any) => ({
-      id: o.id,
-      label: o.namaOpd + (o.singkatan ? ` (${o.singkatan})` : ""),
-    }))
+    return rawOpds
+      .filter((o: any) => !isExcludedOpd(o.id) && !isExcludedOpd(o.namaOpd))
+      .map((o: any) => ({
+        id: o.id,
+        label: o.namaOpd + (o.singkatan ? ` (${o.singkatan})` : ""),
+      }))
   }, [rawOpds])
 
   // 2. Fetch Sub Unit berdasarkan OPD

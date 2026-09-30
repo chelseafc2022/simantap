@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import { SearchableCombobox } from "@/components/searchable-combobox"
+import { isExcludedOpd } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -187,10 +188,12 @@ export function PaketFormDialog({
   // Combobox options
   const opdOptions = useMemo(() => {
     const list = Array.isArray(opdList) ? opdList : []
-    return list.map((opd) => ({
-      id: opd.id,
-      label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
-    }))
+    return list
+      .filter((opd) => !isExcludedOpd(opd.id) && !isExcludedOpd(opd.namaOpd))
+      .map((opd) => ({
+        id: opd.id,
+        label: opd.namaOpd + (opd.singkatan ? ` (${opd.singkatan})` : ""),
+      }))
   }, [opdList])
 
   const subUnitOptions = useMemo(() => {

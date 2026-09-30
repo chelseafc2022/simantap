@@ -10,7 +10,7 @@ import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EgovService } from '../../core/egov/egov.service';
+import { EgovService, isExcludedOpd } from '../../core/egov/egov.service';
 import { CreatePaketDto } from './dto/create-paket.dto';
 import { QueryPaketDto } from './dto/query-paket.dto';
 import { QueryRealisasiDto } from './dto/query-realisasi.dto';
@@ -1449,13 +1449,17 @@ export class PembangunanService {
     // Grouping berdasarkan opdId
     const opdGroups = new Map<string, typeof pakets>();
     for (const p of pakets) {
+      if (isExcludedOpd(p.opdId)) continue;
       const list = opdGroups.get(p.opdId) || [];
       list.push(p);
       opdGroups.set(p.opdId, list);
     }
 
-    const rekap = Array.from(opdGroups.entries()).map(([opdId, groupPakets]) => {
-      const opdInfo = this.egovService.getOpdById(opdId);
+    const rekap = Array.from(opdGroups.entries())
+      .filter(([opdId]) => !isExcludedOpd(opdId))
+      .map(([opdId, groupPakets]) => {
+        const opdInfo = this.egovService.getOpdById(opdId);
+        if (isExcludedOpd(opdInfo?.namaOpd)) return null;
       const totalPaket = groupPakets.length;
       const totalPagu = groupPakets.reduce(
         (acc, p) => acc + (Number(p.nilaiPagu) || 0),
@@ -1530,7 +1534,7 @@ export class PembangunanService {
           belumMulai: countBelumMulai,
         },
       };
-    });
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
 
     return {
       tahunAnggaran: activeTahun,
