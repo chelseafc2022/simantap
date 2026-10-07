@@ -280,6 +280,11 @@ export function InputRealisasiDialog({
       queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
       queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
       queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
       onOpenChange(false)
     },
     onError: (err: any) => {
@@ -315,6 +320,10 @@ export function InputRealisasiDialog({
       toast.success(`Realisasi Bulan ${selectedBulan} berhasil di-ACC. Data terkunci.`)
       queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
       queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Gagal ACC realisasi"),
   })
@@ -335,6 +344,10 @@ export function InputRealisasiDialog({
       setShowTolakInput(false)
       queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
       queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Gagal menolak realisasi"),
   })

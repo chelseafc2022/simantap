@@ -167,13 +167,14 @@ export default function DashboardPage() {
     retry: 1,
   })
 
-  // ── Master OPD Options (65 Instansi: 40 OPD + 25 Kecamatan) ──
+  // ── Master OPD Options (Shared query key across pages) ──
   const { data: opdOptionsRes } = useQuery({
-    queryKey: ["dashboard-opd-options"],
+    queryKey: ["opd-options"],
     queryFn: async () => {
       const res = await apiClient.get("/pembangunan/opd-options")
       return res.data?.data ?? res.data
     },
+    staleTime: 10 * 60 * 1000,
     retry: 1,
   })
 
@@ -186,6 +187,7 @@ export default function DashboardPage() {
       })
       return res.data?.data ?? res.data
     },
+    staleTime: 3 * 60 * 1000,
     retry: 1,
   })
 
@@ -198,6 +200,7 @@ export default function DashboardPage() {
       })
       return res.data?.data ?? res.data
     },
+    staleTime: 3 * 60 * 1000,
     retry: 1,
   })
 

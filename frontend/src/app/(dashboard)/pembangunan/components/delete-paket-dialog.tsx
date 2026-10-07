@@ -36,6 +36,12 @@ export function DeletePaketDialog({
     onSuccess: () => {
       toast.success(`Paket '${paket?.namaPaket}' berhasil dihapus`)
       queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] })
+      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
+      queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
+      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
       onOpenChange(false)
     },
     onError: (err: any) => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
@@ -117,14 +117,14 @@ export default function LaporanDanEvaluasiPage() {
     setPage(1)
   }
 
-  // 1. Fetch Daftar OPD Referensi
+  // 1. Fetch Daftar OPD Referensi (Shared query key across pages)
   const { data: rawOpds = [], isLoading: isLoadingOpd } = useQuery({
-    queryKey: ["pembangunan-opd-options"],
+    queryKey: ["opd-options"],
     queryFn: async () => {
       const res = await apiClient.get("/pembangunan/opd-options")
       return Array.isArray(res.data?.data) ? res.data.data : []
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // Format OPD untuk SearchableCombobox ({ id, label })
@@ -146,7 +146,7 @@ export default function LaporanDanEvaluasiPage() {
       return Array.isArray(res.data?.data) ? res.data.data : []
     },
     enabled: selectedOpd !== "ALL" && selectedOpd !== "all",
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // Format Sub Unit untuk SearchableCombobox
@@ -157,7 +157,7 @@ export default function LaporanDanEvaluasiPage() {
     }))
   }, [rawSubUnits])
 
-  // 3. Fetch Rekapitulasi Data RFK untuk Tab 1 (Daftar Evaluasi RFK)
+  // 3. Fetch Rekapitulasi Data RFK untuk Tab 1 (Daftar Evaluasi RFK - Smooth pagination)
   const {
     data: rfkData,
     isLoading: isLoadingRfk,
@@ -204,6 +204,7 @@ export default function LaporanDanEvaluasiPage() {
       const res = await apiClient.get("/pembangunan/realisasi", { params })
       return res.data
     },
+    placeholderData: keepPreviousData,
   })
 
   // 4. Fetch Matriks 12 Bulan untuk Tab 2 (Matriks Horizontal)
@@ -249,6 +250,7 @@ export default function LaporanDanEvaluasiPage() {
       return res.data?.data || null
     },
     enabled: activeTab === "matriks12",
+    placeholderData: keepPreviousData,
   })
 
   // 5. Fetch Rekapitulasi per OPD untuk Tab 3 (Ringkasan Pimpinan)

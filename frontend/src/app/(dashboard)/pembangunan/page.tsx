@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
@@ -103,7 +103,7 @@ export default function PaketPembangunanPage() {
       const res = await apiClient.get("/pembangunan/opd-options")
       return res.data?.data as OpdOption[]
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 2. Fetch Sub Unit Kerja based on selectedOpd
@@ -117,7 +117,7 @@ export default function PaketPembangunanPage() {
       const res = await apiClient.get("/pembangunan/sub-units", { params })
       return res.data?.data || []
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 3. Fetch PBJ Constants
@@ -131,7 +131,7 @@ export default function PaketPembangunanPage() {
         sumberDana: string[]
       }
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
   })
 
   // 4. Fetch Paket Pembangunan
@@ -164,6 +164,7 @@ export default function PaketPembangunanPage() {
       const res = await apiClient.get("/pembangunan", { params })
       return res.data
     },
+    placeholderData: keepPreviousData,
   })
 
   const opdList = opdResponse || []

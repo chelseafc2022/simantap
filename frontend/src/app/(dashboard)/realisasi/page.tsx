@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
@@ -100,7 +100,7 @@ export default function RealisasiBulananPage() {
       const res = await apiClient.get("/pembangunan/opd-options")
       return res.data?.data || []
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 2. Fetch Sub Unit Kerja based on selectedOpd
@@ -114,7 +114,7 @@ export default function RealisasiBulananPage() {
       const res = await apiClient.get("/pembangunan/sub-units", { params })
       return res.data?.data || []
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 3. Fetch Rekapitulasi Realisasi
@@ -157,6 +157,7 @@ export default function RealisasiBulananPage() {
       const res = await apiClient.get("/pembangunan/realisasi", { params })
       return res.data
     },
+    placeholderData: keepPreviousData,
   })
 
   const opdList = Array.isArray(opdResponse) ? opdResponse : []

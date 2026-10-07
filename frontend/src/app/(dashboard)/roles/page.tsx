@@ -69,6 +69,7 @@ export default function KelompokUserPage() {
       if (Array.isArray(res.data)) return res.data
       return []
     },
+    staleTime: 10 * 60 * 1000,
     enabled: isAdministrator,
   })
 

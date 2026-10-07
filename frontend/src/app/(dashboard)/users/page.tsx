@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
@@ -104,6 +104,7 @@ export default function UsersManagementPage() {
       return res.data
     },
     enabled: isAdministrator,
+    placeholderData: keepPreviousData,
   })
 
   // 2. Fetch List Instansi / Unit Kerja dari SIMPEG
@@ -114,7 +115,7 @@ export default function UsersManagementPage() {
       return res.data?.data || []
     },
     enabled: isAdministrator,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 3. Fetch List Sub Unit Kerja berdasarkan Instansi yang dipilih
@@ -127,7 +128,7 @@ export default function UsersManagementPage() {
       return res.data?.data || []
     },
     enabled: isAdministrator,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
   })
 
   // 4. Fetch E-Gov & SIMPEG ASN Directory dengan Filter Unit Kerja & Sub Unit Kerja
@@ -151,6 +152,7 @@ export default function UsersManagementPage() {
       return res.data
     },
     enabled: isAdministrator,
+    placeholderData: keepPreviousData,
   })
 
   const usersList = Array.isArray(usersResponse?.data)
