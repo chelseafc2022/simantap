@@ -450,7 +450,7 @@ export default function RealisasiBulananPage() {
       {/* Main Table Card */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
         <div className="w-full overflow-x-auto">
-          <Table className="w-full min-w-[960px] table-fixed border-collapse">
+          <Table className="w-full table-fixed border-collapse">
             <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
               <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
                 <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">

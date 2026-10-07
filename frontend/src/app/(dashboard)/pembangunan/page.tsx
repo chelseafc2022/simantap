@@ -430,31 +430,28 @@ export default function PaketPembangunanPage() {
       {/* Main Table Card */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
         <div className="w-full overflow-x-auto">
-          <Table className="w-full min-w-[1050px] table-fixed border-collapse">
+          <Table className="w-full table-fixed border-collapse">
             <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
               <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
-                <TableHead className="w-12 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-10 text-center text-xs font-semibold py-3 px-1 border-r border-b border-gray-200 dark:border-neutral-700">
                   No
                 </TableHead>
-                <TableHead className="w-[28%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[31%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Nama Paket & Identitas PBJ
                 </TableHead>
-                <TableHead className="w-[18%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[19%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Sub Unit Kerja
                 </TableHead>
-                <TableHead className="w-[12%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[13%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Metode & Sumber
                 </TableHead>
-                <TableHead className="w-[15%] text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[17%] text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Pagu & Kontrak (Rp)
                 </TableHead>
-                <TableHead className="w-[8%] text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[9%] text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                   Target B12
                 </TableHead>
-                <TableHead className="w-[11%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                  Rekanan & Kontrak
-                </TableHead>
-                <TableHead className="w-28 text-center text-xs font-semibold py-3 px-2 border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-28 text-center text-xs font-semibold py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -462,7 +459,7 @@ export default function PaketPembangunanPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                  <TableCell colSpan={7} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
                       <span className="text-xs text-muted-foreground">Memuat data paket pembangunan...</span>
@@ -471,7 +468,7 @@ export default function PaketPembangunanPage() {
                 </TableRow>
               ) : paketList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                  <TableCell colSpan={7} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/80">
                         <Briefcase className="h-6 w-6 text-muted-foreground" />
@@ -495,7 +492,7 @@ export default function PaketPembangunanPage() {
                   return (
                     <TableRow key={paket.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
                       {/* No */}
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3 px-1 border-r border-b border-gray-200 dark:border-neutral-700">
                         {no}
                       </TableCell>
 
@@ -505,7 +502,7 @@ export default function PaketPembangunanPage() {
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(paket)}
-                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-sm leading-snug"
+                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-xs sm:text-sm leading-snug"
                             title={paket.namaPaket}
                           >
                             {paket.namaPaket}
@@ -543,7 +540,7 @@ export default function PaketPembangunanPage() {
                       <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="w-full min-w-0 overflow-hidden space-y-1">
                           <div className="w-full overflow-hidden">
-                            <Badge variant="secondary" className="text-[10px] sm:text-[11px] font-normal truncate max-w-full block text-center" title={paket.metodePemilihan || "PBJ"}>
+                            <Badge variant="secondary" className="text-[10px] sm:text-[11px] font-normal truncate max-w-full block text-center whitespace-nowrap" title={paket.metodePemilihan || "PBJ"}>
                               {paket.metodePemilihan || "PBJ"}
                             </Badge>
                           </div>
@@ -573,29 +570,17 @@ export default function PaketPembangunanPage() {
                         </div>
                       </TableCell>
 
-                      {/* Rekanan & No Kontrak */}
-                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-0.5 text-xs">
-                          <div className="font-medium text-foreground truncate block w-full" title={paket.pemenangRekanan || "-"}>
-                            {paket.pemenangRekanan || "-"}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground font-mono truncate block w-full" title={paket.nomorKontrak || "-"}>
-                            {paket.nomorKontrak || "-"}
-                          </div>
-                        </div>
-                      </TableCell>
-
                       {/* Aksi */}
-                      <TableCell className="text-center py-3 px-2 border-b border-gray-200 dark:border-neutral-700">
-                        <div className="flex items-center justify-center gap-1">
+                      <TableCell className="text-center py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
+                        <div className="flex items-center justify-center gap-0.5">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                            className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                             title="Detail & Target 12 Bulan"
                             onClick={() => handleOpenDetail(paket)}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
 
                           {/* Tombol Khusus Admin Perencanaan: Tetapkan / Ubah Target Fisik */}
@@ -603,11 +588,11 @@ export default function PaketPembangunanPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                               title="Tetapkan / Ubah Target Fisik (12 Bulan)"
                               onClick={() => handleOpenTarget(paket)}
                             >
-                              <TrendingUp className="h-4 w-4" />
+                              <TrendingUp className="h-3.5 w-3.5" />
                             </Button>
                           )}
 
@@ -616,11 +601,11 @@ export default function PaketPembangunanPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                              className="h-7 w-7 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                               title="Ubah Rincian PBJ / Kontrak"
                               onClick={() => handleOpenEdit(paket)}
                             >
-                              <Edit3 className="h-4 w-4" />
+                              <Edit3 className="h-3.5 w-3.5" />
                             </Button>
                           )}
 
@@ -629,11 +614,11 @@ export default function PaketPembangunanPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                               title="Hapus Paket"
                               onClick={() => handleOpenDelete(paket)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
                         </div>
