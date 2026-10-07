@@ -542,19 +542,23 @@ export default function DashboardPage() {
 
       {/* ─── 4. TABS LAPORAN KINERJA DAERAH ─── */}
       <Tabs defaultValue="rekap-emonev" className="w-full space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-2">
-          <TabsList className="h-9 p-1 bg-muted/60">
-            <TabsTrigger value="rekap-emonev" className="text-xs gap-1.5 font-semibold">
-              <Printer className="h-3.5 w-3.5 text-amber-600" />
-              Rekap Seluruh OPD (Standar E-MONEV) & Cetak PDF
+        {/* TabsList scrollable di mobile */}
+        <div className="overflow-x-auto pb-0.5 border-b">
+          <TabsList className="h-9 p-1 bg-muted/60 flex w-max min-w-full sm:w-auto sm:min-w-0">
+            <TabsTrigger value="rekap-emonev" className="text-xs gap-1.5 font-semibold whitespace-nowrap">
+              <Printer className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span className="hidden md:inline">Rekap Seluruh OPD (Standar E-MONEV) & Cetak PDF</span>
+              <span className="md:hidden">Rekap OPD</span>
             </TabsTrigger>
-            <TabsTrigger value="monitoring-opd" className="text-xs gap-1.5 font-semibold">
-              <Activity className="h-3.5 w-3.5 text-primary" />
-              Monitoring Kinerja (Top & Kritis)
+            <TabsTrigger value="monitoring-opd" className="text-xs gap-1.5 font-semibold whitespace-nowrap">
+              <Activity className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="hidden sm:inline">Monitoring Kinerja (Top & Kritis)</span>
+              <span className="sm:hidden">Monitoring</span>
             </TabsTrigger>
-            <TabsTrigger value="progres-pengisian" className="text-xs gap-1.5 font-semibold">
-              <FolderGit2 className="h-3.5 w-3.5 text-blue-600" />
-              Progres Pengisian OPD & Sub-Unit
+            <TabsTrigger value="progres-pengisian" className="text-xs gap-1.5 font-semibold whitespace-nowrap">
+              <FolderGit2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+              <span className="hidden sm:inline">Progres Pengisian OPD & Sub-Unit</span>
+              <span className="sm:hidden">Progres</span>
             </TabsTrigger>
           </TabsList>
         </div>

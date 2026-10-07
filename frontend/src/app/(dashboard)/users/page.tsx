@@ -267,22 +267,27 @@ export default function UsersManagementPage() {
       {/* Main Tabs Container */}
       <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setSearch("") }} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3">
-          <TabsList className="bg-muted/60 p-1">
-            <TabsTrigger value="simantap_users" className="gap-2 text-xs">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Pengguna Aktif SIMANTAP</span>
+        {/* TabsList scrollable di mobile */}
+        <div className="overflow-x-auto pb-0.5 -mx-1 px-1">
+          <TabsList className="bg-muted/60 p-1 flex w-max min-w-full sm:w-auto sm:min-w-0">
+            <TabsTrigger value="simantap_users" className="gap-1.5 text-xs whitespace-nowrap">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              <span className="hidden sm:inline">Pengguna Aktif SIMANTAP</span>
+              <span className="sm:hidden">Pengguna</span>
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                 {usersMeta.total}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="egov_directory" className="gap-2 text-xs">
-              <Database className="h-3.5 w-3.5 text-blue-600" />
-              <span>Direktori ASN Server E-Gov & SIMPEG</span>
+            <TabsTrigger value="egov_directory" className="gap-1.5 text-xs whitespace-nowrap">
+              <Database className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+              <span className="hidden sm:inline">Direktori ASN E-Gov & SIMPEG</span>
+              <span className="sm:hidden">Direktori ASN</span>
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                 {directoryMeta.total}
               </Badge>
             </TabsTrigger>
           </TabsList>
+        </div>
 
           <Button
             variant="outline"
@@ -292,10 +297,10 @@ export default function UsersManagementPage() {
               else refetchDirectory()
             }}
             disabled={isFetchingUsers || isFetchingDirectory}
-            className="text-xs h-8 gap-1.5 self-end sm:self-auto"
+            className="text-xs h-8 gap-1.5 self-end sm:self-auto shrink-0"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUsers || isFetchingDirectory ? "animate-spin" : ""}`} />
-            Segarkan Data
+            <span className="hidden sm:inline">Segarkan Data</span>
           </Button>
         </div>
 

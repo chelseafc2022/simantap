@@ -429,16 +429,17 @@ export default function LaporanDanEvaluasiPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportExcel}
             disabled={isLoadingRfk}
-            className="gap-2 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
+            className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
           >
             <FileSpreadsheet className="h-4 w-4" />
-            <span>Export Excel (.xlsx)</span>
+            <span className="hidden sm:inline">Export Excel</span>
+            <span className="sm:hidden">Excel</span>
           </Button>
 
           <Button
@@ -446,10 +447,11 @@ export default function LaporanDanEvaluasiPage() {
             size="sm"
             onClick={handleCetakPdf}
             disabled={isLoadingRfk || items.length === 0}
-            className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+            className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
           >
             <Printer className="h-4 w-4" />
-            <span>Cetak Laporan RFK</span>
+            <span className="hidden sm:inline">Cetak Laporan RFK</span>
+            <span className="sm:hidden">Cetak</span>
           </Button>
 
           <Button
@@ -461,7 +463,7 @@ export default function LaporanDanEvaluasiPage() {
               if (activeTab === "rekapOpd") refetchRekapOpd()
             }}
             disabled={isFetchingRfk}
-            className="gap-2 shadow-xs"
+            className="gap-1.5 shadow-xs"
           >
             <RefreshCw className={`h-4 w-4 ${isFetchingRfk ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Segarkan Data</span>
@@ -650,24 +652,27 @@ export default function LaporanDanEvaluasiPage() {
       {/* 5. TABS INTERFACE (EVALUASI RFK | MATRIKS 12 BULAN | REKAP OPD) */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <TabsList className="bg-muted/80 p-1 border border-border/70 rounded-lg">
-            <TabsTrigger value="evaluasi" className="text-xs gap-1.5 px-3">
-              <FileText className="w-3.5 h-3.5" />
-              <span>Matriks Evaluasi RFK</span>
-            </TabsTrigger>
-            <TabsTrigger value="matriks12" className="text-xs gap-1.5 px-3">
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Matriks 12 Bulan (B01 - B12)</span>
-            </TabsTrigger>
-            <TabsTrigger value="rekapOpd" className="text-xs gap-1.5 px-3">
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Rekapitulasi Kinerja OPD</span>
-            </TabsTrigger>
-          </TabsList>
+          {/* TabsList scrollable di mobile */}
+          <div className="overflow-x-auto pb-0.5 -mx-1 px-1">
+            <TabsList className="bg-muted/80 p-1 border border-border/70 rounded-lg flex w-max min-w-full sm:w-auto sm:min-w-0">
+              <TabsTrigger value="evaluasi" className="text-xs gap-1.5 px-2.5 sm:px-3 whitespace-nowrap">
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span>Evaluasi RFK</span>
+              </TabsTrigger>
+              <TabsTrigger value="matriks12" className="text-xs gap-1.5 px-2.5 sm:px-3 whitespace-nowrap">
+                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
+                <span>Matriks 12 Bulan</span>
+              </TabsTrigger>
+              <TabsTrigger value="rekapOpd" className="text-xs gap-1.5 px-2.5 sm:px-3 whitespace-nowrap">
+                <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+                <span>Rekap OPD</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>Periode Evaluasi:</span>
-            <Badge variant="secondary" className="font-semibold text-xs">
+          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-shrink-0">
+            <span>Periode:</span>
+            <Badge variant="secondary" className="font-semibold text-xs whitespace-nowrap">
               {BULAN_NAMES[bulan - 1]} {tahun}
             </Badge>
           </div>
@@ -678,6 +683,10 @@ export default function LaporanDanEvaluasiPage() {
         {/* ======================================================== */}
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
           <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
+            {/* Hint scroll untuk mobile */}
+            <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700 flex items-center gap-1.5">
+              <span>← Geser kiri/kanan untuk melihat semua kolom →</span>
+            </div>
             <div className="overflow-x-auto">
               <Table className="w-full min-w-[1250px] border-collapse">
                 <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
@@ -878,12 +887,16 @@ export default function LaporanDanEvaluasiPage() {
             <CardHeader className="p-4 sm:p-5 border-b border-border/70 bg-muted/20">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <LayoutGrid className="w-4 h-4 text-primary" />
-                Matriks Capaian Fisik Paket Pembangunan 12 Bulan (B01 s/d B12)
+                <span className="leading-tight">Matriks Capaian Fisik 12 Bulan (B01 s/d B12)</span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Perbandingan Realisasi vs Target Fisik per bulan secara horizontal sepanjang Tahun Anggaran {tahun}.
+                Perbandingan Realisasi vs Target Fisik per bulan sepanjang TA {tahun}.
               </CardDescription>
             </CardHeader>
+            {/* Hint scroll untuk mobile */}
+            <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700">
+              ← Geser kiri/kanan untuk melihat 12 bulan →
+            </div>
             <div className="overflow-x-auto">
               <Table className="w-full min-w-[1100px] border-collapse">
                 <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
@@ -990,12 +1003,16 @@ export default function LaporanDanEvaluasiPage() {
             <CardHeader className="p-4 sm:p-5 border-b border-border/70 bg-muted/20">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                Rekapitulasi Kinerja dan Peringkat Serapan Perangkat Daerah
+                Rekapitulasi Kinerja dan Peringkat Serapan OPD
               </CardTitle>
               <CardDescription className="text-xs">
-                Perbandingan kinerja pengadaan, serapan anggaran, dan rata-rata realisasi fisik antar OPD Kabupaten Konawe Selatan.
+                Perbandingan kinerja pengadaan, serapan anggaran, dan rata-rata fisik antar OPD.
               </CardDescription>
             </CardHeader>
+            {/* Hint scroll untuk mobile */}
+            <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700">
+              ← Geser kiri/kanan untuk melihat semua kolom →
+            </div>
             <div className="overflow-x-auto">
               <Table className="w-full min-w-[1050px] border-collapse">
                 <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
