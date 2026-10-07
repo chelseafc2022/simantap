@@ -449,8 +449,143 @@ export default function RealisasiBulananPage() {
 
       {/* Main Table Card */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
-        <div className="w-full overflow-x-auto">
-          <Table className="w-full table-fixed border-collapse">
+        {/* Mobile View: Tampilan Kartu Kompak di Layar HP (< md) */}
+        <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+          {isLoading ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+              <span className="text-xs text-muted-foreground">Memuat data realisasi bulanan...</span>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                Belum ada data paket untuk kriteria filter ini
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Coba sesuaikan pilihan filter Unit Kerja, Bulan, atau kata kunci pencarian.
+              </p>
+            </div>
+          ) : (
+            items.map((item, idx) => {
+              const no = (meta.page - 1) * limit + idx + 1
+              return (
+                <div key={item.id} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                  {/* Header Card: No & Status Badge */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                      #{no}
+                    </span>
+                    <div>
+                      {item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                          Belum Mulai
+                        </Badge>
+                      ) : (
+                        <Badge
+                          className={`text-[10px] px-1.5 py-0 font-medium whitespace-nowrap ${
+                            item.status === "AMAN"
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                              : item.status === "PERHATIAN"
+                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                              : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
+                          }`}
+                        >
+                          {item.status === "AMAN" ? (
+                            <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
+                          ) : item.status === "PERHATIAN" ? (
+                            <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                          ) : (
+                            <AlertCircle className="h-2.5 w-2.5 mr-1" />
+                          )}
+                          Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Nama Paket (Klik untuk buka modal input) */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenInput(item.id)}
+                      className="font-semibold text-sm text-foreground hover:text-emerald-600 text-left transition-colors cursor-pointer leading-snug line-clamp-2"
+                    >
+                      {item.namaPaket}
+                    </button>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                      {item.nomorKontrak && (
+                        <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px]">
+                          SPK: {item.nomorKontrak}
+                        </span>
+                      )}
+                      {item.kodeRupKontrak && (
+                        <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px]">
+                          RUP: {item.kodeRupKontrak}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sub Unit Kerja */}
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md">
+                    <Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-medium text-foreground truncate">
+                      {item.subUnit?.namaSubUnit || item.opd?.namaOpd || item.opd?.singkatan || "-"}
+                    </span>
+                  </div>
+
+                  {/* Grid Realisasi Fisik & Keuangan */}
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono">
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
+                      <div className="font-bold text-foreground">
+                        {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "0%"}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-sans">
+                        Target: {item.targetFisik}%
+                      </div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
+                      <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                        {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "Rp 0"}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-sans">
+                        {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Nilai Pagu & Kontrak */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
+                    <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
+                    <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>
+                  </div>
+
+                  {/* Tombol Input */}
+                  <div className="pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenInput(item.id)}
+                      className="w-full h-8 text-xs gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors justify-center"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 text-primary" />
+                      <span>Input Realisasi Bulan Ini</span>
+                    </Button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Desktop & Tablet View: Tabel Terstruktur (>= md) */}
+        <div className="hidden md:block w-full overflow-x-auto">
+          <Table className="w-full table-fixed min-w-[850px] lg:min-w-full border-collapse">
             <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
               <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
                 <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">

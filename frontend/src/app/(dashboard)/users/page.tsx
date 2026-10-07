@@ -442,7 +442,138 @@ export default function UsersManagementPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile View: Tampilan Kartu Pengguna (< md) */}
+              <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+                {isLoadingUsers ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-xs">Memuat data pengguna...</span>
+                  </div>
+                ) : usersList.length === 0 ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <UsersIcon className="h-8 w-8 stroke-1" />
+                    <span className="text-sm font-medium">Tidak ada data pengguna</span>
+                    <span className="text-xs text-muted-foreground max-w-sm">
+                      {debouncedSearch
+                        ? `Tidak ditemukan pengguna dengan kata kunci "${debouncedSearch}"`
+                        : "Belum ada pengguna lokal yang terdaftar. Buka tab Direktori ASN untuk menetapkan role."}
+                    </span>
+                  </div>
+                ) : (
+                  usersList.map((user: any) => (
+                    <div key={user.id} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                      {/* Header: Nama Lengkap & Status */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-sm text-foreground leading-snug">
+                            {user.namaLengkap}
+                          </div>
+                          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                            NIP. {user.nip}
+                          </div>
+                        </div>
+                        <div>
+                          {user.status === "AKTIF" ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 py-0 px-2 font-medium">
+                              <CheckCircle2 className="h-3 w-3" /> Aktif
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-destructive border-destructive/20 text-[10px] gap-1 py-0 px-2 font-medium">
+                              <XCircle className="h-3 w-3" /> Non-Aktif
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Jabatan & Sub Unit */}
+                      <div className="space-y-1 text-xs">
+                        <div className="text-foreground font-medium">
+                          {user.jabatan || "-"}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md">
+                          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="truncate">
+                            {user.subUnit?.namaSubUnit || user.opd?.namaOpd || "-"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Peran SIMANTAP */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Peran SIMANTAP:</span>
+                        <div>
+                          {(user.roles && user.roles.length > 0) || user.role ? (
+                            <div className="flex flex-wrap gap-1 items-center">
+                              {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
+                                <span key={r}>{getRoleBadge(r)}</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal">
+                              Belum Diberi Akses
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Terakhir Login & Tombol Aksi */}
+                      <div className="flex items-center justify-between pt-2 border-t border-dashed border-gray-200 dark:border-neutral-700 text-xs">
+                        <span className="text-[11px] text-muted-foreground">
+                          {user.lastLoginAt
+                            ? `Login: ${new Date(user.lastLoginAt).toLocaleDateString("id-ID", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}`
+                            : "Belum pernah login"}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleOpenSetRole({
+                                nip: user.nip,
+                                namaLengkap: user.namaLengkap,
+                                jabatan: user.jabatan,
+                                opd: user.opd?.namaOpd,
+                                currentRole: user.role,
+                                currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
+                              })
+                            }
+                            className="h-7 px-2 text-xs gap-1"
+                          >
+                            <Edit3 className="h-3 w-3" />
+                            Ubah Role
+                          </Button>
+                          {user.status === "AKTIF" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleOpenRevokeRole({
+                                  nip: user.nip,
+                                  namaLengkap: user.namaLengkap,
+                                  currentRole: user.role,
+                                  currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
+                                })
+                              }
+                              className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <UserX className="h-3 w-3" />
+                              Cabut
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop & Tablet View (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
                 <Table className="w-full border-collapse">
                   <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
                     <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
@@ -714,7 +845,109 @@ export default function UsersManagementPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              {/* Mobile View: Tampilan Kartu Direktori ASN (< md) */}
+              <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+                {isLoadingDirectory ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    <span className="text-xs">Menghubungkan ke server E-Gov & SIMPEG...</span>
+                  </div>
+                ) : directoryList.length === 0 ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Database className="h-8 w-8 stroke-1" />
+                    <span className="text-sm font-medium">Tidak ada data pegawai</span>
+                    <span className="text-xs text-muted-foreground">
+                      {debouncedSearch
+                        ? `Tidak ditemukan data ASN dengan kata kunci "${debouncedSearch}"`
+                        : "Server E-Gov tidak mengembalikan data."}
+                    </span>
+                  </div>
+                ) : (
+                  directoryList.map((item: any, idx: number) => (
+                    <div key={item.egovId || `${item.nip}-${item.username || idx}`} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                      {/* Header: Nama Lengkap & Username & Status Akses */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-sm text-foreground leading-snug">
+                            {item.namaLengkap}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              NIP. {item.nip}
+                            </span>
+                            {item.username && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-mono px-1.5 py-0 bg-muted/80 text-foreground border border-border/60"
+                              >
+                                @{item.username}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          {item.hasSimantapAccess ? (
+                            <div className="flex flex-wrap gap-1">
+                              {((item.simantapRoles && item.simantapRoles.length > 0)
+                                ? item.simantapRoles
+                                : (item.simantapRole ? [item.simantapRole] : [])
+                              ).map((r: string) => (
+                                <span key={r}>{getRoleBadge(r)}</span>
+                              ))}
+                            </div>
+                          ) : item.simantapStatus === "NON_AKTIF" ? (
+                            <Badge variant="outline" className="text-destructive border-destructive/20 text-[9px] py-0 font-normal">
+                              Akses Dicabut
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 font-normal">
+                              Belum Ada Akses
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Jabatan & Unit Kerja */}
+                      <div className="space-y-1 text-xs">
+                        <div className="text-foreground font-medium">
+                          {item.jabatan || "-"}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md">
+                          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span className="truncate">
+                            {item.unitKerja || item.opd || "-"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Tombol Aksi */}
+                      <div className="pt-2 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            handleOpenSetRole({
+                              nip: item.nip,
+                              namaLengkap: item.namaLengkap,
+                              jabatan: item.jabatan,
+                              opd: item.opd,
+                              currentRole: item.simantapRole,
+                              currentRoles: (item.simantapRoles && item.simantapRoles.length > 0) ? item.simantapRoles : (item.simantapRole ? [item.simantapRole] : []),
+                              username: item.username,
+                            })
+                          }
+                          className="w-full h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium justify-center"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          {item.hasSimantapAccess ? "Ubah Peran / Akses SIMANTAP" : "Tetapkan Akses SIMANTAP"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop & Tablet View (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
                 <Table className="w-full border-collapse">
                   <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
                     <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">

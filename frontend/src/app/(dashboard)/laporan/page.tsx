@@ -683,11 +683,157 @@ export default function LaporanDanEvaluasiPage() {
         {/* ======================================================== */}
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
           <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
-            {/* Hint scroll untuk mobile */}
-            <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700 flex items-center gap-1.5">
-              <span>← Geser kiri/kanan untuk melihat semua kolom →</span>
+            {/* Mobile View: Tampilan Kartu Kompak di Layar HP (< md) */}
+            <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+              {isLoadingRfk ? (
+                <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  <span className="text-xs text-muted-foreground">Memuat laporan evaluasi realisasi pembangunan...</span>
+                </div>
+              ) : items.length === 0 ? (
+                <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    Belum ada data paket untuk kriteria filter ini
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Coba sesuaikan pilihan filter Unit Kerja, Bulan, atau kata kunci pencarian.
+                  </p>
+                </div>
+              ) : (
+                items.map((item: any, idx: number) => {
+                  const rowNo = (page - 1) * limit + idx + 1
+                  const isDeviasiPositif = item.deviasiFisik >= 0
+                  const isKritis = item.status === "KRITIS"
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-4 space-y-3 hover:bg-muted/30 transition-colors ${
+                        isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
+                      }`}
+                    >
+                      {/* Header Card: No & Status Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                            #{rowNo}
+                          </span>
+                          {item.metodePemilihan && (
+                            <Badge variant="secondary" className="text-[11px] font-normal">
+                              {item.metodePemilihan}
+                            </Badge>
+                          )}
+                          {item.sumberDana && (
+                            <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">
+                              • {item.sumberDana}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          {item.status === "AMAN" && (
+                            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
+                              Aman
+                            </Badge>
+                          )}
+                          {item.status === "PERHATIAN" && (
+                            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px]">
+                              Waspada
+                            </Badge>
+                          )}
+                          {item.status === "KRITIS" && (
+                            <Badge variant="destructive" className="text-[10px] animate-pulse">
+                              Kritis (SCM)
+                            </Badge>
+                          )}
+                          {item.status === "BELUM_MULAI" && (
+                            <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                              Belum Mulai
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Nama Paket Pekerjaan */}
+                      <div>
+                        <div className="font-semibold text-sm text-foreground leading-snug">
+                          {item.namaPaket}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+                          {item.nomorKontrak && (
+                            <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px]">
+                              SPK: {item.nomorKontrak}
+                            </span>
+                          )}
+                          {item.pemenangRekanan && (
+                            <span className="truncate max-w-[200px] text-[11px]">
+                              Rekanan: {item.pemenangRekanan}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sub Unit Kerja */}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/30 px-2.5 py-1.5 rounded-md">
+                        <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="font-medium text-foreground truncate">
+                          {item.subUnit?.namaSubUnit || item.opd?.namaOpd || item.opd?.singkatan || "-"}
+                        </span>
+                      </div>
+
+                      {/* Grid 2 Kolom: Kinerja Fisik & Realisasi Keuangan */}
+                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono">
+                        <div className="space-y-1">
+                          <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-foreground">
+                              {item.realisasiFisik.toFixed(1)}%
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              (Tgt: {item.targetFisik.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="text-[10px]">
+                            Deviasi:{" "}
+                            <span
+                              className={`font-semibold ${
+                                isDeviasiPositif
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : item.deviasiFisik >= -10
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-rose-600 dark:text-rose-400 font-bold"
+                              }`}
+                            >
+                              {isDeviasiPositif ? `+${item.deviasiFisik.toFixed(1)}` : item.deviasiFisik.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
+                          <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                            {formatRupiah(item.realisasiKeuangan)}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            Serapan: <span className="font-semibold text-foreground">{item.persenKeuangan.toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Nilai Pagu & Kontrak */}
+                      <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
+                        <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
+                        <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Desktop & Tablet View: Tabel Lengkap 11 Kolom (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <Table className="w-full min-w-[1250px] border-collapse">
                 <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
                   <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">

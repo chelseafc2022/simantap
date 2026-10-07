@@ -302,7 +302,150 @@ export default function KelompokUserPage() {
 
       {/* Main Table: Master Kelompok User (Format Terinspirasi SIDAPEM klpUsers.vue) */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View: Tampilan Kartu Kelompok Pengguna (< md) */}
+        <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+          {isRolesLoading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+              <span className="text-xs">Memuat data master kelompok pengguna...</span>
+            </div>
+          ) : filteredRoles.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <ShieldAlert className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              <span className="text-xs">Tidak ada kelompok pengguna yang sesuai dengan filter pencarian.</span>
+            </div>
+          ) : (
+            filteredRoles.map((role, idx) => {
+              const scopeBadge =
+                role.aksesUnit === 3
+                  ? {
+                      label: "3 — Semua Unit Kerja",
+                      class:
+                        "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30",
+                    }
+                  : role.aksesUnit === 2
+                  ? {
+                      label: "2 — 1 Unit Kerja (OPD)",
+                      class:
+                        "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+                    }
+                  : {
+                      label: "1 — 1 Sub Unit Kerja",
+                      class:
+                        "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30",
+                    }
+
+              return (
+                <div key={role.id || role.kode} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                  {/* Header: No & Kode & Scope Badge */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                        #{idx + 1}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[10px] px-1.5 py-0 font-semibold bg-muted/60"
+                      >
+                        {role.kode}
+                      </Badge>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-medium px-1.5 py-0.5 ${scopeBadge.class}`}
+                    >
+                      <Building2 className="h-3 w-3 mr-1 inline" />
+                      {scopeBadge.label}
+                    </Badge>
+                  </div>
+
+                  {/* Nama Kelompok & Deskripsi */}
+                  <div>
+                    <div className="font-bold text-sm text-foreground">
+                      {role.nama}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      {role.deskripsi || role.catatanKewenangan || "-"}
+                    </p>
+                  </div>
+
+                  {/* Info Bar: Akun Terdaftar & Ringkasan Akses */}
+                  <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/40 text-xs">
+                    <div className="flex items-center gap-1.5 text-foreground font-semibold">
+                      <Users className="h-3.5 w-3.5 text-primary" />
+                      <span>{role.totalUsers || 0} Pengguna</span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                        style={{
+                          backgroundColor: "#0FA66818",
+                          color: "#0FA668",
+                          borderColor: "#0FA66840",
+                        }}
+                      >
+                        Read
+                      </span>
+                      {role.menus?.some((m) => m.addx === 1) && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                          style={{
+                            backgroundColor: "#3695E418",
+                            color: "#3695E4",
+                            borderColor: "#3695E440",
+                          }}
+                        >
+                          Add
+                        </span>
+                      )}
+                      {role.menus?.some((m) => m.updatex === 1) && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                          style={{
+                            backgroundColor: "#A67D0F18",
+                            color: "#A67D0F",
+                            borderColor: "#A67D0F40",
+                          }}
+                        >
+                          Edit
+                        </span>
+                      )}
+                      {role.menus?.some((m) => m.deletex === 1) && (
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                          style={{
+                            backgroundColor: "#DB483918",
+                            color: "#DB4839",
+                            borderColor: "#DB483940",
+                          }}
+                        >
+                          Del
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tombol Aksi */}
+                  <div className="pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenDetail(role)}
+                      className="w-full h-8 text-xs font-semibold bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-colors justify-center"
+                    >
+                      <Edit3 className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                      Matriks & Hak Akses
+                    </Button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Desktop & Tablet View (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-xs border-collapse border border-gray-200 dark:border-neutral-700">
             <thead>
               <tr className="bg-gray-50/90 dark:bg-neutral-800/80 border-b border-gray-200 dark:border-neutral-700 text-foreground font-semibold">
