@@ -48,22 +48,22 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      {/* ========== LEFT PANEL ========== */}
+      {/* ========== LEFT / HERO PANEL ========== */}
       <div className="login-left">
-        {/* Background Image */}
+        {/* Background Photo & Gradient Overlays */}
         <div className="login-bg">
           <Image
             src="/kantor.jpg"
             alt="Kantor Bupati Konawe Selatan"
             fill
             priority
-            style={{ objectFit: "cover", objectPosition: "center 70%", transform: "translateY(-8%) scale(1.18)", transformOrigin: "center center" }}
+            style={{ objectFit: "cover", objectPosition: "center 70%" }}
             quality={90}
           />
           <div className="login-bg-overlay" />
         </div>
 
-        {/* Top Header */}
+        {/* Top Header Branding & Officials */}
         <div className="login-left-header">
           <div className="login-left-header-logo">
             <Image
@@ -81,7 +81,8 @@ export default function LoginPage() {
               <span className="login-left-header-subtitle">BAGIAN ADMINISTRASI PEMBANGUNAN</span>
             </div>
           </div>
-          {/* Bupati & Wakil Bupati in Top Header */}
+
+          {/* Bupati & Wakil Bupati Cards */}
           <div className="login-left-officials-header">
             <div className="official-card">
               <div className="official-photo">
@@ -98,6 +99,7 @@ export default function LoginPage() {
                 <span className="official-title">Bupati Konawe Selatan</span>
               </div>
             </div>
+
             <div className="official-card">
               <div className="official-photo">
                 <Image
@@ -116,10 +118,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Center Spacer to maintain full open panoramic view of Kantor Bupati & Gerbang */}
+        {/* Center Spacer to showcase Kantor Bupati view */}
         <div className="login-left-spacer" />
 
-        {/* Motto Bar - Centered above Feature Icons */}
+        {/* Motto Bar */}
         <div className="login-bottom-motto-wrapper">
           <div className="login-bottom-motto">
             <span>MELAYANI</span>
@@ -130,11 +132,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Feature Icons */}
+        {/* 4 Pillars Feature Badges (Desktop) */}
         <div className="login-left-features">
           <div className="feature-item">
             <div className="feature-icon feature-icon-blue">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
                 <line x1="16" y1="13" x2="8" y2="13"/>
@@ -142,75 +144,86 @@ export default function LoginPage() {
                 <polyline points="10 9 9 9 8 9"/>
               </svg>
             </div>
-            <span className="feature-title">Data Paket<br />& Kontrak</span>
-            <span className="feature-desc">Terintegrasi<br />dan Akuntabel</span>
+            <span className="feature-title">Data Paket & Kontrak</span>
+            <span className="feature-desc">Terintegrasi dan Akuntabel</span>
           </div>
+
           <div className="feature-item">
             <div className="feature-icon feature-icon-green">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
                 <line x1="12" y1="20" x2="12" y2="4"/>
                 <line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
             </div>
-            <span className="feature-title">Realisasi Fisik<br />& Keuangan</span>
-            <span className="feature-desc">Monitoring<br />Setiap Periode</span>
+            <span className="feature-title">Realisasi Fisik & Keuangan</span>
+            <span className="feature-desc">Monitoring Setiap Periode</span>
           </div>
+
           <div className="feature-item">
             <div className="feature-icon feature-icon-amber">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <line x1="3" y1="9" x2="21" y2="9"/>
                 <line x1="9" y1="21" x2="9" y2="9"/>
               </svg>
             </div>
-            <span className="feature-title">Laporan &<br />Evaluasi RFK</span>
-            <span className="feature-desc">Mendukung<br />Pengambilan Keputusan</span>
+            <span className="feature-title">Laporan & Evaluasi RFK</span>
+            <span className="feature-desc">Mendukung Keputusan Daerah</span>
           </div>
+
           <div className="feature-item">
             <div className="feature-icon feature-icon-purple">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
               </svg>
             </div>
-            <span className="feature-title">Kolaborasi<br />OPD</span>
-            <span className="feature-desc">Pembangunan<br />Terpadu</span>
+            <span className="feature-title">Kolaborasi OPD</span>
+            <span className="feature-desc">Pembangunan Terpadu</span>
           </div>
         </div>
       </div>
 
-      {/* ========== RIGHT PANEL ========== */}
+      {/* ========== RIGHT / FORM PANEL ========== */}
       <div className="login-right">
         <div className="login-right-content">
-          {/* Welcome Header */}
-          {/* Welcome Header replaced with logo_simantap */}
+          {/* Welcome Branding */}
           <div className="login-welcome">
-            <Image
-              src="/logo_simantap_header.png"
-              alt="SI-MANTAP Kabupaten Konawe Selatan"
-              width={240}
-              height={268}
-              quality={100}
-              priority
-              style={{ objectFit: "contain", height: "auto", maxWidth: "235px" }}
-            />
+            <div className="login-welcome-logo">
+              <Image
+                src="/logo_simantap_header.png"
+                alt="SI-MANTAP Kabupaten Konawe Selatan"
+                width={240}
+                height={268}
+                quality={100}
+                priority
+                style={{ objectFit: "contain", height: "auto", width: "100%", maxWidth: "230px" }}
+              />
+            </div>
+            <p className="login-welcome-subtitle">
+              Sistem Informasi Manajemen Pengendalian dan Evaluasi Pembangunan Daerah
+            </p>
           </div>
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="login-form" id="login-form">
+            {/* Username / NIP */}
             <div className="login-input-group">
+              <label htmlFor="login-username" className="login-label">
+                Username / NIP
+              </label>
               <div className="login-input-wrapper">
-                <svg className="login-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
                 <input
                   id="login-username"
                   type="text"
-                  placeholder="Username / NIP"
+                  placeholder="Masukkan NIP atau username"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   disabled={loading}
@@ -220,16 +233,20 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Password */}
             <div className="login-input-group">
+              <label htmlFor="login-password" className="login-label">
+                Kata Sandi
+              </label>
               <div className="login-input-wrapper">
-                <svg className="login-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg className="login-input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
                 <input
                   id="login-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder="Masukkan kata sandi"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
@@ -243,12 +260,12 @@ export default function LoginPage() {
                   aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                 >
                   {showPassword ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                       <circle cx="12" cy="12" r="3"/>
                     </svg>
                   ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
                       <line x1="1" y1="1" x2="23" y2="23"/>
                     </svg>
@@ -257,6 +274,7 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Remember & Forgot options */}
             <div className="login-options">
               <label className="login-remember" htmlFor="remember-me">
                 <input
@@ -268,11 +286,16 @@ export default function LoginPage() {
                 />
                 <span>Ingat saya</span>
               </label>
-              <button type="button" className="login-forgot">
-                Lupa password?
+              <button
+                type="button"
+                className="login-forgot"
+                onClick={() => toast.info("Silakan hubungi Administrator OPD / Bidang Administrasi Pembangunan untuk reset password.")}
+              >
+                Lupa kata sandi?
               </button>
             </div>
 
+            {/* Submit Button */}
             <button
               id="login-submit"
               type="submit"
@@ -284,12 +307,12 @@ export default function LoginPage() {
                   <svg className="login-spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
                   </svg>
-                  Memverifikasi...
+                  <span>Memverifikasi...</span>
                 </>
               ) : (
                 <>
-                  Masuk
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <span>Masuk ke Sistem</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="5" y1="12" x2="19" y2="12"/>
                     <polyline points="12 5 19 12 12 19"/>
                   </svg>
@@ -301,37 +324,78 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="login-divider">
             <div className="login-divider-line" />
-            <span className="login-divider-text">atau</span>
+            <span className="login-divider-text">Keamanan Akses Terintegrasi</span>
             <div className="login-divider-line" />
           </div>
 
+          {/* Security Notice */}
           <div className="login-notice">
-            <svg className="login-notice-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="login-notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               <polyline points="9 12 11 14 15 10"/>
             </svg>
             <p className="login-notice-text">
-              Akses sistem ini hanya untuk pengguna yang berwenang di lingkungan <strong>Pemerintah Kabupaten Konawe Selatan</strong>.
+              Akses terbatas untuk aparatur berwenang di lingkungan <strong>Pemerintah Kabupaten Konawe Selatan</strong>.
             </p>
           </div>
 
-          {/* Logo Setara */}
+          {/* Logo Konsel Setara */}
           <div className="login-setara">
             <Image
               src="/logo_setara.png"
               alt="Logo Konsel Setara"
-              width={120}
-              height={32}
+              width={125}
+              height={34}
               style={{ objectFit: "contain" }}
             />
           </div>
         </div>
       </div>
 
-      {/* ========== FOOTER ========== */}
+      {/* ========== MOBILE-ONLY FEATURES & FOOTER ========== */}
+      <div className="login-mobile-bottom">
+        <div className="login-mobile-features-title">Pilar Pengendalian Pembangunan</div>
+        <div className="login-mobile-features-grid">
+          <div className="m-feature-card">
+            <div className="m-feature-dot dot-blue" />
+            <div>
+              <div className="m-feature-name">Data Paket & Kontrak</div>
+              <div className="m-feature-sub">Terintegrasi & Akuntabel</div>
+            </div>
+          </div>
+          <div className="m-feature-card">
+            <div className="m-feature-dot dot-green" />
+            <div>
+              <div className="m-feature-name">Realisasi Fisik & Keuangan</div>
+              <div className="m-feature-sub">Monitoring Periodik</div>
+            </div>
+          </div>
+          <div className="m-feature-card">
+            <div className="m-feature-dot dot-amber" />
+            <div>
+              <div className="m-feature-name">Laporan & Evaluasi RFK</div>
+              <div className="m-feature-sub">Keputusan Strategis</div>
+            </div>
+          </div>
+          <div className="m-feature-card">
+            <div className="m-feature-dot dot-purple" />
+            <div>
+              <div className="m-feature-name">Kolaborasi OPD</div>
+              <div className="m-feature-sub">Pembangunan Terpadu</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="login-mobile-footer-text">
+          <div>© 2026 Pemerintah Kabupaten Konawe Selatan</div>
+          <div className="text-muted">SI-MANTAP • Satu Data untuk Pembangunan Daerah</div>
+        </div>
+      </div>
+
+      {/* ========== DESKTOP FIXED FOOTER ========== */}
       <div className="login-footer">
         <span className="login-footer-left">© 2026 Pemerintah Kabupaten Konawe Selatan</span>
-        <span className="login-footer-right">SI-MANTAP  |  Satu Data untuk Pembangunan Daerah yang Lebih Baik</span>
+        <span className="login-footer-right">SI-MANTAP | Satu Data untuk Pembangunan Daerah yang Lebih Baik</span>
       </div>
 
       <style jsx>{`
@@ -340,27 +404,25 @@ export default function LoginPage() {
         ============================ */
         .login-page {
           display: flex;
-          height: 100vh;
-          max-height: 100vh;
+          min-height: 100vh;
           width: 100%;
           position: relative;
-          overflow: hidden;
-          font-family: var(--font-inter, 'Inter', sans-serif);
+          background: #f8fafc;
+          font-family: var(--font-inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
         }
 
         /* ============================
-           LEFT PANEL
+           LEFT PANEL (DESKTOP)
         ============================ */
         .login-left {
           position: relative;
-          flex: 1.15;
+          flex: 1.25;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 20px 36px 48px;
+          padding: 28px 40px 56px;
+          min-height: 100vh;
           overflow: hidden;
-          height: 100vh;
-          max-height: 100vh;
         }
 
         .login-bg {
@@ -374,10 +436,10 @@ export default function LoginPage() {
           inset: 0;
           background: linear-gradient(
             180deg,
-            rgba(10, 37, 64, 0.65) 0%,
-            rgba(12, 45, 80, 0.55) 35%,
-            rgba(8, 28, 52, 0.70) 65%,
-            rgba(5, 18, 34, 0.85) 100%
+            rgba(6, 26, 48, 0.72) 0%,
+            rgba(10, 37, 68, 0.62) 35%,
+            rgba(6, 24, 46, 0.78) 70%,
+            rgba(4, 15, 30, 0.92) 100%
           );
           z-index: 1;
         }
@@ -387,114 +449,83 @@ export default function LoginPage() {
           z-index: 2;
         }
 
-        /* Top Header */
+        /* Left Top Header */
         .login-left-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          margin-bottom: 24px;
+          gap: 20px;
         }
 
         .login-left-header-logo {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 16px;
         }
 
         .login-left-header-divider {
           width: 2px;
           height: 52px;
-          background: rgba(255,255,255,0.4);
+          background: rgba(255, 255, 255, 0.35);
           border-radius: 1px;
         }
 
         .login-left-header-text {
           display: flex;
           flex-direction: column;
-          gap: 0;
+          gap: 1px;
         }
 
         .login-left-header-title {
-          color: white;
+          color: #ffffff;
           font-size: 14px;
           font-weight: 700;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.6px;
           line-height: 1.3;
         }
 
         .login-left-header-subtitle {
-          color: rgba(255,255,255,0.7);
+          color: rgba(255, 255, 255, 0.75);
           font-size: 11px;
           font-weight: 600;
           letter-spacing: 0.3px;
-          line-height: 1.4;
+          line-height: 1.35;
         }
 
+        /* Officials Header Cards */
         .login-left-officials-header {
           display: flex;
           align-items: center;
-          gap: 10px;
-        }
-
-        /* Center Spacer to keep layout positioning */
-        .login-left-spacer {
-          flex: 1;
-        }
-
-        /* Motto Centered above features */
-        .login-bottom-motto-wrapper {
-          display: flex;
-          justify-content: center;
-          margin-bottom: 14px;
-        }
-
-        .login-bottom-motto {
-          display: inline-flex;
-          align-items: center;
           gap: 12px;
-          color: white;
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 1.5px;
-          border-bottom: 2px solid #FFD54F;
-          padding: 0 10px 6px;
-          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-        }
-
-        .motto-dot {
-          color: #FFD54F;
-          font-size: 14px;
         }
 
         .official-card {
           display: flex;
           align-items: center;
-          gap: 8px;
-          background: rgba(8, 26, 48, 0.85);
+          gap: 9px;
+          background: rgba(7, 25, 48, 0.88);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 10px;
-          padding: 5px 12px 5px 5px;
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-          transition: all 0.25s ease;
+          border-radius: 12px;
+          padding: 6px 12px 6px 6px;
+          box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+          transition: transform 0.2s ease, border-color 0.2s ease;
         }
 
         .official-card:hover {
-          background: rgba(12, 36, 66, 0.92);
-          border-color: rgba(255, 213, 79, 0.45);
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+          border-color: rgba(255, 213, 79, 0.5);
         }
 
         .official-photo {
-          width: 50px;
-          height: 60px;
+          width: 48px;
+          height: 58px;
           border-radius: 8px;
           overflow: hidden;
           flex-shrink: 0;
           background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.25) 0%, rgba(10, 30, 58, 0.9) 100%);
-          border: 1.5px solid rgba(255, 213, 79, 0.5);
+          border: 1.5px solid rgba(255, 213, 79, 0.6);
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
           position: relative;
         }
@@ -515,27 +546,58 @@ export default function LoginPage() {
         }
 
         .official-title {
-          color: #FFD54F;
+          color: #ffd54f;
           font-size: 10px;
           font-weight: 600;
           letter-spacing: 0.3px;
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         }
 
-        /* Feature Icons */
-        .login-left-features {
+        /* Spacer */
+        .login-left-spacer {
+          flex: 1;
+          min-height: 80px;
+        }
+
+        /* Motto Centered */
+        .login-bottom-motto-wrapper {
           display: flex;
-          gap: 12px;
-          padding-top: 12px;
-          border-top: 1px solid rgba(255, 255, 255, 0.12);
+          justify-content: center;
+          margin-bottom: 20px;
+        }
+
+        .login-bottom-motto {
+          display: inline-flex;
+          align-items: center;
+          gap: 14px;
+          color: #ffffff;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 1.5px;
+          border-bottom: 2px solid #ffd54f;
+          padding: 0 14px 8px;
+          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .motto-dot {
+          color: #ffd54f;
+          font-size: 14px;
+        }
+
+        /* Features Desktop */
+        .login-left-features {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+          padding-top: 18px;
+          border-top: 1px solid rgba(255, 255, 255, 0.14);
         }
 
         .feature-item {
-          flex: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           text-align: center;
         }
 
@@ -547,93 +609,113 @@ export default function LoginPage() {
           align-items: center;
           justify-content: center;
           color: white;
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+          transition: transform 0.2s ease;
         }
 
         .feature-icon:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
         }
 
         .feature-icon-blue {
-          background: linear-gradient(135deg, #1565C0, #42A5F5);
+          background: linear-gradient(135deg, #1565c0, #42a5f5);
         }
         .feature-icon-green {
-          background: linear-gradient(135deg, #2E7D32, #66BB6A);
+          background: linear-gradient(135deg, #2e7d32, #66bb6a);
         }
         .feature-icon-amber {
-          background: linear-gradient(135deg, #E65100, #FFA726);
+          background: linear-gradient(135deg, #e65100, #ffa726);
         }
         .feature-icon-purple {
-          background: linear-gradient(135deg, #6A1B9A, #AB47BC);
+          background: linear-gradient(135deg, #6a1b9a, #ab47bc);
         }
 
         .feature-title {
           color: #ffffff;
-          font-size: 10.5px;
+          font-size: 11px;
           font-weight: 700;
-          line-height: 1.25;
+          line-height: 1.3;
           text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
         }
 
         .feature-desc {
           color: rgba(255, 255, 255, 0.72);
-          font-size: 9.5px;
+          font-size: 10px;
           font-weight: 400;
           line-height: 1.3;
-          margin-top: 1px;
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         /* ============================
-           RIGHT PANEL
+           RIGHT PANEL (FORM)
         ============================ */
         .login-right {
-          flex: 0 0 390px;
+          flex: 0 0 460px;
+          width: 460px;
           display: flex;
           flex-direction: column;
-          align-items: center;
           justify-content: center;
-          padding: 10px 24px 44px;
-          background: white;
+          align-items: center;
+          padding: 40px 36px 64px;
+          background: #ffffff;
           position: relative;
           z-index: 3;
-          height: 100vh;
-          max-height: 100vh;
-          overflow: hidden;
-          box-shadow: -8px 0 30px rgba(0,0,0,0.08);
+          min-height: 100vh;
+          overflow-y: auto;
+          box-shadow: -10px 0 35px rgba(0, 0, 0, 0.06);
         }
 
         .login-right-content {
           width: 100%;
-          max-width: 325px;
+          max-width: 380px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          margin-top: -24px;
+          gap: 18px;
+          margin: auto 0;
         }
 
-        /* Welcome */
+        /* Welcome Header */
         .login-welcome {
           display: flex;
-          justify-content: center;
+          flex-direction: column;
           align-items: center;
-          margin-bottom: 2px;
-          margin-top: -10px;
+          text-align: center;
+          gap: 10px;
+          margin-bottom: 4px;
         }
 
-        /* Form */
+        .login-welcome-logo {
+          display: flex;
+          justify-content: center;
+          width: 100%;
+        }
+
+        .login-welcome-subtitle {
+          font-size: 12px;
+          color: #64748b;
+          line-height: 1.45;
+          margin: 0;
+          max-width: 320px;
+        }
+
+        /* Form Layout */
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 16px;
         }
 
         .login-input-group {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 6px;
+        }
+
+        .login-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #334155;
+          letter-spacing: 0.1px;
         }
 
         .login-input-wrapper {
@@ -644,35 +726,44 @@ export default function LoginPage() {
 
         .login-input-icon {
           position: absolute;
-          left: 11px;
+          left: 14px;
           color: #94a3b8;
           pointer-events: none;
           z-index: 1;
+          transition: color 0.2s ease;
         }
 
         .login-input {
           width: 100%;
-          height: 36px;
-          padding: 0 34px 0 34px;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 8px;
-          font-size: 12.5px;
-          color: #1e293b;
+          height: 46px;
+          padding: 0 44px 0 44px;
+          border: 1.5px solid #cbd5e1;
+          border-radius: 10px;
+          font-size: 14px;
+          color: #0f172a;
           background: #f8fafc;
           outline: none;
-          transition: all 0.25s ease;
+          transition: all 0.2s ease;
           font-family: inherit;
         }
 
         .login-input::placeholder {
-          color: #b0bec5;
-          font-size: 12px;
+          color: #94a3b8;
+          font-size: 13.5px;
+        }
+
+        .login-input:hover:not(:disabled) {
+          border-color: #94a3b8;
         }
 
         .login-input:focus {
           border-color: #2563eb;
-          background: white;
-          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+          background: #ffffff;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
+        .login-input-wrapper:focus-within .login-input-icon {
+          color: #2563eb;
         }
 
         .login-toggle-password {
@@ -682,48 +773,53 @@ export default function LoginPage() {
           border: none;
           color: #94a3b8;
           cursor: pointer;
-          padding: 4px;
+          padding: 6px;
           display: flex;
           align-items: center;
-          transition: color 0.2s ease;
+          justify-content: center;
+          border-radius: 6px;
+          transition: color 0.2s ease, background-color 0.2s ease;
         }
 
         .login-toggle-password:hover {
-          color: #64748b;
+          color: #475569;
+          background-color: #e2e8f0;
         }
 
-        /* Options */
+        /* Options Row */
         .login-options {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          padding: 2px 2px;
         }
 
         .login-remember {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 11.5px;
+          gap: 8px;
+          font-size: 13px;
           color: #475569;
           cursor: pointer;
+          user-select: none;
         }
 
         .login-checkbox {
-          width: 14px;
-          height: 14px;
+          width: 16px;
+          height: 16px;
           accent-color: #2563eb;
           cursor: pointer;
-          border-radius: 3px;
+          border-radius: 4px;
         }
 
         .login-forgot {
           background: none;
           border: none;
           color: #2563eb;
-          font-size: 11.5px;
+          font-size: 13px;
           font-weight: 500;
           cursor: pointer;
-          text-decoration: none;
+          padding: 0;
           transition: color 0.2s ease;
         }
 
@@ -732,31 +828,32 @@ export default function LoginPage() {
           text-decoration: underline;
         }
 
-        /* Submit */
+        /* Submit Button */
         .login-submit-btn {
           width: 100%;
-          height: 36px;
-          background: linear-gradient(135deg, #1565C0, #1e88e5);
-          color: white;
+          height: 46px;
+          background: linear-gradient(135deg, #1d4ed8, #2563eb);
+          color: #ffffff;
           border: none;
-          border-radius: 8px;
-          font-size: 13.5px;
-          font-weight: 700;
+          border-radius: 10px;
+          font-size: 14.5px;
+          font-weight: 600;
           letter-spacing: 0.3px;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          transition: all 0.3s ease;
+          gap: 10px;
+          transition: all 0.25s ease;
           font-family: inherit;
-          box-shadow: 0 3px 10px rgba(21, 101, 192, 0.3);
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+          margin-top: 4px;
         }
 
         .login-submit-btn:hover:not(:disabled) {
-          background: linear-gradient(135deg, #0D47A1, #1565C0);
+          background: linear-gradient(135deg, #1e40af, #1d4ed8);
           transform: translateY(-1px);
-          box-shadow: 0 4px 14px rgba(21, 101, 192, 0.4);
+          box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
         }
 
         .login-submit-btn:active:not(:disabled) {
@@ -764,7 +861,7 @@ export default function LoginPage() {
         }
 
         .login-submit-btn:disabled {
-          opacity: 0.7;
+          opacity: 0.75;
           cursor: not-allowed;
         }
 
@@ -774,15 +871,15 @@ export default function LoginPage() {
         }
 
         .login-spinner {
-          animation: spin 1s linear infinite;
+          animation: spin 0.8s linear infinite;
         }
 
         /* Divider */
         .login-divider {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin: 1px 0;
+          gap: 12px;
+          margin: 4px 0;
         }
 
         .login-divider-line {
@@ -792,60 +889,66 @@ export default function LoginPage() {
         }
 
         .login-divider-text {
-          font-size: 10px;
+          font-size: 11.5px;
           color: #94a3b8;
-          font-weight: 400;
+          font-weight: 500;
         }
 
-        /* Notice */
+        /* Notice Card */
         .login-notice {
           display: flex;
           align-items: flex-start;
-          gap: 8px;
-          padding: 7px 10px;
+          gap: 10px;
+          padding: 12px 14px;
           background: #f0f9ff;
           border: 1px solid #bae6fd;
-          border-radius: 8px;
+          border-radius: 10px;
         }
 
         .login-notice-icon {
-          color: #2563eb;
+          color: #0284c7;
           flex-shrink: 0;
           margin-top: 1px;
         }
 
         .login-notice-text {
-          font-size: 10px;
-          color: #475569;
-          line-height: 1.35;
+          font-size: 12px;
+          color: #334155;
+          line-height: 1.45;
           margin: 0;
         }
 
         .login-notice-text strong {
-          color: #1e293b;
+          color: #0369a1;
+          font-weight: 600;
         }
 
         /* Setara Logo */
         .login-setara {
           display: flex;
           justify-content: center;
-          padding-top: 1px;
+          padding-top: 4px;
+        }
+
+        /* Mobile-only Bottom Features & Footer */
+        .login-mobile-bottom {
+          display: none;
         }
 
         /* ============================
-           FOOTER
+           DESKTOP FIXED FOOTER
         ============================ */
         .login-footer {
           position: fixed;
           bottom: 0;
           left: 0;
           right: 0;
-          height: 38px;
+          height: 40px;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0 36px;
-          background: rgba(5, 18, 34, 0.96);
+          padding: 0 40px;
+          background: rgba(4, 15, 30, 0.94);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -854,407 +957,207 @@ export default function LoginPage() {
 
         .login-footer-left,
         .login-footer-right {
-          font-size: 10.5px;
-          color: rgba(255, 255, 255, 0.6);
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.65);
           letter-spacing: 0.3px;
         }
 
         /* ============================
-           ANIMATIONS
-        ============================ */
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .login-left-branding {
-          animation: fadeInUp 0.7s ease-out;
-        }
-
-        .login-right-content {
-          animation: fadeInUp 0.7s ease-out 0.15s both;
-        }
-
-        .login-left-features {
-          animation: fadeInUp 0.6s ease-out 0.3s both;
-        }
-
-        .login-left-officials {
-          animation: fadeInUp 0.6s ease-out 0.25s both;
-        }
-
-        /* ============================
-           RESPONSIVE DESIGN (ALL DEVICES)
+           RESPONSIVE BREAKPOINTS
         ============================ */
 
-        /* 1. Large Screens & Wide Monitors (min-width: 1400px) */
-        @media (min-width: 1400px) {
+        /* 1. Large Monitors (>= 1440px) */
+        @media (min-width: 1440px) {
           .login-left {
-            padding: 24px 44px 52px;
+            padding: 36px 52px 64px;
           }
           .login-right {
-            flex: 0 0 430px;
-            padding: 12px 28px 48px;
+            flex: 0 0 500px;
+            width: 500px;
+            padding: 48px 48px 64px;
           }
           .login-right-content {
-            max-width: 340px;
+            max-width: 400px;
+            gap: 22px;
           }
-          .login-welcome :global(img) {
-            max-width: 255px !important;
+          .login-welcome-logo :global(img) {
+            max-width: 250px !important;
           }
         }
 
-        /* 2. Tablet Landscape & Compact Laptops (901px to 1180px) */
-        @media (min-width: 901px) and (max-width: 1180px) {
+        /* 2. Compact Desktop / Laptops (1024px to 1279px) */
+        @media (min-width: 1024px) and (max-width: 1279px) {
           .login-left {
-            padding: 16px 22px 42px;
+            padding: 24px 28px 52px;
           }
-
-          .login-left-header {
-            margin-bottom: 12px;
-            gap: 12px;
-          }
-
-          .login-left-header-logo {
-            gap: 10px;
-          }
-
-          .login-left-header-divider {
-            height: 42px;
-          }
-
           .login-left-header-title {
-            font-size: 12px;
+            font-size: 13px;
           }
-
           .login-left-header-subtitle {
-            font-size: 9.5px;
-          }
-
-          .login-left-officials-header {
-            gap: 8px;
-          }
-
-          .official-card {
-            padding: 3px 8px 3px 4px;
-            gap: 6px;
-            border-radius: 8px;
-          }
-
-          .official-photo {
-            width: 38px;
-            height: 48px;
-            border-radius: 6px;
-          }
-
-          .official-name {
             font-size: 10px;
           }
-
+          .official-card {
+            padding: 4px 8px 4px 4px;
+            gap: 7px;
+          }
+          .official-photo {
+            width: 42px;
+            height: 52px;
+          }
+          .official-name {
+            font-size: 10.5px;
+          }
           .official-title {
-            font-size: 8.5px;
+            font-size: 9px;
           }
+          .login-right {
+            flex: 0 0 420px;
+            width: 420px;
+            padding: 32px 28px 56px;
+          }
+          .login-right-content {
+            max-width: 350px;
+            gap: 16px;
+          }
+          .feature-title {
+            font-size: 10px;
+          }
+          .feature-desc {
+            font-size: 9px;
+          }
+        }
 
+        /* 3. Short Desktop Screens (height <= 760px) */
+        @media (min-width: 1024px) and (max-height: 760px) {
+          .login-left {
+            padding: 18px 28px 48px;
+          }
+          .login-left-spacer {
+            min-height: 30px;
+          }
+          .login-bottom-motto-wrapper {
+            margin-bottom: 12px;
+          }
           .login-bottom-motto {
-            font-size: 11.5px;
-            letter-spacing: 1px;
-            gap: 8px;
-            padding: 0 8px 4px;
+            font-size: 12px;
+            padding-bottom: 5px;
           }
-
           .login-left-features {
-            gap: 8px;
-            padding-top: 10px;
+            padding-top: 12px;
+            gap: 10px;
           }
-
           .feature-icon {
             width: 38px;
             height: 38px;
-            border-radius: 10px;
           }
-
-          .feature-title {
-            font-size: 9.5px;
-          }
-
-          .feature-desc {
-            font-size: 8.5px;
-          }
-
           .login-right {
-            flex: 0 0 350px;
-            padding: 8px 20px 42px;
+            padding: 24px 28px 52px;
           }
-
           .login-right-content {
-            max-width: 285px;
-            gap: 6px;
+            gap: 14px;
           }
-
-          .login-welcome :global(img) {
-            max-width: 185px !important;
-          }
-
-          .login-input {
-            height: 34px;
-            font-size: 12px;
-          }
-
-          .login-submit-btn {
-            height: 34px;
-            font-size: 13px;
-          }
-
-          .login-notice {
-            padding: 5px 8px;
-          }
-
-          .login-notice-text {
-            font-size: 9.5px;
-          }
-
-          .login-footer {
-            height: 34px;
-            padding: 0 24px;
-          }
-
-          .login-footer-left,
-          .login-footer-right {
-            font-size: 9.5px;
-          }
-        }
-
-        /* 3. Short Desktop Screens (height < 700px on desktop) */
-        @media (min-width: 901px) and (max-height: 720px) {
-          .login-left {
-            padding: 10px 20px 38px;
-          }
-          .login-left-header {
-            margin-bottom: 8px;
-          }
-          .login-bottom-motto-wrapper {
-            margin-bottom: 8px;
-          }
-          .login-bottom-motto {
+          .login-welcome-subtitle {
             font-size: 11px;
-            padding-bottom: 3px;
-          }
-          .login-left-features {
-            padding-top: 8px;
-            gap: 8px;
-          }
-          .feature-icon {
-            width: 34px;
-            height: 34px;
-          }
-          .login-right {
-            padding: 6px 18px 38px;
-          }
-          .login-right-content {
-            gap: 5px;
-          }
-          .login-welcome :global(img) {
-            max-width: 165px !important;
-          }
-          .login-input {
-            height: 32px;
-            font-size: 11.5px;
-          }
-          .login-submit-btn {
-            height: 32px;
-            font-size: 12.5px;
-          }
-          .login-footer {
-            height: 30px;
           }
         }
 
-        /* 4. Tablet Portrait & Mid-size Devices (641px to 900px, e.g. iPad Portrait) */
-        @media (max-width: 900px) and (min-width: 641px) {
+        /* 4. Tablets (768px to 1023px) */
+        @media (min-width: 768px) and (max-width: 1023px) {
           .login-page {
-            height: auto;
-            min-height: 100vh;
-            max-height: none;
-            overflow-x: hidden;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
             flex-direction: column;
+            min-height: 100vh;
+            background: #f1f5f9;
+          }
+
+          .login-footer {
+            display: none; /* Replaced by in-page mobile bottom */
           }
 
           .login-left {
-            height: auto;
-            min-height: 480px;
-            max-height: none;
-            overflow: hidden;
-            padding: 24px 28px 32px;
+            min-height: 380px;
             flex: none;
-            width: 100%;
+            padding: 24px 28px 36px;
           }
 
           .login-left-header {
-            display: flex;
-            align-items: center;
+            flex-direction: row;
             justify-content: space-between;
-            margin-bottom: 24px;
-            gap: 16px;
-          }
-
-          .login-left-header-logo {
-            flex-shrink: 0;
-          }
-
-          .login-left-officials-header {
-            display: flex;
             align-items: center;
-            gap: 12px;
-            flex-shrink: 0;
-          }
-
-          .official-card {
-            padding: 4px 10px 4px 4px;
-            gap: 8px;
-          }
-
-          .official-photo {
-            width: 44px;
-            height: 54px;
-          }
-
-          .official-name {
-            font-size: 11px;
-            white-space: nowrap;
-          }
-
-          .official-title {
-            font-size: 9.5px;
-          }
-
-          .login-left-spacer {
-            min-height: 160px;
-          }
-
-          .login-bottom-motto-wrapper {
-            margin-bottom: 16px;
-          }
-
-          .login-bottom-motto {
-            font-size: 13px;
-            letter-spacing: 1.2px;
-            gap: 10px;
           }
 
           .login-left-features {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            width: 100%;
+            gap: 12px;
             padding-top: 14px;
           }
 
-          .feature-item {
-            width: 100%;
-          }
-
-          .feature-icon {
-            width: 42px;
-            height: 42px;
-          }
-
-          .feature-title {
-            font-size: 10.5px;
-          }
-
-          .feature-desc {
-            font-size: 9px;
-          }
-
           .login-right {
-            height: auto;
-            min-height: auto;
-            max-height: none;
-            overflow: visible;
             flex: none;
             width: 100%;
-            padding: 36px 24px 50px;
-            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.08);
-            background: white;
+            min-height: auto;
+            background: transparent;
+            box-shadow: none;
+            padding: 32px 20px 48px;
+            margin-top: -30px;
+            z-index: 5;
           }
 
           .login-right-content {
-            max-width: 380px;
+            max-width: 440px;
+            background: #ffffff;
+            padding: 36px 32px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            gap: 18px;
+          }
+
+          .login-mobile-bottom {
+            display: block;
+            padding: 0 24px 40px;
+            max-width: 600px;
             margin: 0 auto;
-            gap: 12px;
-          }
-
-          .login-welcome :global(img) {
-            max-width: 230px !important;
-          }
-
-          .login-input {
-            height: 42px;
-            font-size: 14px;
-          }
-
-          .login-submit-btn {
-            height: 42px;
-            font-size: 15px;
-          }
-
-          .login-footer {
-            position: relative;
-            height: auto;
-            padding: 16px 24px;
-            flex-direction: row;
-            justify-content: space-between;
+            width: 100%;
           }
         }
 
-        /* 5. Mobile Phones / Smartphone (<= 640px, e.g. iPhone, Android) */
-        @media (max-width: 640px) {
+        /* 5. Mobile Smartphones (< 768px) */
+        @media (max-width: 767px) {
           .login-page {
-            height: auto;
-            min-height: 100vh;
-            max-height: none;
-            overflow-x: hidden;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
             flex-direction: column;
+            min-height: 100vh;
+            background: #f1f5f9;
           }
 
+          .login-footer {
+            display: none;
+          }
+
+          /* Compact & majestic top hero banner */
           .login-left {
-            height: auto;
-            min-height: auto;
-            max-height: none;
-            overflow: hidden;
-            padding: 14px 12px 14px;
+            min-height: 220px;
             flex: none;
-            width: 100%;
+            padding: 18px 16px 28px;
+            justify-content: flex-start;
           }
 
-          /* Mobile Header - Stacked neatly */
           .login-left-header {
             flex-direction: column;
             align-items: center;
             text-align: center;
-            gap: 8px;
-            margin-bottom: 10px;
+            gap: 12px;
+            width: 100%;
           }
 
           .login-left-header-logo {
             flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
           }
 
           .login-left-header-divider {
-            height: 32px;
+            height: 38px;
             width: 1.5px;
           }
 
@@ -1263,253 +1166,207 @@ export default function LoginPage() {
           }
 
           .login-left-header-title {
-            font-size: 11px;
-            line-height: 1.2;
-          }
-
-          .login-left-header-subtitle {
-            font-size: 8.5px;
+            font-size: 12px;
             line-height: 1.25;
           }
 
-          /* Officials: Side-by-side balanced cards */
+          .login-left-header-subtitle {
+            font-size: 9.5px;
+            line-height: 1.3;
+          }
+
+          /* Officials: Compact clean cards */
           .login-left-officials-header {
             display: flex;
             flex-direction: row;
+            justify-content: center;
+            gap: 8px;
             width: 100%;
             max-width: 360px;
-            justify-content: center;
-            gap: 6px;
           }
 
           .official-card {
-            flex: 1 1 0;
-            min-width: 0;
-            padding: 3px 5px 3px 3px;
-            gap: 5px;
-            border-radius: 6px;
-          }
-
-          .official-photo {
-            width: 30px;
-            height: 38px;
-            border-radius: 5px;
-            flex-shrink: 0;
-          }
-
-          .official-info {
-            min-width: 0;
-            overflow: hidden;
-          }
-
-          .official-name {
-            font-size: 8.5px;
-            white-space: normal;
-            word-break: break-word;
-            line-height: 1.15;
-            display: block;
-          }
-
-          .official-title {
-            font-size: 7.5px;
-            line-height: 1.15;
-            white-space: normal;
-            color: #FFD54F;
-          }
-
-          /* Compact spacer for mobile */
-          .login-left-spacer {
-            min-height: 24px;
-          }
-
-          /* Motto: Centered, guaranteed no text cutoff */
-          .login-bottom-motto-wrapper {
-            margin-bottom: 8px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-          }
-
-          .login-bottom-motto {
-            font-size: 9px;
-            letter-spacing: 0.5px;
-            gap: 5px;
-            padding: 0 4px 3px;
-            flex-wrap: wrap;
-            justify-content: center;
-            text-align: center;
-            max-width: 100%;
-          }
-
-          .motto-dot {
-            font-size: 9px;
-          }
-
-          /* Features: Compact 4-column row on mobile */
-          .login-left-features {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            padding-top: 8px;
-            width: 100%;
-          }
-
-          .feature-item {
-            width: 100%;
-            gap: 3px;
-          }
-
-          .feature-icon {
-            width: 30px;
-            height: 30px;
+            flex: 1;
+            padding: 4px 8px 4px 4px;
+            gap: 7px;
             border-radius: 8px;
           }
 
-          .feature-title {
-            font-size: 8px;
-            line-height: 1.15;
+          .official-photo {
+            width: 36px;
+            height: 44px;
+            border-radius: 6px;
           }
 
-          .feature-desc {
+          .official-name {
+            font-size: 9.5px;
+            white-space: normal;
+            line-height: 1.2;
+          }
+
+          .official-title {
+            font-size: 8px;
+            line-height: 1.2;
+          }
+
+          /* Hide desktop features from top banner */
+          .login-left-features,
+          .login-left-spacer,
+          .login-bottom-motto-wrapper {
             display: none;
           }
 
-          /* Right Panel on Mobile */
+          /* Right Panel / Login Card overlaps smoothly */
           .login-right {
-            height: auto;
-            min-height: auto;
-            max-height: none;
-            overflow: visible;
             flex: none;
             width: 100%;
-            padding: 28px 18px 44px;
-            box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.08);
-            background: white;
+            min-height: auto;
+            background: transparent;
+            box-shadow: none;
+            padding: 0 14px 28px;
+            margin-top: -16px;
+            z-index: 5;
           }
 
           .login-right-content {
             max-width: 100%;
-            gap: 9px;
+            background: #ffffff;
+            padding: 28px 20px 24px;
+            border-radius: 18px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            gap: 16px;
           }
 
-          .login-welcome :global(img) {
-            max-width: 205px !important;
+          .login-welcome {
+            gap: 8px;
+            margin-bottom: 2px;
           }
 
-          /* Mobile Form Inputs: 16px to prevent iOS Safari auto-zoom */
+          .login-welcome-logo :global(img) {
+            max-width: 200px !important;
+          }
+
+          .login-welcome-subtitle {
+            font-size: 11.5px;
+            line-height: 1.4;
+          }
+
+          /* Input field: 48px height, 16px font to prevent Safari zoom */
           .login-input {
-            height: 42px;
+            height: 48px;
             font-size: 16px;
-            padding: 0 36px 0 36px;
-            border-radius: 8px;
+            padding: 0 46px 0 44px;
+            border-radius: 10px;
           }
 
           .login-input::placeholder {
-            font-size: 13.5px;
-          }
-
-          .login-toggle-password {
-            right: 10px;
-            padding: 6px;
-          }
-
-          .login-options {
-            font-size: 12px;
-            margin: 2px 0;
-          }
-
-          .login-remember {
-            font-size: 12px;
-          }
-
-          .login-checkbox {
-            width: 16px;
-            height: 16px;
-          }
-
-          .login-forgot {
-            font-size: 12px;
+            font-size: 14px;
           }
 
           .login-submit-btn {
-            height: 42px;
-            font-size: 14.5px;
-            border-radius: 8px;
+            height: 48px;
+            font-size: 15px;
+            border-radius: 10px;
           }
 
           .login-notice {
-            padding: 8px 10px;
+            padding: 10px 12px;
           }
 
           .login-notice-text {
-            font-size: 10.5px;
-            line-height: 1.4;
+            font-size: 11.5px;
           }
 
-          /* Mobile Footer: Centered clean text */
-          .login-footer {
-            position: relative;
-            height: auto;
-            padding: 14px 16px 18px;
-            flex-direction: column;
-            gap: 4px;
+          /* Mobile Bottom Features Grid */
+          .login-mobile-bottom {
+            display: block;
+            padding: 0 16px 36px;
+            width: 100%;
+          }
+
+          .login-mobile-features-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
             text-align: center;
+            margin-bottom: 12px;
           }
 
-          .login-footer-left,
-          .login-footer-right {
+          .login-mobile-features-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 24px;
+          }
+
+          .m-feature-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+          }
+
+          .m-feature-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 5px;
+            flex-shrink: 0;
+          }
+
+          .dot-blue { background: #2563eb; }
+          .dot-green { background: #16a34a; }
+          .dot-amber { background: #d97706; }
+          .dot-purple { background: #9333ea; }
+
+          .m-feature-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.25;
+          }
+
+          .m-feature-sub {
             font-size: 9.5px;
-            line-height: 1.4;
+            color: #64748b;
+            line-height: 1.2;
+            margin-top: 2px;
+          }
+
+          .login-mobile-footer-text {
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
           }
         }
 
-        /* 6. Ultra-Compact Mobile (<= 360px, e.g. iPhone SE, Galaxy Z Flip cover) */
+        /* 6. Extra Small Screens (<= 360px) */
         @media (max-width: 360px) {
-          .login-left {
-            padding: 14px 10px 18px;
+          .login-right-content {
+            padding: 22px 14px 20px;
           }
-
-          .login-left-header-title {
-            font-size: 11px;
+          .login-mobile-features-grid {
+            grid-template-columns: 1fr;
           }
-
-          .login-left-header-subtitle {
-            font-size: 8.5px;
+          .official-card {
+            padding: 3px 6px 3px 3px;
           }
-
-          .login-left-officials-header {
-            gap: 6px;
-          }
-
           .official-photo {
-            width: 30px;
-            height: 38px;
+            width: 32px;
+            height: 40px;
           }
-
           .official-name {
-            font-size: 8.5px;
-          }
-
-          .official-title {
-            font-size: 7.5px;
-          }
-
-          .login-bottom-motto {
             font-size: 9px;
-            letter-spacing: 0.4px;
-            gap: 4px;
-          }
-
-          .feature-desc {
-            display: none;
-          }
-
-          .login-welcome :global(img) {
-            max-width: 165px !important;
-          }
-
-          .login-right {
-            padding: 22px 14px 38px;
           }
         }
       `}</style>

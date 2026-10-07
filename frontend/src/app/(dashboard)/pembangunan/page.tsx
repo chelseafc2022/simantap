@@ -254,12 +254,6 @@ export default function PaketPembangunanPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Data Paket Pembangunan
             </h1>
-            <Badge
-              variant="outline"
-              className="text-xs font-semibold uppercase tracking-wider text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
-            >
-              Menu 1
-            </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Pengelolaan paket pekerjaan pengadaan fisik & penetapan kurva rencana fisik bulanan (B01–B12)
@@ -434,31 +428,33 @@ export default function PaketPembangunanPage() {
       </Card>
 
       {/* Main Table Card */}
-      <Card className="border-border/70 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-muted/50 border-b">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-12 text-center text-xs font-semibold py-3.5">No</TableHead>
-                <TableHead className="min-w-[280px] text-xs font-semibold py-3.5">
+      <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full min-w-[1050px] table-fixed border-collapse">
+            <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+              <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-12 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+                  No
+                </TableHead>
+                <TableHead className="w-[28%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Nama Paket & Identitas PBJ
                 </TableHead>
-                <TableHead className="min-w-[190px] text-xs font-semibold py-3.5">
-                  OPD / SKPD
+                <TableHead className="w-[18%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                  Sub Unit Kerja
                 </TableHead>
-                <TableHead className="min-w-[140px] text-xs font-semibold py-3.5">
+                <TableHead className="w-[12%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Metode & Sumber
                 </TableHead>
-                <TableHead className="min-w-[170px] text-right text-xs font-semibold py-3.5">
+                <TableHead className="w-[15%] text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Pagu & Kontrak (Rp)
                 </TableHead>
-                <TableHead className="min-w-[110px] text-center text-xs font-semibold py-3.5">
+                <TableHead className="w-[8%] text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                   Target B12
                 </TableHead>
-                <TableHead className="min-w-[170px] text-xs font-semibold py-3.5">
+                <TableHead className="w-[11%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Rekanan & Kontrak
                 </TableHead>
-                <TableHead className="w-[120px] text-center text-xs font-semibold py-3.5">
+                <TableHead className="w-28 text-center text-xs font-semibold py-3 px-2 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -466,7 +462,7 @@ export default function PaketPembangunanPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-56 text-center">
+                  <TableCell colSpan={8} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
                       <span className="text-xs text-muted-foreground">Memuat data paket pembangunan...</span>
@@ -475,7 +471,7 @@ export default function PaketPembangunanPage() {
                 </TableRow>
               ) : paketList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-56 text-center">
+                  <TableCell colSpan={8} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/80">
                         <Briefcase className="h-6 w-6 text-muted-foreground" />
@@ -497,101 +493,100 @@ export default function PaketPembangunanPage() {
                   const targetB12 = paket.targetBulanan?.find((t) => t.bulan === 12)?.targetFisik || 0
 
                   return (
-                    <TableRow key={paket.id} className="hover:bg-muted/30 transition-colors">
+                    <TableRow key={paket.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
                       {/* No */}
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5">
+                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                         {no}
                       </TableCell>
 
                       {/* Identitas Paket */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-1">
+                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-1">
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(paket)}
-                            className="font-semibold text-foreground hover:text-emerald-600 text-left line-clamp-2 transition-colors cursor-pointer text-sm"
+                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-sm leading-snug"
+                            title={paket.namaPaket}
                           >
                             {paket.namaPaket}
                           </button>
-                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground w-full min-w-0">
                             {paket.kodeRupKontrak && (
-                              <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[11px]">
-                                {paket.kodeRupKontrak}
+                              <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px] shrink-0" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
+                                RUP: {paket.kodeRupKontrak}
                               </span>
                             )}
                             {paket.lokasiKegiatan && (
-                              <span className="flex items-center gap-1 truncate max-w-[220px]" title={paket.lokasiKegiatan}>
+                              <span className="flex items-center gap-1 truncate shrink min-w-0 text-[11px]" title={paket.lokasiKegiatan}>
                                 <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                                {paket.lokasiKegiatan}
+                                <span className="truncate">{paket.lokasiKegiatan}</span>
                               </span>
                             )}
                           </div>
                         </div>
                       </TableCell>
 
-                      {/* OPD */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-xs font-medium text-foreground">
-                              {paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
-                            </span>
-                          </div>
-                          {paket.subUnit?.namaSubUnit && (
-                            <div className="text-[11px] text-muted-foreground pl-5 truncate max-w-[200px]" title={paket.subUnit.namaSubUnit}>
-                              {paket.subUnit.namaSubUnit}
-                            </div>
-                          )}
+                      {/* Sub Unit Kerja */}
+                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="flex items-center gap-1.5 w-full min-w-0 overflow-hidden">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span
+                            className="text-xs font-medium text-foreground truncate block flex-1 min-w-0"
+                            title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
+                          >
+                            {paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
+                          </span>
                         </div>
                       </TableCell>
 
                       {/* Metode & Sumber */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-1">
-                          <Badge variant="secondary" className="text-[11px] font-normal">
-                            {paket.metodePemilihan || "PBJ"}
-                          </Badge>
-                          <div className="text-[11px] text-muted-foreground">
+                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-1">
+                          <div className="w-full overflow-hidden">
+                            <Badge variant="secondary" className="text-[10px] sm:text-[11px] font-normal truncate max-w-full block text-center" title={paket.metodePemilihan || "PBJ"}>
+                              {paket.metodePemilihan || "PBJ"}
+                            </Badge>
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate block w-full" title={paket.sumberDana || "-"}>
                             {paket.sumberDana || "-"}
                           </div>
                         </div>
                       </TableCell>
 
                       {/* Nilai Pagu & Kontrak */}
-                      <TableCell className="text-right py-3.5">
-                        <div className="space-y-0.5">
-                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 font-mono">
+                      <TableCell className="max-w-0 text-right py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700 font-mono">
+                        <div className="w-full min-w-0 overflow-hidden space-y-0.5">
+                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
                             {formatRupiah(kontrakNum)}
                           </div>
-                          <div className="text-[11px] text-muted-foreground font-mono">
+                          <div className="text-[11px] text-muted-foreground truncate">
                             Pagu: {formatRupiah(paguNum)}
                           </div>
                         </div>
                       </TableCell>
 
                       {/* Target B12 */}
-                      <TableCell className="text-center py-3.5">
+                      <TableCell className="max-w-0 text-center py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                          <TrendingUp className="h-3 w-3" />
-                          {targetB12.toFixed(1)}%
+                          <TrendingUp className="h-3 w-3 shrink-0" />
+                          <span>{targetB12.toFixed(1)}%</span>
                         </div>
                       </TableCell>
 
                       {/* Rekanan & No Kontrak */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-0.5 text-xs">
-                          <div className="font-medium text-foreground truncate max-w-[160px]" title={paket.pemenangRekanan || "-"}>
+                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-0.5 text-xs">
+                          <div className="font-medium text-foreground truncate block w-full" title={paket.pemenangRekanan || "-"}>
                             {paket.pemenangRekanan || "-"}
                           </div>
-                          <div className="text-[11px] text-muted-foreground font-mono truncate max-w-[160px]">
+                          <div className="text-[11px] text-muted-foreground font-mono truncate block w-full" title={paket.nomorKontrak || "-"}>
                             {paket.nomorKontrak || "-"}
                           </div>
                         </div>
                       </TableCell>
 
                       {/* Aksi */}
-                      <TableCell className="text-center py-3.5">
+                      <TableCell className="text-center py-3 px-2 border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"

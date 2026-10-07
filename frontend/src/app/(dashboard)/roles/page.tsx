@@ -301,30 +301,30 @@ export default function KelompokUserPage() {
       </Card>
 
       {/* Main Table: Master Kelompok User (Format Terinspirasi SIDAPEM klpUsers.vue) */}
-      <Card className="border-border/80 shadow-sm overflow-hidden">
+      <Card className="border border-gray-200 dark:border-neutral-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs border-collapse border border-gray-200 dark:border-neutral-700">
             <thead>
-              <tr className="bg-gradient-to-r from-blue-900/10 via-emerald-900/10 to-transparent border-b border-border/70 text-foreground font-semibold">
-                <th className="py-3 px-3 text-center w-12">No</th>
-                <th className="py-3 px-4 text-left">Nama Kelompok & Wewenang</th>
-                <th className="py-3 px-4 text-left w-56">Cakupan Akses Unit</th>
-                <th className="py-3 px-4 text-center w-36">Akun Terdaftar</th>
-                <th className="py-3 px-4 text-center w-48">Ringkasan Akses</th>
-                <th className="py-3 px-4 text-center w-36">Aksi</th>
+              <tr className="bg-gray-50/90 dark:bg-neutral-800/80 border-b border-gray-200 dark:border-neutral-700 text-foreground font-semibold">
+                <th className="py-3 px-3 text-center w-12 border-r border-b border-gray-200 dark:border-neutral-700">No</th>
+                <th className="py-3 px-4 text-left border-r border-b border-gray-200 dark:border-neutral-700">Nama Kelompok & Wewenang</th>
+                <th className="py-3 px-4 text-left w-56 border-r border-b border-gray-200 dark:border-neutral-700">Cakupan Akses Unit</th>
+                <th className="py-3 px-4 text-center w-36 border-r border-b border-gray-200 dark:border-neutral-700">Akun Terdaftar</th>
+                <th className="py-3 px-4 text-center w-48 border-r border-b border-gray-200 dark:border-neutral-700">Ringkasan Akses</th>
+                <th className="py-3 px-4 text-center w-36 border-b border-gray-200 dark:border-neutral-700">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
               {isRolesLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground border-b border-gray-200 dark:border-neutral-700">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
                     Memuat data master kelompok pengguna...
                   </td>
                 </tr>
               ) : filteredRoles.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground border-b border-gray-200 dark:border-neutral-700">
                     <ShieldAlert className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                     Tidak ada kelompok pengguna yang sesuai dengan filter pencarian.
                   </td>
@@ -353,15 +353,15 @@ export default function KelompokUserPage() {
                   return (
                     <tr
                       key={role.id || role.kode}
-                      className="hover:bg-muted/40 transition-colors group"
+                      className="hover:bg-muted/40 transition-colors group border-b border-gray-200 dark:border-neutral-700"
                     >
                       {/* No */}
-                      <td className="py-3 px-3 text-center text-muted-foreground font-mono">
+                      <td className="py-3 px-3 text-center text-muted-foreground font-mono border-r border-b border-gray-200 dark:border-neutral-700">
                         {idx + 1}.
                       </td>
 
                       {/* Nama Kelompok */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-foreground">
                             {role.nama}
@@ -379,7 +379,7 @@ export default function KelompokUserPage() {
                       </td>
 
                       {/* Cakupan Akses Unit */}
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 border-r border-b border-gray-200 dark:border-neutral-700">
                         <Badge
                           variant="outline"
                           className={`text-[11px] font-medium px-2 py-0.5 ${scopeBadge.class}`}
@@ -390,7 +390,7 @@ export default function KelompokUserPage() {
                       </td>
 
                       {/* Akun Terdaftar */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/60 text-foreground font-semibold text-xs border border-border/50">
                           <Users className="h-3.5 w-3.5 text-primary" />
                           <span>{role.totalUsers || 0} Pengguna</span>
@@ -398,7 +398,7 @@ export default function KelompokUserPage() {
                       </td>
 
                       {/* Ringkasan Akses */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex items-center justify-center gap-1">
                           <span
                             className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
@@ -454,7 +454,7 @@ export default function KelompokUserPage() {
                       </td>
 
                       {/* Tombol Aksi */}
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-center border-b border-gray-200 dark:border-neutral-700">
                         <Button
                           size="sm"
                           variant="outline"

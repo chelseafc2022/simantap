@@ -422,12 +422,6 @@ export default function LaporanDanEvaluasiPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Laporan & Evaluasi RFK
             </h1>
-            <Badge
-              variant="outline"
-              className="text-xs font-semibold uppercase tracking-wider text-purple-600 border-purple-500/30 bg-purple-500/10"
-            >
-              Menu 3
-            </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Konsolidasi kurva-S fisik dan serapan keuangan, identifikasi kontrak kritis, serta rekapitulasi kinerja OPD
@@ -683,28 +677,28 @@ export default function LaporanDanEvaluasiPage() {
         {/* TAB 1: MATRIKS EVALUASI RFK                              */}
         {/* ======================================================== */}
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
-          <Card className="border-border/70 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
+          <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/50 border-b border-border/80">
-                  <TableRow>
-                    <TableHead className="w-12 text-center text-xs font-semibold py-3.5">No</TableHead>
-                    <TableHead className="min-w-[200px] text-xs font-semibold py-3.5">OPD & Sub Unit Kerja</TableHead>
-                    <TableHead className="min-w-[260px] text-xs font-semibold py-3.5">Nama Paket Pekerjaan</TableHead>
-                    <TableHead className="min-w-[130px] text-xs font-semibold py-3.5">Metode / Sumber Dana</TableHead>
-                    <TableHead className="min-w-[150px] text-right text-xs font-semibold py-3.5">Pagu & Kontrak</TableHead>
-                    <TableHead className="min-w-[140px] text-right text-xs font-semibold py-3.5">Realisasi Keuangan</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5">% Keu</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5">Target</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5">Realisasi</TableHead>
-                    <TableHead className="w-24 text-center text-xs font-semibold py-3.5">Deviasi</TableHead>
-                    <TableHead className="min-w-[110px] text-center text-xs font-semibold py-3.5">Status</TableHead>
+              <Table className="w-full min-w-[1250px] border-collapse">
+                <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+                  <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                    <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">No</TableHead>
+                    <TableHead className="min-w-[180px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Sub Unit Kerja</TableHead>
+                    <TableHead className="min-w-[260px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Nama Paket Pekerjaan</TableHead>
+                    <TableHead className="min-w-[130px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Metode / Sumber Dana</TableHead>
+                    <TableHead className="min-w-[150px] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Pagu & Kontrak</TableHead>
+                    <TableHead className="min-w-[140px] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Realisasi Keuangan</TableHead>
+                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">% Keu</TableHead>
+                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Target</TableHead>
+                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Realisasi</TableHead>
+                    <TableHead className="w-24 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Deviasi</TableHead>
+                    <TableHead className="min-w-[110px] text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingRfk ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="h-56 text-center">
+                      <TableCell colSpan={11} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                           <span className="text-xs text-muted-foreground">Memuat laporan evaluasi realisasi pembangunan...</span>
@@ -713,7 +707,7 @@ export default function LaporanDanEvaluasiPage() {
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="h-56 text-center">
+                      <TableCell colSpan={11} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                             <FileText className="h-5 w-5" />
@@ -736,24 +730,21 @@ export default function LaporanDanEvaluasiPage() {
                       return (
                         <TableRow
                           key={item.id}
-                          className={`hover:bg-muted/40 transition-colors text-xs ${
+                          className={`hover:bg-muted/40 transition-colors text-xs border-b border-gray-200 dark:border-neutral-700 ${
                             isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
                           }`}
                         >
-                          <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5">
+                          <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             {rowNo}
                           </TableCell>
 
-                          <TableCell className="py-3.5">
-                            <div className="font-semibold text-foreground">
-                              {item.opd?.singkatan || item.opd?.namaOpd || "-"}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground truncate">
-                              {item.subUnit?.namaSubUnit || "-"}
+                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                            <div className="font-semibold text-foreground truncate max-w-[220px]" title={item.subUnit?.namaSubUnit || item.opd?.namaOpd || "-"}>
+                              {item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}
                             </div>
                           </TableCell>
 
-                          <TableCell className="py-3.5">
+                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <div className="font-semibold text-foreground line-clamp-2">
                               {item.namaPaket}
                             </div>
@@ -763,7 +754,7 @@ export default function LaporanDanEvaluasiPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="py-3.5">
+                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <div className="font-medium text-foreground">
                               {item.metodePemilihan || "-"}
                             </div>
@@ -772,7 +763,7 @@ export default function LaporanDanEvaluasiPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="text-right py-3.5">
+                          <TableCell className="text-right py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <div className="font-semibold font-mono text-foreground">
                               {formatRupiah(item.nilaiKontrak)}
                             </div>
@@ -781,27 +772,27 @@ export default function LaporanDanEvaluasiPage() {
                             </div>
                           </TableCell>
 
-                          <TableCell className="text-right py-3.5">
+                          <TableCell className="text-right py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <div className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
                               {formatRupiah(item.realisasiKeuangan)}
                             </div>
                           </TableCell>
 
-                          <TableCell className="text-center font-bold font-mono py-3.5">
+                          <TableCell className="text-center font-bold font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <span className={item.persenKeuangan > 0 ? "text-foreground" : "text-muted-foreground"}>
                               {item.persenKeuangan.toFixed(1)}%
                             </span>
                           </TableCell>
 
-                          <TableCell className="text-center text-muted-foreground font-mono py-3.5">
+                          <TableCell className="text-center text-muted-foreground font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             {item.targetFisik.toFixed(1)}%
                           </TableCell>
 
-                          <TableCell className="text-center font-bold font-mono py-3.5">
+                          <TableCell className="text-center font-bold font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             {item.realisasiFisik.toFixed(1)}%
                           </TableCell>
 
-                          <TableCell className="text-center font-mono font-bold py-3.5">
+                          <TableCell className="text-center font-mono font-bold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                             <span
                               className={
                                 isDeviasiPositif
@@ -815,7 +806,7 @@ export default function LaporanDanEvaluasiPage() {
                             </span>
                           </TableCell>
 
-                          <TableCell className="text-center py-3.5">
+                          <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
                             {item.status === "AMAN" && (
                               <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
                                 Aman
@@ -894,16 +885,16 @@ export default function LaporanDanEvaluasiPage() {
               </CardDescription>
             </CardHeader>
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/50 border-b border-border/80">
-                  <TableRow>
-                    <TableHead className="w-10 text-center text-xs py-3.5">No</TableHead>
-                    <TableHead className="min-w-[220px] text-xs py-3.5">Nama Paket & OPD</TableHead>
-                    <TableHead className="min-w-[130px] text-right text-xs py-3.5">Nilai Kontrak</TableHead>
+              <Table className="w-full min-w-[1100px] border-collapse">
+                <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+                  <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                    <TableHead className="w-10 text-center text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">No</TableHead>
+                    <TableHead className="min-w-[220px] text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Nama Paket & Sub Unit</TableHead>
+                    <TableHead className="min-w-[130px] text-right text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Nilai Kontrak</TableHead>
                     {BULAN_NAMES.map((bName, idx) => (
                       <TableHead
                         key={idx}
-                        className={`w-20 text-center text-[11px] font-semibold py-3.5 ${
+                        className={`w-20 text-center text-[11px] font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700 ${
                           idx + 1 === bulan ? "bg-primary/10 text-primary border-x border-primary/20 font-bold" : ""
                         }`}
                       >
@@ -916,7 +907,7 @@ export default function LaporanDanEvaluasiPage() {
                 <TableBody>
                   {isLoadingMatriks ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="h-56 text-center">
+                      <TableCell colSpan={15} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                           <span className="text-xs text-muted-foreground">Menyusun matriks perkembangan 12 bulan...</span>
@@ -925,25 +916,25 @@ export default function LaporanDanEvaluasiPage() {
                     </TableRow>
                   ) : !matriksData?.items || matriksData.items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="h-56 text-center text-muted-foreground text-xs">
+                      <TableCell colSpan={15} className="h-56 text-center text-muted-foreground text-xs border-b border-gray-200 dark:border-neutral-700">
                         Tidak ada data paket pembangunan untuk matriks 12 bulan.
                       </TableCell>
                     </TableRow>
                   ) : (
                     matriksData.items.map((paket: any, pIdx: number) => (
-                      <TableRow key={paket.id} className="hover:bg-muted/30 text-xs">
-                        <TableCell className="text-center font-mono text-muted-foreground py-3">
+                      <TableRow key={paket.id} className="hover:bg-muted/30 text-xs border-b border-gray-200 dark:border-neutral-700">
+                        <TableCell className="text-center font-mono text-muted-foreground py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                           {pIdx + 1}
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                           <div className="font-semibold text-foreground truncate max-w-[240px]">
                             {paket.namaPaket}
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {paket.opd?.singkatan || paket.opd?.namaOpd}
+                          <div className="text-[11px] text-muted-foreground truncate max-w-[240px]" title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd}>
+                            {paket.subUnit?.namaSubUnit || paket.opd?.singkatan || paket.opd?.namaOpd}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono font-medium py-3">
+                        <TableCell className="text-right font-mono font-medium py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                           {formatRupiah(paket.nilaiKontrak)}
                         </TableCell>
                         {paket.timeline.map((m: any, mIdx: number) => {
@@ -954,7 +945,7 @@ export default function LaporanDanEvaluasiPage() {
                           return (
                             <TableCell
                               key={mIdx}
-                              className={`text-center p-1.5 ${
+                              className={`text-center p-1.5 border-r border-b border-gray-200 dark:border-neutral-700 ${
                                 isActive ? "bg-primary/5 font-semibold border-x border-primary/20" : ""
                               }`}
                             >
@@ -1006,24 +997,24 @@ export default function LaporanDanEvaluasiPage() {
               </CardDescription>
             </CardHeader>
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-muted/50 border-b border-border/80">
-                  <TableRow>
-                    <TableHead className="w-12 text-center text-xs py-3.5">Peringkat</TableHead>
-                    <TableHead className="min-w-[240px] text-xs py-3.5">Perangkat Daerah (OPD)</TableHead>
-                    <TableHead className="w-20 text-center text-xs py-3.5">Total Paket</TableHead>
-                    <TableHead className="min-w-[140px] text-right text-xs py-3.5">Total Kontrak</TableHead>
-                    <TableHead className="min-w-[140px] text-right text-xs py-3.5">Realisasi Keu</TableHead>
-                    <TableHead className="min-w-[150px] text-xs py-3.5">% Serapan Keuangan</TableHead>
-                    <TableHead className="w-24 text-center text-xs py-3.5">Rata-rata Fisik</TableHead>
-                    <TableHead className="w-24 text-center text-xs py-3.5">Deviasi Fisik</TableHead>
-                    <TableHead className="w-24 text-center text-xs py-3.5">Paket Kritis</TableHead>
+              <Table className="w-full min-w-[1050px] border-collapse">
+                <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+                  <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                    <TableHead className="w-12 text-center text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Peringkat</TableHead>
+                    <TableHead className="min-w-[240px] text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Perangkat Daerah (OPD)</TableHead>
+                    <TableHead className="w-20 text-center text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Total Paket</TableHead>
+                    <TableHead className="min-w-[140px] text-right text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Total Kontrak</TableHead>
+                    <TableHead className="min-w-[140px] text-right text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Realisasi Keu</TableHead>
+                    <TableHead className="min-w-[150px] text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">% Serapan Keuangan</TableHead>
+                    <TableHead className="w-24 text-center text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Rata-rata Fisik</TableHead>
+                    <TableHead className="w-24 text-center text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Deviasi Fisik</TableHead>
+                    <TableHead className="w-24 text-center text-xs py-3.5 border-b border-gray-200 dark:border-neutral-700">Paket Kritis</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingRekapOpd ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-56 text-center">
+                      <TableCell colSpan={9} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                           <span className="text-xs text-muted-foreground">Menghitung rekapitulasi kinerja OPD...</span>
@@ -1032,7 +1023,7 @@ export default function LaporanDanEvaluasiPage() {
                     </TableRow>
                   ) : !rekapOpdData?.rekap || rekapOpdData.rekap.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-56 text-center text-muted-foreground text-xs">
+                      <TableCell colSpan={9} className="h-56 text-center text-muted-foreground text-xs border-b border-gray-200 dark:border-neutral-700">
                         Tidak ada data OPD yang memiliki paket pembangunan pada periode ini.
                       </TableCell>
                     </TableRow>
@@ -1044,12 +1035,12 @@ export default function LaporanDanEvaluasiPage() {
                         const isDeviasiPositif = opd.avgDeviasiFisik >= 0
 
                         return (
-                          <TableRow key={opd.opdId} className="hover:bg-muted/30 text-xs">
-                            <TableCell className="text-center font-bold font-mono py-3.5">
+                          <TableRow key={opd.opdId} className="hover:bg-muted/30 text-xs border-b border-gray-200 dark:border-neutral-700">
+                            <TableCell className="text-center font-bold font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               {idx === 0 ? "🥇 1" : idx === 1 ? "🥈 2" : idx === 2 ? "🥉 3" : idx + 1}
                             </TableCell>
 
-                            <TableCell className="py-3.5">
+                            <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               <div className="font-semibold text-foreground">
                                 {opd.namaOpd}
                               </div>
@@ -1058,19 +1049,19 @@ export default function LaporanDanEvaluasiPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-center font-semibold font-mono text-foreground py-3.5">
+                            <TableCell className="text-center font-semibold font-mono text-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               {opd.totalPaket}
                             </TableCell>
 
-                            <TableCell className="text-right font-mono font-medium py-3.5">
+                            <TableCell className="text-right font-mono font-medium py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               {formatRupiah(opd.totalKontrak)}
                             </TableCell>
 
-                            <TableCell className="text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400 py-3.5">
+                            <TableCell className="text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400 py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               {formatRupiah(opd.totalRealisasiKeuangan)}
                             </TableCell>
 
-                            <TableCell className="py-3.5">
+                            <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-mono font-semibold">
                                   <span>{opd.persenSerapanKeuangan.toFixed(1)}%</span>
@@ -1079,11 +1070,11 @@ export default function LaporanDanEvaluasiPage() {
                               </div>
                             </TableCell>
 
-                            <TableCell className="text-center font-mono font-bold py-3.5">
+                            <TableCell className="text-center font-mono font-bold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               {opd.avgRealisasiFisik.toFixed(1)}%
                             </TableCell>
 
-                            <TableCell className="text-center font-mono font-bold py-3.5">
+                            <TableCell className="text-center font-mono font-bold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               <span
                                 className={
                                   isDeviasiPositif
@@ -1097,7 +1088,7 @@ export default function LaporanDanEvaluasiPage() {
                               </span>
                             </TableCell>
 
-                            <TableCell className="text-center py-3.5">
+                            <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
                               {isKritisExist ? (
                                 <Badge variant="destructive" className="text-[10px] gap-1 font-mono">
                                   <Flame className="w-3 h-3" />

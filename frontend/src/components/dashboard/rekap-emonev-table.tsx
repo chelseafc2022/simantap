@@ -383,40 +383,40 @@ export function RekapEmonevTable({
 
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+          <table className="w-full text-xs border-collapse border border-gray-200 dark:border-neutral-700">
             <thead>
-              <tr className="bg-muted/70 text-foreground border-b font-semibold">
-                <th className="py-2.5 px-3 text-center border-r w-12" rowSpan={2}>No</th>
-                <th className="py-2.5 px-3 text-left border-r min-w-[240px]" rowSpan={2}>
+              <tr className="bg-gray-50/90 dark:bg-neutral-800/80 text-foreground border-b border-gray-200 dark:border-neutral-700 font-semibold">
+                <th className="py-2.5 px-3 text-center border-r border-b border-gray-200 dark:border-neutral-700 w-12" rowSpan={2}>No</th>
+                <th className="py-2.5 px-3 text-left border-r border-b border-gray-200 dark:border-neutral-700 min-w-[240px]" rowSpan={2}>
                   Organisasi Perangkat Daerah (OPD)
                 </th>
-                <th className="py-2.5 px-3 text-right border-r w-36" rowSpan={2}>
+                <th className="py-2.5 px-3 text-right border-r border-b border-gray-200 dark:border-neutral-700 w-36" rowSpan={2}>
                   Anggaran / Pagu (Rp)
                 </th>
-                <th className="py-1.5 px-3 text-center border-b bg-amber-500/10 border-r" colSpan={2}>
+                <th className="py-1.5 px-3 text-center border-b border-r border-gray-200 dark:border-neutral-700 bg-amber-500/10" colSpan={2}>
                   Realisasi Keuangan
                 </th>
-                <th className="py-2.5 px-3 text-center border-r w-24 bg-amber-500/10" rowSpan={2}>
+                <th className="py-2.5 px-3 text-center border-r border-b border-gray-200 dark:border-neutral-700 w-24 bg-amber-500/10" rowSpan={2}>
                   Fisik (%)
                 </th>
-                <th className="py-2.5 px-3 text-center w-28 bg-orange-500/10" rowSpan={2}>
+                <th className="py-2.5 px-3 text-center border-b border-gray-200 dark:border-neutral-700 w-28 bg-orange-500/10" rowSpan={2}>
                   Kombinasi (%)
                 </th>
               </tr>
-              <tr className="bg-muted/70 text-foreground border-b font-semibold">
-                <th className="py-1.5 px-2 text-right border-r w-32 bg-amber-500/10">Keuangan (Rp)</th>
-                <th className="py-1.5 px-2 text-center border-r w-20 bg-amber-500/10">%</th>
+              <tr className="bg-gray-50/90 dark:bg-neutral-800/80 text-foreground border-b border-gray-200 dark:border-neutral-700 font-semibold">
+                <th className="py-1.5 px-2 text-right border-r border-b border-gray-200 dark:border-neutral-700 w-32 bg-amber-500/10">Keuangan (Rp)</th>
+                <th className="py-1.5 px-2 text-center border-r border-b border-gray-200 dark:border-neutral-700 w-20 bg-amber-500/10">%</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
               {/* 1. BAGIAN OPD */}
               {filterKategori !== "kecamatan" && (
                 <>
                   {filteredOpd.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-2 px-3 text-center border-r text-muted-foreground font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 border-r font-medium">
+                    <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                      <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                      <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium">
                         <div className="flex items-center gap-1.5">
                           <span className="uppercase">{item.namaOpd}</span>
                           {item.totalPaket > 0 && (
@@ -426,18 +426,18 @@ export function RekapEmonevTable({
                           )}
                         </div>
                       </td>
-                      <td className="py-2 px-3 text-right border-r font-mono">
+                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
                         {formatRupiah(item.totalPagu)}
                       </td>
-                      <td className="py-2 px-3 text-right border-r font-mono">
+                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
                         {formatRupiah(item.realisasiKeuangan)}
                       </td>
-                      <td className={`py-2 px-2 text-center border-r font-mono font-bold ${
+                      <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
                         item.persenKeuangan >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenKeuangan > 0 ? "text-amber-600" : "text-rose-500"
                       }`}>
                         {item.persenKeuangan}%
                       </td>
-                      <td className={`py-2 px-2 text-center border-r font-mono font-bold ${
+                      <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
                         item.persenFisik >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenFisik > 0 ? "text-amber-600" : "text-rose-500"
                       }`}>
                         {item.persenFisik}%
@@ -451,14 +451,14 @@ export function RekapEmonevTable({
                   ))}
 
                   {/* SUB TOTAL OPD */}
-                  <tr className="bg-amber-400/20 font-bold border-t-2 border-amber-500/30 text-amber-950 dark:text-amber-200">
-                    <td colSpan={2} className="py-2.5 px-4 text-right border-r font-semibold italic">
+                  <tr className="bg-amber-400/20 font-bold border-t-2 border-b border-amber-500/30 text-amber-950 dark:text-amber-200">
+                    <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/30 font-semibold italic">
                       JUMLAH PERANGKAT DAERAH (OPD)
                     </td>
-                    <td className="py-2.5 px-3 text-right border-r font-mono">{formatRupiah(totalOpd.pagu)}</td>
-                    <td className="py-2.5 px-3 text-right border-r font-mono">{formatRupiah(totalOpd.keu)}</td>
-                    <td className="py-2.5 px-2 text-center border-r font-mono">{totalOpd.persenKeuangan}%</td>
-                    <td className="py-2.5 px-2 text-center border-r font-mono">{totalOpd.persenFisik}%</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalOpd.pagu)}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalOpd.keu)}</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalOpd.persenKeuangan}%</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalOpd.persenFisik}%</td>
                     <td className="py-2.5 px-2 text-center font-mono">{totalOpd.kombinasi}%</td>
                   </tr>
                 </>
@@ -474,15 +474,15 @@ export function RekapEmonevTable({
                   </tr>
 
                   {filteredKecamatan.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-2 px-3 text-center border-r text-muted-foreground font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 border-r font-medium uppercase">{item.namaOpd}</td>
-                      <td className="py-2 px-3 text-right border-r font-mono">{formatRupiah(item.totalPagu)}</td>
-                      <td className="py-2 px-3 text-right border-r font-mono">{formatRupiah(item.realisasiKeuangan)}</td>
-                      <td className="py-2 px-2 text-center border-r font-mono font-bold text-muted-foreground">
+                    <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                      <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                      <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium uppercase">{item.namaOpd}</td>
+                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.totalPagu)}</td>
+                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.realisasiKeuangan)}</td>
+                      <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold text-muted-foreground">
                         {item.persenKeuangan}%
                       </td>
-                      <td className="py-2 px-2 text-center border-r font-mono font-bold text-muted-foreground">
+                      <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold text-muted-foreground">
                         {item.persenFisik}%
                       </td>
                       <td className="py-2 px-2 text-center font-mono font-bold text-muted-foreground">
@@ -492,14 +492,14 @@ export function RekapEmonevTable({
                   ))}
 
                   {/* SUB TOTAL KECAMATAN */}
-                  <tr className="bg-amber-400/20 font-bold border-t-2 border-amber-500/30 text-amber-950 dark:text-amber-200">
-                    <td colSpan={2} className="py-2.5 px-4 text-right border-r font-semibold italic">
+                  <tr className="bg-amber-400/20 font-bold border-t-2 border-b border-amber-500/30 text-amber-950 dark:text-amber-200">
+                    <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/30 font-semibold italic">
                       JUMLAH KECAMATAN
                     </td>
-                    <td className="py-2.5 px-3 text-right border-r font-mono">{formatRupiah(totalKecamatan.pagu)}</td>
-                    <td className="py-2.5 px-3 text-right border-r font-mono">{formatRupiah(totalKecamatan.keu)}</td>
-                    <td className="py-2.5 px-2 text-center border-r font-mono">{totalKecamatan.persenKeuangan}%</td>
-                    <td className="py-2.5 px-2 text-center border-r font-mono">{totalKecamatan.persenFisik}%</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalKecamatan.pagu)}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalKecamatan.keu)}</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalKecamatan.persenKeuangan}%</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalKecamatan.persenFisik}%</td>
                     <td className="py-2.5 px-2 text-center font-mono">{totalKecamatan.kombinasi}%</td>
                   </tr>
                 </>
@@ -507,13 +507,13 @@ export function RekapEmonevTable({
 
               {/* 3. TOTAL KESELURUHAN DAERAH */}
               <tr className="bg-emerald-500/20 font-bold border-t-2 border-emerald-600/40 text-emerald-950 dark:text-emerald-100 text-[13px]">
-                <td colSpan={2} className="py-3 px-4 text-right border-r font-bold uppercase tracking-wider">
+                <td colSpan={2} className="py-3 px-4 text-right border-r border-emerald-600/40 font-bold uppercase tracking-wider">
                   TOTAL KESELURUHAN KABUPATEN
                 </td>
-                <td className="py-3 px-3 text-right border-r font-mono">{formatRupiah(grandTotal.pagu)}</td>
-                <td className="py-3 px-3 text-right border-r font-mono">{formatRupiah(grandTotal.keu)}</td>
-                <td className="py-3 px-2 text-center border-r font-mono">{grandTotal.persenKeuangan}%</td>
-                <td className="py-3 px-2 text-center border-r font-mono">{grandTotal.persenFisik}%</td>
+                <td className="py-3 px-3 text-right border-r border-emerald-600/40 font-mono">{formatRupiah(grandTotal.pagu)}</td>
+                <td className="py-3 px-3 text-right border-r border-emerald-600/40 font-mono">{formatRupiah(grandTotal.keu)}</td>
+                <td className="py-3 px-2 text-center border-r border-emerald-600/40 font-mono">{grandTotal.persenKeuangan}%</td>
+                <td className="py-3 px-2 text-center border-r border-emerald-600/40 font-mono">{grandTotal.persenFisik}%</td>
                 <td className="py-3 px-2 text-center font-mono">{grandTotal.kombinasi}%</td>
               </tr>
             </tbody>

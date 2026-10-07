@@ -252,12 +252,6 @@ export default function RealisasiBulananPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Realisasi Fisik & Keuangan
             </h1>
-            <Badge
-              variant="outline"
-              className="text-xs font-semibold uppercase tracking-wider text-blue-600 border-blue-500/30 bg-blue-500/10"
-            >
-              Menu 2
-            </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Monitoring capaian kurva-S fisik (B01–B12), deviasi target, dan realisasi penyerapan anggaran SP2D/Kas
@@ -454,37 +448,27 @@ export default function RealisasiBulananPage() {
       </Card>
 
       {/* Main Table Card */}
-      <Card className="border-border/70 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-muted/50 border-b">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-12 text-center text-xs font-semibold py-3.5">No</TableHead>
-                <TableHead className="min-w-[260px] text-xs font-semibold py-3.5">
-                  Paket Pembangunan & Identitas PBJ
+      <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
+        <div className="w-full overflow-x-auto">
+          <Table className="w-full min-w-[960px] table-fixed border-collapse">
+            <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+              <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                  No
                 </TableHead>
-                <TableHead className="min-w-[180px] text-xs font-semibold py-3.5">
-                  OPD / Unit Kerja
+                <TableHead className="w-[30%] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                  Paket Pembangunan & Sub Unit
                 </TableHead>
-                <TableHead className="min-w-[160px] text-right text-xs font-semibold py-3.5">
-                  Pagu & Kontrak (Rp)
+                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                  Pagu & Kontrak
                 </TableHead>
-                <TableHead className="min-w-[90px] text-right text-xs font-semibold py-3.5">
-                  Target (%)
+                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                  Kinerja Fisik
                 </TableHead>
-                <TableHead className="min-w-[90px] text-right text-xs font-semibold py-3.5">
-                  Realisasi (%)
+                <TableHead className="w-[18%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                  Realisasi Keuangan
                 </TableHead>
-                <TableHead className="min-w-[95px] text-right text-xs font-semibold py-3.5">
-                  Deviasi (%)
-                </TableHead>
-                <TableHead className="min-w-[160px] text-right text-xs font-semibold py-3.5">
-                  Realisasi Keuangan (Rp)
-                </TableHead>
-                <TableHead className="min-w-[110px] text-center text-xs font-semibold py-3.5">
-                  Status
-                </TableHead>
-                <TableHead className="w-[110px] text-center text-xs font-semibold py-3.5">
+                <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -492,7 +476,7 @@ export default function RealisasiBulananPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-56 text-center">
+                  <TableCell colSpan={6} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
                       <span className="text-xs text-muted-foreground">Memuat data realisasi bulanan...</span>
@@ -501,7 +485,7 @@ export default function RealisasiBulananPage() {
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-56 text-center">
+                  <TableCell colSpan={6} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                         <TrendingUp className="h-5 w-5" />
@@ -518,131 +502,111 @@ export default function RealisasiBulananPage() {
               ) : (
                 items.map((item, idx) => {
                   const no = (meta.page - 1) * limit + idx + 1
-                  const isDeviasiPositif = item.deviasiFisik >= 0
 
                   return (
-                    <TableRow key={item.id} className="hover:bg-muted/30 transition-colors">
+                    <TableRow key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
                       {/* No */}
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5">
+                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                         {no}
                       </TableCell>
 
-                      {/* Identitas Paket */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-1">
+                      {/* Identitas Paket & Sub Unit */}
+                      <TableCell className="max-w-0 py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-1">
                           <button
                             type="button"
                             onClick={() => handleOpenInput(item.id)}
-                            className="font-semibold text-foreground hover:text-emerald-600 text-left line-clamp-2 transition-colors cursor-pointer text-sm"
+                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-sm leading-snug"
+                            title={item.namaPaket}
                           >
                             {item.namaPaket}
                           </button>
-                          <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                            {item.kodeRupKontrak && (
-                              <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[11px]">
-                                {item.kodeRupKontrak}
+                          <div className="flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground w-full min-w-0">
+                            <div className="inline-flex items-center gap-1 font-medium text-foreground/80 bg-muted/70 px-1.5 py-0.5 rounded text-[11px] shrink-0 max-w-[180px]">
+                              <Building2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                              <span className="truncate" title={item.subUnit?.namaSubUnit || item.opd?.namaOpd || "-"}>
+                                {item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}
                               </span>
-                            )}
-                            {item.nomorKontrak && (
-                              <span className="font-mono text-[11px] truncate max-w-[200px]" title={item.nomorKontrak}>
-                                {item.nomorKontrak}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* OPD & Sub Unit */}
-                      <TableCell className="py-3.5">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-xs font-medium text-foreground">
-                              {item.opd?.singkatan || item.opd?.namaOpd || "-"}
-                            </span>
-                          </div>
-                          {item.subUnit?.namaSubUnit && (
-                            <div className="text-[11px] text-muted-foreground pl-5 truncate max-w-[180px]" title={item.subUnit.namaSubUnit}>
-                              {item.subUnit.namaSubUnit}
                             </div>
-                          )}
+                            {item.nomorKontrak && (
+                              <span className="font-mono text-[10px] text-muted-foreground truncate shrink-0 max-w-[110px]" title={item.nomorKontrak}>
+                                SPK: {item.nomorKontrak}
+                              </span>
+                            )}
+                            {item.kodeRupKontrak && (
+                              <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px] shrink-0" title={`Kode RUP: ${item.kodeRupKontrak}`}>
+                                RUP: {item.kodeRupKontrak}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
 
                       {/* Pagu & Kontrak */}
-                      <TableCell className="text-right py-3.5">
-                        <div className="space-y-0.5 font-mono">
-                          <div className="font-semibold text-xs text-foreground">
+                      <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-0.5">
+                          <div className="font-semibold text-xs text-foreground truncate">
                             {formatRupiah(item.nilaiKontrak)}
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground truncate">
                             Pagu: {formatRupiah(item.nilaiPagu)}
                           </div>
                         </div>
                       </TableCell>
 
-                      {/* Target Fisik */}
-                      <TableCell className="text-right font-mono text-xs text-muted-foreground py-3.5">
-                        {item.targetFisik}%
-                      </TableCell>
-
-                      {/* Realisasi Fisik */}
-                      <TableCell className="text-right font-mono font-semibold text-xs py-3.5">
-                        {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
-                      </TableCell>
-
-                      {/* Deviasi Fisik */}
-                      <TableCell className="text-right font-mono font-semibold text-xs py-3.5">
-                        {item.targetFisik === 0 && item.realisasiFisik === 0 ? (
-                          <span className="text-muted-foreground">-</span>
-                        ) : (
-                          <span className={isDeviasiPositif ? "text-emerald-600" : "text-red-600"}>
-                            {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
-                          </span>
-                        )}
-                      </TableCell>
-
-                      {/* Realisasi Keuangan */}
-                      <TableCell className="text-right py-3.5">
-                        <div className="space-y-0.5 font-mono">
-                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400">
-                            {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                      {/* Kinerja Fisik: Target, Realisasi & Deviasi / Status */}
+                      <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-1">
+                          <div className="flex items-center justify-end gap-1.5 text-xs truncate">
+                            <span className="text-muted-foreground text-[11px]">Tgt: {item.targetFisik}%</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="font-bold text-foreground">
+                              Real: {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                            </span>
                           </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : ""}
+                          <div className="flex items-center justify-end gap-1">
+                            {item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                                Belum Mulai
+                              </Badge>
+                            ) : (
+                              <Badge
+                                className={`text-[10px] px-1.5 py-0 font-medium whitespace-nowrap ${
+                                  item.status === "AMAN"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                    : item.status === "PERHATIAN"
+                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                    : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
+                                }`}
+                              >
+                                {item.status === "AMAN" ? (
+                                  <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
+                                ) : item.status === "PERHATIAN" ? (
+                                  <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                                ) : (
+                                  <AlertCircle className="h-2.5 w-2.5 mr-1" />
+                                )}
+                                Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </TableCell>
 
-                      {/* Status */}
-                      <TableCell className="text-center py-3.5">
-                        {item.status === "BELUM_MULAI" && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-                            Belum Mulai
-                          </Badge>
-                        )}
-                        {item.status === "AMAN" && (
-                          <Badge className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-medium whitespace-nowrap">
-                            <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
-                            Aman
-                          </Badge>
-                        )}
-                        {item.status === "PERHATIAN" && (
-                          <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 font-medium whitespace-nowrap">
-                            <AlertTriangle className="h-2.5 w-2.5 mr-1" />
-                            Perhatian
-                          </Badge>
-                        )}
-                        {item.status === "KRITIS" && (
-                          <Badge className="text-[10px] px-1.5 py-0 bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30 font-medium whitespace-nowrap">
-                            <AlertCircle className="h-2.5 w-2.5 mr-1" />
-                            Kritis
-                          </Badge>
-                        )}
+                      {/* Realisasi Keuangan */}
+                      <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="w-full min-w-0 overflow-hidden space-y-0.5">
+                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
+                            {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                          </div>
+                        </div>
                       </TableCell>
 
                       {/* Aksi */}
-                      <TableCell className="text-center py-3.5">
+                      <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
                         <Button
                           variant="outline"
                           size="sm"

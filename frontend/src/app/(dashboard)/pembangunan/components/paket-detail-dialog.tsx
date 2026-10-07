@@ -183,30 +183,30 @@ export function PaketDetailDialog({
             </span>
           </div>
 
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="w-16">Bulan</TableHead>
-                  <TableHead className="text-right">Target Fisik (%)</TableHead>
-                  <TableHead className="text-right">Realisasi Fisik (%)</TableHead>
-                  <TableHead className="text-right">Deviasi (%)</TableHead>
-                  <TableHead className="text-right">Realisasi Keuangan (Rp)</TableHead>
+          <div className="rounded-lg border border-gray-200 dark:border-neutral-700 overflow-hidden">
+            <Table className="border-collapse">
+              <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+                <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
+                  <TableHead className="w-16 border-r border-b border-gray-200 dark:border-neutral-700">Bulan</TableHead>
+                  <TableHead className="text-right border-r border-b border-gray-200 dark:border-neutral-700">Target Fisik (%)</TableHead>
+                  <TableHead className="text-right border-r border-b border-gray-200 dark:border-neutral-700">Realisasi Fisik (%)</TableHead>
+                  <TableHead className="text-right border-r border-b border-gray-200 dark:border-neutral-700">Deviasi (%)</TableHead>
+                  <TableHead className="text-right border-b border-gray-200 dark:border-neutral-700">Realisasi Keuangan (Rp)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {monthlyData.map((row) => (
-                  <TableRow key={row.bulan} className="hover:bg-muted/30">
-                    <TableCell className="font-semibold text-xs text-muted-foreground">
+                  <TableRow key={row.bulan} className="hover:bg-muted/30 border-b border-gray-200 dark:border-neutral-700">
+                    <TableCell className="font-semibold text-xs text-muted-foreground border-r border-b border-gray-200 dark:border-neutral-700">
                       B{String(row.bulan).padStart(2, "0")} ({row.namaBulan})
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    <TableCell className="text-right font-mono text-xs border-r border-b border-gray-200 dark:border-neutral-700">
                       {row.targetFisik.toFixed(2)}%
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs font-medium">
+                    <TableCell className="text-right font-mono text-xs font-medium border-r border-b border-gray-200 dark:border-neutral-700">
                       {row.realisasiFisik > 0 ? `${row.realisasiFisik.toFixed(2)}%` : "-"}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    <TableCell className="text-right font-mono text-xs border-r border-b border-gray-200 dark:border-neutral-700">
                       {row.realisasiFisik > 0 ? (
                         <span
                           className={`font-semibold ${
@@ -223,7 +223,7 @@ export function PaketDetailDialog({
                         "-"
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    <TableCell className="text-right font-mono text-xs border-b border-gray-200 dark:border-neutral-700">
                       {row.realisasiKeuangan > 0 ? formatRupiah(row.realisasiKeuangan) : "-"}
                     </TableCell>
                   </TableRow>
