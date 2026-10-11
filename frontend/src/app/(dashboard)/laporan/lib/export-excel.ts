@@ -1,12 +1,60 @@
 import * as XLSX from 'xlsx';
 
+interface RfkItem {
+  namaPaket: string;
+  metodePemilihan?: string | null;
+  sumberDana?: string | null;
+  nomorKontrak?: string | null;
+  tanggalMulai?: string | null;
+  tanggalSelesai?: string | null;
+  nilaiPagu?: number;
+  nilaiKontrak?: number;
+  realisasiFisik?: number;
+  realisasiKeuangan?: number;
+  persenKeuangan?: number;
+  targetFisik?: number;
+  deviasiFisik?: number;
+  status?: string;
+  catatanOperator?: string | null;
+  pemenangRekanan?: string | null;
+  opd?: { namaOpd?: string; singkatan?: string | null } | null;
+  subUnit?: { namaSubUnit?: string } | null;
+}
+
+interface RfkSummary {
+  totalPagu?: number;
+  totalKontrak?: number;
+  totalRealisasiKeuangan?: number;
+  persenSerapanKeuangan?: number;
+  avgTargetFisik?: number;
+  avgRealisasiFisik?: number;
+  avgDeviasiFisik?: number;
+  countStatus?: { aman?: number; perhatian?: number; kritis?: number };
+}
+
+interface RekapOpdItem {
+  kodeOpd?: string;
+  namaOpd: string;
+  totalPaket: number;
+  totalPagu: number;
+  totalKontrak: number;
+  totalRealisasiKeuangan: number;
+  persenSerapanKeuangan?: number;
+  avgTargetFisik?: number;
+  avgRealisasiFisik?: number;
+  avgDeviasiFisik?: number;
+  countAman: number;
+  countPerhatian: number;
+  countKritis: number;
+}
+
 interface ExportExcelParams {
   tahunAnggaran: number;
   bulan: number;
   namaBulan: string;
-  items: any[];
-  summary: any;
-  rekapOpd?: any[];
+  items: RfkItem[];
+  summary: RfkSummary;
+  rekapOpd?: RekapOpdItem[];
 }
 
 export function exportLaporanToExcel({
@@ -22,121 +70,137 @@ export function exportLaporanToExcel({
   // ==========================================
   // SHEET 1: REKAPITULASI LAPORAN RFK
   // ==========================================
-  const rfkRows: any[] = [];
+  const rfkRows: (string | number | Date)[][] = [];
 
-  // Judul & Header Dokumen
-  rfkRows.push(['PEMERINTAH KABUPATEN KONAWE SELATAN']);
-  rfkRows.push(['BAGIAN ADMINISTRASI PEMBANGUNAN SETDA KABUPATEN KONAWE SELATAN']);
-  rfkRows.push([`LAPORAN REALISASI FISIK DAN KEUANGAN (RFK) PAKET PEMBANGUNAN`]);
-  rfkRows.push([`PERIODE: BULAN ${namaBulan.toUpperCase()} TAHUN ANGGARAN ${tahunAnggaran}`]);
-  rfkRows.push([]); // blank line
+  rfkRows.push(['LAPORAN REALISASI FISIK DAN KEUANGAN']);
+  rfkRows.push([`KABUPATEN KONAWE SELATAN T.A. ${tahunAnggaran}`]);
+  rfkRows.push([`PERIODE ${namaBulan.toUpperCase()} ${tahunAnggaran}`]);
+  rfkRows.push([]);
 
-  // Header Tabel
   rfkRows.push([
     'NO',
-    'OPD / SKPD',
-    'SUB UNIT / BIDANG',
-    'NAMA PAKET PEKERJAAN',
-    'METODE PEMILIHAN',
-    'JENIS PENGADAAN',
-    'SUMBER DANA',
+    'JENIS KEGIATAN',
+    'ANGGARAN (Rp)',
+    'NILAI KONTRAK',
     'NOMOR KONTRAK',
-    'PENYEDIA / REKANAN',
-    'PAGU ANGGARAN (Rp)',
-    'NILAI KONTRAK (Rp)',
-    'REALISASI KEUANGAN (Rp)',
-    '% KEUANGAN',
-    'TARGET FISIK (%)',
-    'REALISASI FISIK (%)',
-    'DEVIASI FISIK (%)',
-    'STATUS CAPAIAN',
-    'CATATAN OPERATOR',
+    'TANGGAL KONTRAK',
+    '',
+    'REALISASI',
+    '',
+    '',
+    'SUMBER DANA',
+    'KETERANGAN',
+  ]);
+  rfkRows.push([
+    '', '', '', '', '',
+    'MULAI',
+    'BERAKHIR',
+    'FISIK (%)',
+    'KEUANGAN (Rp)',
+    '%',
+    '', '',
   ]);
 
-  // Data Baris
   items.forEach((item, index) => {
+    const unit = item.subUnit?.namaSubUnit || item.opd?.namaOpd || '-';
+    const metode = item.metodePemilihan || '-';
+    const status = item.status === 'AMAN'
+      ? 'Aman'
+      : item.status === 'PERHATIAN'
+      ? 'Waspada'
+      : item.status === 'KRITIS'
+      ? 'Kritis'
+      : 'Belum Mulai';
+    const detail = [
+      status,
+      `Target ${(item.targetFisik || 0).toFixed(1)}%`,
+      `Deviasi ${(item.deviasiFisik || 0) >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(1)}%`,
+      item.catatanOperator,
+    ].filter(Boolean).join(' - ');
+
     rfkRows.push([
       index + 1,
-      item.opd?.namaOpd || '-',
-      item.subUnit?.namaSubUnit || '-',
-      item.namaPaket,
-      item.metodePemilihan || '-',
-      item.jenisPengadaan || '-',
-      item.sumberDana || '-',
-      item.nomorKontrak || '-',
-      item.pemenangRekanan || '-',
+      `${item.namaPaket}\n${unit} | ${metode}`,
       item.nilaiPagu || 0,
       item.nilaiKontrak || 0,
+      item.nomorKontrak || '-',
+      item.tanggalMulai ? new Date(item.tanggalMulai) : '',
+      item.tanggalSelesai ? new Date(item.tanggalSelesai) : '',
+      (item.realisasiFisik || 0) / 100,
       item.realisasiKeuangan || 0,
-      `${(item.persenKeuangan || 0).toFixed(2)}%`,
-      `${(item.targetFisik || 0).toFixed(2)}%`,
-      `${(item.realisasiFisik || 0).toFixed(2)}%`,
-      `${item.deviasiFisik >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(2)}%`,
-      item.status === 'AMAN'
-        ? 'AMAN (Sesuai Target)'
-        : item.status === 'PERHATIAN'
-        ? 'PERHATIAN (Deviasi Ringan)'
-        : item.status === 'KRITIS'
-        ? 'KONTRAK KRITIS (Deviasi > 10%)'
-        : 'BELUM MULAI',
-      item.catatanOperator || '',
+      (item.persenKeuangan || 0) / 100,
+      item.sumberDana || '-',
+      detail,
     ]);
   });
 
-  // Baris Total Aggregat di Bawah
-  rfkRows.push([]);
   rfkRows.push([
-    'TOTAL / RATA-RATA',
-    '',
-    '',
-    `${items.length} Paket`,
-    '',
-    '',
-    '',
-    '',
-    '',
+    'JUMLAH',
+    `${items.length} paket`,
     summary?.totalPagu || 0,
     summary?.totalKontrak || 0,
+    '', '', '',
+    (summary?.avgRealisasiFisik || 0) / 100,
     summary?.totalRealisasiKeuangan || 0,
-    `${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%`,
-    `${(summary?.avgTargetFisik || 0).toFixed(2)}%`,
-    `${(summary?.avgRealisasiFisik || 0).toFixed(2)}%`,
-    `${(summary?.avgDeviasiFisik || 0) >= 0 ? '+' : ''}${(summary?.avgDeviasiFisik || 0).toFixed(2)}%`,
-    `Aman: ${summary?.countStatus?.aman || 0} | Perhatian: ${summary?.countStatus?.perhatian || 0} | Kritis: ${summary?.countStatus?.kritis || 0}`,
+    (summary?.persenSerapanKeuangan || 0) / 100,
     '',
+    `Aman ${summary?.countStatus?.aman || 0} | Waspada ${summary?.countStatus?.perhatian || 0} | Kritis ${summary?.countStatus?.kritis || 0}`,
   ]);
 
   const wsRfk = XLSX.utils.aoa_to_sheet(rfkRows);
-
-  // Atur lebar kolom
-  wsRfk['!cols'] = [
-    { wch: 5 },  // No
-    { wch: 30 }, // OPD
-    { wch: 25 }, // Sub Unit
-    { wch: 45 }, // Nama Paket
-    { wch: 20 }, // Metode
-    { wch: 18 }, // Jenis
-    { wch: 14 }, // Sumber Dana
-    { wch: 22 }, // No Kontrak
-    { wch: 25 }, // Rekanan
-    { wch: 20 }, // Pagu
-    { wch: 20 }, // Kontrak
-    { wch: 22 }, // Realisasi Keu
-    { wch: 14 }, // % Keu
-    { wch: 16 }, // Target Fisik
-    { wch: 18 }, // Realisasi Fisik
-    { wch: 18 }, // Deviasi
-    { wch: 25 }, // Status
-    { wch: 30 }, // Catatan
+  wsRfk['!merges'] = [
+    XLSX.utils.decode_range('A1:L1'),
+    XLSX.utils.decode_range('A2:L2'),
+    XLSX.utils.decode_range('A3:L3'),
+    XLSX.utils.decode_range('A5:A6'),
+    XLSX.utils.decode_range('B5:B6'),
+    XLSX.utils.decode_range('C5:C6'),
+    XLSX.utils.decode_range('D5:D6'),
+    XLSX.utils.decode_range('E5:E6'),
+    XLSX.utils.decode_range('F5:G5'),
+    XLSX.utils.decode_range('H5:J5'),
+    XLSX.utils.decode_range('K5:K6'),
+    XLSX.utils.decode_range('L5:L6'),
   ];
 
-  XLSX.utils.book_append_sheet(wb, wsRfk, 'Rekapitulasi RFK');
+  wsRfk['!cols'] = [
+    { wch: 5 },
+    { wch: 48 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 24 },
+    { wch: 13 },
+    { wch: 13 },
+    { wch: 12 },
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 16 },
+    { wch: 38 },
+  ];
+  wsRfk['!rows'] = [{ hpt: 22 }, { hpt: 20 }, { hpt: 18 }, { hpt: 8 }, { hpt: 24 }, { hpt: 22 }];
+
+  for (let row = 6; row < rfkRows.length; row += 1) {
+    ['C', 'D', 'I'].forEach((col) => {
+      const cell = wsRfk[`${col}${row + 1}`];
+      if (cell) cell.z = '#,##0';
+    });
+    ['H', 'J'].forEach((col) => {
+      const cell = wsRfk[`${col}${row + 1}`];
+      if (cell) cell.z = '0.0%';
+    });
+    ['F', 'G'].forEach((col) => {
+      const cell = wsRfk[`${col}${row + 1}`];
+      if (cell && cell.v) cell.z = 'dd-mmm-yyyy';
+    });
+  }
+
+  XLSX.utils.book_append_sheet(wb, wsRfk, 'Laporan RFK');
 
   // ==========================================
   // SHEET 2: REKAPITULASI KINERJA PER OPD
   // ==========================================
   if (rekapOpd && rekapOpd.length > 0) {
-    const opdRows: any[] = [];
+    const opdRows: (string | number)[][] = [];
     opdRows.push(['REKAPITULASI KINERJA RFK PER ORGANISASI PERANGKAT DAERAH (OPD)']);
     opdRows.push([`KABUPATEN KONAWE SELATAN - TAHUN ANGGARAN ${tahunAnggaran} (BULAN ${namaBulan.toUpperCase()})`]);
     opdRows.push([]);
@@ -170,7 +234,7 @@ export function exportLaporanToExcel({
         `${(opd.persenSerapanKeuangan || 0).toFixed(2)}%`,
         `${(opd.avgTargetFisik || 0).toFixed(2)}%`,
         `${(opd.avgRealisasiFisik || 0).toFixed(2)}%`,
-        `${opd.avgDeviasiFisik >= 0 ? '+' : ''}${(opd.avgDeviasiFisik || 0).toFixed(2)}%`,
+        `${(opd.avgDeviasiFisik || 0) >= 0 ? '+' : ''}${(opd.avgDeviasiFisik || 0).toFixed(2)}%`,
         opd.countAman,
         opd.countPerhatian,
         opd.countKritis,
@@ -202,7 +266,7 @@ export function exportLaporanToExcel({
   // ==========================================
   const kritisItems = items.filter((i) => i.status === 'KRITIS');
   if (kritisItems.length > 0) {
-    const kritisRows: any[] = [];
+    const kritisRows: (string | number)[][] = [];
     kritisRows.push(['DAFTAR PENGAWASAN KONTRAK KRITIS (DEVIASI FISIK < -10%)']);
     kritisRows.push(['PERLU PERINGATAN / SHOW CAUSE MEETING (SCM) - KABUPATEN KONAWE SELATAN']);
     kritisRows.push([]);

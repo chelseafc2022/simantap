@@ -94,6 +94,8 @@ export default function LaporanDanEvaluasiPage() {
   const [page, setPage] = useState<number>(1)
   const [limit] = useState<number>(15)
   const [activeTab, setActiveTab] = useState<string>("evaluasi")
+  const [isExporting, setIsExporting] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
 
   // Bind OPD & Sub Unit otomatis untuk non-super role
   useEffect(() => {
@@ -310,6 +312,17 @@ export default function LaporanDanEvaluasiPage() {
     }).format(num)
   }
 
+  const formatTanggal = (value: string | undefined | null) => {
+    if (!value) return "-"
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return "-"
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date)
+  }
+
   // Nama OPD yang difilter untuk judul laporan
   const filterOpdNama = useMemo(() => {
     if (selectedOpd === "ALL" || selectedOpd === "all") return undefined
@@ -317,42 +330,69 @@ export default function LaporanDanEvaluasiPage() {
     return found?.namaOpd || found?.singkatan
   }, [selectedOpd, rawOpds])
 
+  const fetchAllReportItems = async () => {
+    const pageSize = 100
+    const params: any = {
+      tahunAnggaran: tahun,
+      bulan,
+      limit: pageSize,
+    }
+
+    if (!isSuperRole && userOpdId) {
+      params.opdId = userOpdId
+    } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
+      params.opdId = selectedOpd
+    }
+
+    if (selectedSubUnit !== "ALL" && selectedSubUnit !== "all") {
+      params.subUnitId = selectedSubUnit
+    }
+
+    if (statusDeviasi !== "ALL") {
+      params.statusDeviasi = statusDeviasi
+    }
+
+    if (debouncedSearch.trim()) {
+      params.search = debouncedSearch.trim()
+    }
+
+    const allItems: any[] = []
+    let currentPage = 1
+    let totalPages = 1
+    let reportSummary = summary
+
+    do {
+      const res = await apiClient.get("/pembangunan/realisasi", {
+        params: { ...params, page: currentPage },
+      })
+      const payload = res.data?.data
+      const pageItems = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+        ? payload.data
+        : []
+      const pageMeta = res.data?.meta || payload?.meta
+
+      allItems.push(...pageItems)
+      if (currentPage === 1) {
+        reportSummary = res.data?.summary || payload?.summary || summary
+      }
+
+      totalPages = Math.max(1, Number(pageMeta?.totalPages) || 1)
+      currentPage += 1
+    } while (currentPage <= totalPages)
+
+    return {
+      items: allItems,
+      summary: reportSummary,
+    }
+  }
+
   // Handler Export Excel (.xlsx)
   const handleExportExcel = async () => {
+    setIsExporting(true)
     try {
-      const params: any = {
-        tahunAnggaran: tahun,
-        bulan,
-        page: 1,
-        limit: 1000,
-      }
-
-      if (!isSuperRole && userOpdId) {
-        params.opdId = userOpdId
-      } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
-        params.opdId = selectedOpd
-      }
-
-      if (selectedSubUnit !== "ALL" && selectedSubUnit !== "all") {
-        params.subUnitId = selectedSubUnit
-      }
-
-      if (statusDeviasi !== "ALL") {
-        params.statusDeviasi = statusDeviasi
-      }
-
-      if (debouncedSearch.trim()) {
-        params.search = debouncedSearch.trim()
-      }
-
-      const res = await apiClient.get("/pembangunan/realisasi", { params })
-      const allItems = Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data?.data?.data)
-        ? res.data.data.data
-        : items
-      const allSummary = res.data?.summary || res.data?.data?.summary || summary
-
+      const report = await fetchAllReportItems()
       let opdList: any[] = []
       try {
         const opdRes = await apiClient.get(
@@ -367,26 +407,46 @@ export default function LaporanDanEvaluasiPage() {
         tahunAnggaran: tahun,
         bulan,
         namaBulan: BULAN_NAMES[bulan - 1],
-        items: allItems,
-        summary: allSummary,
+        items: report.items,
+        summary: report.summary,
         rekapOpd: opdList,
       })
     } catch (error) {
       console.error("Gagal export excel:", error)
       alert("Terjadi kesalahan saat mengekspor file Excel.")
+    } finally {
+      setIsExporting(false)
     }
   }
 
   // Handler Cetak PDF Landscape Resmi
-  const handleCetakPdf = () => {
-    cetakLaporanPdf({
-      tahunAnggaran: tahun,
-      bulan,
-      namaBulan: BULAN_NAMES[bulan - 1],
-      items,
-      summary,
-      filterOpdNama,
-    })
+  const handleCetakPdf = async () => {
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) {
+      alert("Pop-up browser diblokir. Izinkan pop-up untuk mencetak laporan.")
+      return
+    }
+
+    printWindow.document.write("<p style='font-family:Arial;padding:24px'>Menyiapkan laporan...</p>")
+    setIsPrinting(true)
+    try {
+      const report = await fetchAllReportItems()
+      cetakLaporanPdf({
+        tahunAnggaran: tahun,
+        bulan,
+        namaBulan: BULAN_NAMES[bulan - 1],
+        items: report.items,
+        summary: report.summary,
+        filterOpdNama,
+        printWindow,
+      })
+    } catch (error) {
+      printWindow.close()
+      console.error("Gagal menyiapkan laporan cetak:", error)
+      alert("Terjadi kesalahan saat menyiapkan laporan cetak.")
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   // Reset Filter
@@ -414,47 +474,52 @@ export default function LaporanDanEvaluasiPage() {
     <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* 1. Page Title & Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-              LAPORAN & EVALUASI
-            </span>
-            <Badge variant="outline" className="text-[10px] py-0 border-border">
-              {BULAN_NAMES[bulan - 1]} {tahun}
-            </Badge>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            Laporan &amp; Evaluasi RFK
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Konsolidasi kurva-S fisik dan serapan keuangan, identifikasi kontrak kritis, serta rekapitulasi kinerja OPD
-          </p>
-        </div>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+          Laporan RFK
+        </h1>
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Select
+            value={String(bulan)}
+            onValueChange={(val) => {
+              setBulan(parseInt(val))
+              setPage(1)
+            }}
+          >
+            <SelectTrigger className="h-9 w-[150px] text-xs bg-background font-medium">
+              <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+              <SelectValue placeholder="Pilih bulan" />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {BULAN_NAMES.map((nama, idx) => (
+                <SelectItem key={nama} value={String(idx + 1)} className="text-xs">
+                  B{String(idx + 1).padStart(2, "0")} - {nama}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportExcel}
-            disabled={isLoadingRfk}
+            disabled={isLoadingRfk || isExporting}
             className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
           >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span className="hidden sm:inline">Export Excel</span>
-            <span className="sm:hidden">Excel</span>
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            Excel
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={handleCetakPdf}
-            disabled={isLoadingRfk || items.length === 0}
+            disabled={isLoadingRfk || isPrinting || items.length === 0}
             className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
           >
-            <Printer className="h-4 w-4" />
-            <span className="hidden sm:inline">Cetak Laporan RFK</span>
-            <span className="sm:hidden">Cetak</span>
+            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+            Cetak
           </Button>
 
           <Button
@@ -469,7 +534,7 @@ export default function LaporanDanEvaluasiPage() {
             className="gap-1.5 shadow-xs"
           >
             <RefreshCw className={`h-4 w-4 ${isFetchingRfk ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Segarkan Data</span>
+            <span className="hidden sm:inline">Segarkan</span>
           </Button>
         </div>
       </div>
@@ -493,7 +558,7 @@ export default function LaporanDanEvaluasiPage() {
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              placeholder="Cari nama paket, nomor SPK, kode RUP, atau rekanan..."
+              placeholder="Cari paket, SPK, RUP, atau rekanan..."
               className="pl-8 text-xs h-9 bg-background w-full"
               value={search}
               onChange={(e) => {
@@ -503,8 +568,7 @@ export default function LaporanDanEvaluasiPage() {
             />
           </div>
 
-          {/* Baris 2: Sejajar 5 Filter Terpadu */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
             <div className="w-full">
               {isSuperRole ? (
@@ -512,10 +576,10 @@ export default function LaporanDanEvaluasiPage() {
                   value={selectedOpd === "ALL" ? "all" : selectedOpd}
                   onValueChange={handleOpdChange}
                   items={opdComboboxItems}
-                  placeholder="Ketik / Pilih Unit Kerja (OPD)..."
-                  searchPlaceholder="Ketik nama Unit Kerja / OPD..."
+                  placeholder="Pilih OPD"
+                  searchPlaceholder="Cari OPD..."
                   emptyText="Unit Kerja tidak ditemukan."
-                  allLabel="-- Semua Unit Kerja (OPD) --"
+                  allLabel="Semua OPD"
                   icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
                   disabled={isLoadingOpd}
                 />
@@ -539,14 +603,14 @@ export default function LaporanDanEvaluasiPage() {
                   items={subUnitComboboxItems}
                   placeholder={
                     selectedOpd === "ALL" || selectedOpd === "all"
-                      ? "Pilih OPD Dahulu"
+                      ? "Pilih OPD dahulu"
                       : isLoadingSubUnits
                       ? "Memuat Sub Unit..."
-                      : "Ketik / Pilih Sub Unit..."
+                      : "Pilih Sub Unit"
                   }
-                  searchPlaceholder="Ketik nama Sub Unit Kerja..."
+                  searchPlaceholder="Cari Sub Unit..."
                   emptyText="Sub Unit Kerja tidak ditemukan."
-                  allLabel="-- Semua Sub Unit Kerja --"
+                  allLabel="Semua Sub Unit"
                   icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
                   disabled={selectedOpd === "ALL" || selectedOpd === "all" || isLoadingSubUnits}
                 />
@@ -578,34 +642,6 @@ export default function LaporanDanEvaluasiPage() {
               </Select>
             </div>
 
-            {/* Filter Bulan Pelaporan (B01-B12) */}
-            <div className="w-full">
-              <Select
-                value={String(bulan)}
-                onValueChange={(val) => {
-                  setBulan(parseInt(val))
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs bg-background w-full font-medium">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                    <SelectValue placeholder="Bulan Pelaporan" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {BULAN_NAMES.map((nama, idx) => {
-                    const no = idx + 1
-                    return (
-                      <SelectItem key={no} value={String(no)} className="text-xs">
-                        B{String(no).padStart(2, "0")} - {nama} {no === currentMonthNo ? "(Bulan Ini)" : ""}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Filter Status Capaian Deviasi */}
             <div className="w-full">
               <Select
@@ -619,11 +655,11 @@ export default function LaporanDanEvaluasiPage() {
                   <SelectValue placeholder="Semua Status Capaian" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">Semua Status Capaian</SelectItem>
-                  <SelectItem value="AMAN">🟢 Aman (Deviasi ≥ 0%)</SelectItem>
-                  <SelectItem value="PERHATIAN">🟡 Waspada (-10% s.d 0%)</SelectItem>
-                  <SelectItem value="KRITIS">🔴 Kritis (&lt; -10%)</SelectItem>
-                  <SelectItem value="BELUM_MULAI">⚪ Belum Mulai (0%)</SelectItem>
+                  <SelectItem value="ALL">Semua Status</SelectItem>
+                  <SelectItem value="AMAN">Aman</SelectItem>
+                  <SelectItem value="PERHATIAN">Waspada</SelectItem>
+                  <SelectItem value="KRITIS">Kritis</SelectItem>
+                  <SelectItem value="BELUM_MULAI">Belum Mulai</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -631,13 +667,7 @@ export default function LaporanDanEvaluasiPage() {
 
           {/* Active Filter Indicator & Reset */}
           {isFilterActive && (
-            <div className="flex items-center justify-between pt-2.5 border-t text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span>Filter aktif periode:</span>
-                <Badge variant="secondary" className="font-semibold text-foreground text-[11px] px-2 py-0">
-                  {BULAN_NAMES[bulan - 1]} {tahun}
-                </Badge>
-              </div>
+            <div className="flex items-center justify-end pt-2.5 border-t">
               <Button
                 variant="ghost"
                 size="sm"
@@ -645,7 +675,7 @@ export default function LaporanDanEvaluasiPage() {
                 onClick={handleResetFilter}
               >
                 <FilterX className="h-3.5 w-3.5" />
-                Reset Semua Filter
+                Reset Filter
               </Button>
             </div>
           )}
@@ -673,11 +703,6 @@ export default function LaporanDanEvaluasiPage() {
             </TabsList>
           </div>
 
-          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-shrink-0">
-            <Badge variant="secondary" className="font-semibold text-xs whitespace-nowrap">
-              {BULAN_NAMES[bulan - 1]} {tahun}
-            </Badge>
-          </div>
         </div>
 
         {/* ======================================================== */}
@@ -685,8 +710,8 @@ export default function LaporanDanEvaluasiPage() {
         {/* ======================================================== */}
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
           <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
-            {/* Mobile View: Tampilan Kartu Kompak di Layar HP (< md) */}
-            <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+            {/* Tampilan kartu untuk layar yang belum cukup memuat 12 kolom */}
+            <div className="xl:hidden divide-y divide-gray-200 dark:divide-neutral-700">
               {isLoadingRfk ? (
                 <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
                   <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
@@ -834,28 +859,33 @@ export default function LaporanDanEvaluasiPage() {
               )}
             </div>
 
-            {/* Desktop & Tablet View: Tabel Lengkap 11 Kolom (>= md) */}
-            <div className="hidden md:block overflow-x-auto">
-              <Table className="w-full min-w-[1250px] border-collapse">
-                <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
+            {/* Desktop View: format RFK mengikuti laporan manual OPD */}
+            <div className="hidden xl:block overflow-hidden">
+              <Table className="w-full table-fixed border-collapse">
+                <TableHeader className="bg-slate-100/95 dark:bg-neutral-800/90">
                   <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
-                    <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">No</TableHead>
-                    <TableHead className="min-w-[180px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Sub Unit Kerja</TableHead>
-                    <TableHead className="min-w-[260px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Nama Paket Pekerjaan</TableHead>
-                    <TableHead className="min-w-[130px] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Metode / Sumber Dana</TableHead>
-                    <TableHead className="min-w-[150px] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Pagu & Kontrak</TableHead>
-                    <TableHead className="min-w-[140px] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Realisasi Keuangan</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">% Keu</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Target</TableHead>
-                    <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Realisasi</TableHead>
-                    <TableHead className="w-24 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">Deviasi</TableHead>
-                    <TableHead className="min-w-[110px] text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">Status</TableHead>
+                    <TableHead rowSpan={2} className="w-[3%] px-1 text-center align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">No</TableHead>
+                    <TableHead rowSpan={2} className="w-[20%] px-2 align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">Jenis Kegiatan</TableHead>
+                    <TableHead rowSpan={2} className="w-[9%] px-2 text-right align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">Anggaran (Rp)</TableHead>
+                    <TableHead rowSpan={2} className="w-[9%] px-2 text-right align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">Nilai Kontrak</TableHead>
+                    <TableHead rowSpan={2} className="w-[11%] px-2 align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">Nomor Kontrak</TableHead>
+                    <TableHead colSpan={2} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700">Tanggal Kontrak</TableHead>
+                    <TableHead colSpan={3} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700">Realisasi</TableHead>
+                    <TableHead rowSpan={2} className="w-[7%] px-1 text-center align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700">Sumber Dana</TableHead>
+                    <TableHead rowSpan={2} className="w-[9%] px-2 align-middle text-[11px] font-bold border-b border-gray-300 dark:border-neutral-700">Keterangan</TableHead>
+                  </TableRow>
+                  <TableRow className="hover:bg-transparent border-b border-gray-300 dark:border-neutral-700">
+                    <TableHead className="w-[7%] px-1 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700">Mulai</TableHead>
+                    <TableHead className="w-[7%] px-1 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700">Berakhir</TableHead>
+                    <TableHead className="w-[5%] px-1 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700">Fisik (%)</TableHead>
+                    <TableHead className="w-[9%] px-2 text-right text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700">Keuangan (Rp)</TableHead>
+                    <TableHead className="w-[4%] px-1 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700">%</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoadingRfk ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                      <TableCell colSpan={12} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                           <span className="text-xs text-muted-foreground">Memuat laporan evaluasi realisasi pembangunan...</span>
@@ -864,7 +894,7 @@ export default function LaporanDanEvaluasiPage() {
                     </TableRow>
                   ) : items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                      <TableCell colSpan={12} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                             <FileText className="h-5 w-5" />
@@ -879,115 +909,88 @@ export default function LaporanDanEvaluasiPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    items.map((item: any, idx: number) => {
-                      const rowNo = (page - 1) * limit + idx + 1
-                      const isDeviasiPositif = item.deviasiFisik >= 0
-                      const isKritis = item.status === "KRITIS"
+                    <>
+                      {items.map((item: any, idx: number) => {
+                        const rowNo = (page - 1) * limit + idx + 1
+                        const isDeviasiPositif = item.deviasiFisik >= 0
+                        const isKritis = item.status === "KRITIS"
 
-                      return (
-                        <TableRow
-                          key={item.id}
-                          className={`hover:bg-muted/40 transition-colors text-xs border-b border-gray-200 dark:border-neutral-700 ${
-                            isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
-                          }`}
-                        >
-                          <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            {rowNo}
-                          </TableCell>
-
-                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <div className="font-semibold text-foreground truncate max-w-[220px]" title={item.subUnit?.namaSubUnit || item.opd?.namaOpd || "-"}>
-                              {item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <div className="font-semibold text-foreground line-clamp-2">
-                              {item.namaPaket}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-2 mt-0.5">
-                              {item.nomorKontrak && <span>No: {item.nomorKontrak}</span>}
-                              {item.pemenangRekanan && <span>• Rekanan: {item.pemenangRekanan}</span>}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <div className="font-medium text-foreground">
-                              {item.metodePemilihan || "-"}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">
-                              Dana: {item.sumberDana || "-"}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-right py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <div className="font-semibold font-mono text-foreground">
+                        return (
+                          <TableRow
+                            key={item.id}
+                            className={`hover:bg-muted/40 transition-colors text-xs border-b border-gray-200 dark:border-neutral-700 ${
+                              isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
+                            }`}
+                          >
+                            <TableCell className="px-1 text-center font-mono text-[10px] text-muted-foreground py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {rowNo}
+                            </TableCell>
+                            <TableCell className="px-2 py-3 whitespace-normal border-r border-b border-gray-200 dark:border-neutral-700">
+                              <div className="line-clamp-2 whitespace-normal break-words font-semibold text-[11px] text-foreground leading-snug" title={item.namaPaket}>{item.namaPaket}</div>
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <span>{item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}</span>
+                                {item.metodePemilihan && <Badge variant="outline" className="h-5 px-1.5 text-[9px]">{item.metodePemilihan}</Badge>}
+                                {item.pemenangRekanan && <span>• {item.pemenangRekanan}</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {formatRupiah(item.nilaiPagu)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-semibold py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                               {formatRupiah(item.nilaiKontrak)}
-                            </div>
-                            <div className="text-[11px] font-mono text-muted-foreground">
-                              Pagu: {formatRupiah(item.nilaiPagu)}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-right py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <div className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                            </TableCell>
+                            <TableCell className="break-all whitespace-normal font-mono text-[10px] leading-snug py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {item.nomorKontrak || "-"}
+                            </TableCell>
+                            <TableCell className="text-center whitespace-nowrap py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {formatTanggal(item.tanggalMulai)}
+                            </TableCell>
+                            <TableCell className="text-center whitespace-nowrap py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {formatTanggal(item.tanggalSelesai)}
+                            </TableCell>
+                            <TableCell className="text-center font-mono font-bold py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {item.realisasiFisik.toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-semibold text-emerald-700 dark:text-emerald-400 py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                               {formatRupiah(item.realisasiKeuangan)}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-center font-bold font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <span className={item.persenKeuangan > 0 ? "text-foreground" : "text-muted-foreground"}>
+                            </TableCell>
+                            <TableCell className="text-center font-mono font-bold py-3 border-r border-b border-gray-200 dark:border-neutral-700">
                               {item.persenKeuangan.toFixed(1)}%
-                            </span>
-                          </TableCell>
-
-                          <TableCell className="text-center text-muted-foreground font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            {item.targetFisik.toFixed(1)}%
-                          </TableCell>
-
-                          <TableCell className="text-center font-bold font-mono py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            {item.realisasiFisik.toFixed(1)}%
-                          </TableCell>
-
-                          <TableCell className="text-center font-mono font-bold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                            <span
-                              className={
-                                isDeviasiPositif
-                                  ? "text-emerald-600 dark:text-emerald-400"
-                                  : item.deviasiFisik >= -10
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-rose-600 dark:text-rose-400 font-extrabold"
-                              }
-                            >
-                              {isDeviasiPositif ? `+${item.deviasiFisik.toFixed(1)}` : item.deviasiFisik.toFixed(1)}%
-                            </span>
-                          </TableCell>
-
-                          <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
-                            {item.status === "AMAN" && (
-                              <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
-                                Aman
-                              </Badge>
-                            )}
-                            {item.status === "PERHATIAN" && (
-                              <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px]">
-                                Waspada
-                              </Badge>
-                            )}
-                            {item.status === "KRITIS" && (
-                              <Badge variant="destructive" className="text-[10px] animate-pulse">
-                                Kritis (SCM)
-                              </Badge>
-                            )}
-                            {item.status === "BELUM_MULAI" && (
-                              <Badge variant="outline" className="text-muted-foreground text-[10px]">
-                                Belum Mulai
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
+                            </TableCell>
+                            <TableCell className="break-words whitespace-normal text-center text-[10px] font-medium leading-snug py-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {item.sumberDana || "-"}
+                            </TableCell>
+                            <TableCell className="overflow-hidden whitespace-normal py-3 border-b border-gray-200 dark:border-neutral-700">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {item.status === "AMAN" && <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/20 text-[9px]">Aman</Badge>}
+                                {item.status === "PERHATIAN" && <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/20 text-[9px]">Waspada</Badge>}
+                                {item.status === "KRITIS" && <Badge variant="destructive" className="text-[9px]">Kritis</Badge>}
+                                {item.status === "BELUM_MULAI" && <Badge variant="outline" className="text-muted-foreground text-[9px]">Belum Mulai</Badge>}
+                                <span className="font-mono text-[10px] text-muted-foreground">
+                                  Target {item.targetFisik.toFixed(1)}% · Deviasi {isDeviasiPositif ? "+" : ""}{item.deviasiFisik.toFixed(1)}%
+                                </span>
+                              </div>
+                              {item.catatanOperator && (
+                                <p className="mt-1 line-clamp-2 whitespace-normal break-words text-[10px] leading-snug text-muted-foreground">{item.catatanOperator}</p>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      <TableRow className="bg-slate-100/80 dark:bg-neutral-800/70 hover:bg-slate-100/80 font-bold text-xs">
+                        <TableCell colSpan={2} className="text-center border-r border-t border-gray-300 dark:border-neutral-700">JUMLAH</TableCell>
+                        <TableCell className="text-right font-mono border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalPagu)}</TableCell>
+                        <TableCell className="text-right font-mono border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalKontrak)}</TableCell>
+                        <TableCell colSpan={3} className="border-r border-t border-gray-300 dark:border-neutral-700" />
+                        <TableCell className="text-center font-mono border-r border-t border-gray-300 dark:border-neutral-700">{summary.avgRealisasiFisik.toFixed(1)}%</TableCell>
+                        <TableCell className="text-right font-mono border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalRealisasiKeuangan)}</TableCell>
+                        <TableCell className="text-center font-mono border-r border-t border-gray-300 dark:border-neutral-700">{summary.persenSerapanKeuangan.toFixed(1)}%</TableCell>
+                        <TableCell className="border-r border-t border-gray-300 dark:border-neutral-700" />
+                        <TableCell className="text-[10px] font-medium border-t border-gray-300 dark:border-neutral-700">
+                          Aman {summary.countStatus.aman} · Waspada {summary.countStatus.perhatian} · Kritis {summary.countStatus.kritis}
+                        </TableCell>
+                      </TableRow>
+                    </>
                   )}
                 </TableBody>
               </Table>

@@ -1,10 +1,39 @@
+interface CetakRfkItem {
+  namaPaket: string;
+  metodePemilihan?: string | null;
+  sumberDana?: string | null;
+  nomorKontrak?: string | null;
+  tanggalMulai?: string | null;
+  tanggalSelesai?: string | null;
+  nilaiPagu?: number;
+  nilaiKontrak?: number;
+  realisasiFisik?: number;
+  realisasiKeuangan?: number;
+  persenKeuangan?: number;
+  targetFisik?: number;
+  deviasiFisik?: number;
+  status?: string;
+  catatanOperator?: string | null;
+  opd?: { namaOpd?: string } | null;
+  subUnit?: { namaSubUnit?: string } | null;
+}
+
+interface CetakRfkSummary {
+  totalPagu?: number;
+  totalKontrak?: number;
+  totalRealisasiKeuangan?: number;
+  persenSerapanKeuangan?: number;
+  avgRealisasiFisik?: number;
+}
+
 interface CetakLaporanParams {
   tahunAnggaran: number;
   bulan: number;
   namaBulan: string;
-  items: any[];
-  summary: any;
+  items: CetakRfkItem[];
+  summary: CetakRfkSummary;
   filterOpdNama?: string;
+  printWindow?: Window;
 }
 
 export function cetakLaporanPdf({
@@ -14,19 +43,45 @@ export function cetakLaporanPdf({
   items,
   summary,
   filterOpdNama,
+  printWindow: providedWindow,
 }: CetakLaporanParams) {
-  const printWindow = window.open('', '_blank');
+  const printWindow = providedWindow || window.open('', '_blank');
   if (!printWindow) {
-    alert('Pop-up browser diblokir. Harap izinkan pop-up untuk mencetak dokumen.');
+    alert('Pop-up browser diblokir. Izinkan pop-up untuk mencetak laporan.');
     return;
   }
 
-  const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
+  const escapeHtml = (value: unknown) =>
+    String(value ?? '-')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+
+  const formatRupiah = (value: number) =>
+    new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(value || 0);
+
+  const formatTanggal = (value?: string | null) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(date);
+  };
+
+  const statusLabel = (status?: string) => {
+    if (status === 'AMAN') return 'Aman';
+    if (status === 'PERHATIAN') return 'Waspada';
+    if (status === 'KRITIS') return 'Kritis';
+    return 'Belum Mulai';
   };
 
   const currentDate = new Date().toLocaleDateString('id-ID', {
@@ -35,282 +90,119 @@ export function cetakLaporanPdf({
     year: 'numeric',
   });
 
+  const rows = items.map((item, index) => {
+    const unit = item.subUnit?.namaSubUnit || item.opd?.namaOpd || '-';
+    const deviasi = `${(item.deviasiFisik || 0) >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(1)}%`;
+    const keterangan = [
+      statusLabel(item.status),
+      `Target ${(item.targetFisik || 0).toFixed(1)}%`,
+      `Deviasi ${deviasi}`,
+      item.catatanOperator,
+    ].filter(Boolean).join(' - ');
+
+    return `
+      <tr>
+        <td class="center">${index + 1}</td>
+        <td class="wrap"><strong>${escapeHtml(item.namaPaket)}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
+        <td class="money">${escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
+        <td class="money">${escapeHtml(formatRupiah(item.nilaiKontrak || 0))}</td>
+        <td class="wrap">${escapeHtml(item.nomorKontrak || '-')}</td>
+        <td class="center">${escapeHtml(formatTanggal(item.tanggalMulai))}</td>
+        <td class="center">${escapeHtml(formatTanggal(item.tanggalSelesai))}</td>
+        <td class="center bold">${(item.realisasiFisik || 0).toFixed(1)}%</td>
+        <td class="money">${escapeHtml(formatRupiah(item.realisasiKeuangan || 0))}</td>
+        <td class="center bold">${(item.persenKeuangan || 0).toFixed(1)}%</td>
+        <td class="center wrap">${escapeHtml(item.sumberDana || '-')}</td>
+        <td class="wrap">${escapeHtml(keterangan)}</td>
+      </tr>`;
+  }).join('');
+
   const htmlContent = `
     <!DOCTYPE html>
     <html lang="id">
-    <head>
-      <meta charset="UTF-8">
-      <title>Laporan RFK Kabupaten Konawe Selatan - Bulan ${namaBulan} ${tahunAnggaran}</title>
-      <style>
-        @page {
-          size: A4 landscape;
-          margin: 12mm 15mm 15mm 15mm;
-        }
-        body {
-          font-family: Arial, sans-serif;
-          font-size: 8.5pt;
-          color: #000;
-          background: #fff;
-          margin: 0;
-          padding: 0;
-        }
-        .header {
-          text-align: center;
-          border-bottom: 2px double #000;
-          padding-bottom: 8px;
-          margin-bottom: 12px;
-        }
-        .header h1 {
-          font-size: 13pt;
-          font-weight: bold;
-          margin: 0 0 2px 0;
-          text-transform: uppercase;
-        }
-        .header h2 {
-          font-size: 11pt;
-          font-weight: bold;
-          margin: 0 0 2px 0;
-          text-transform: uppercase;
-        }
-        .header h3 {
-          font-size: 10pt;
-          font-weight: normal;
-          margin: 0 0 4px 0;
-        }
-        .header p {
-          font-size: 8pt;
-          font-style: italic;
-          margin: 0;
-        }
-        .meta-table {
-          width: 100%;
-          margin-bottom: 10px;
-          font-size: 8.5pt;
-        }
-        .meta-table td {
-          padding: 2px 0;
-        }
-        table.data-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 14px;
-          font-size: 8pt;
-        }
-        table.data-table th, table.data-table td {
-          border: 1px solid #333;
-          padding: 4px 5px;
-        }
-        table.data-table th {
-          background-color: #f2f2f2;
-          font-weight: bold;
-          text-align: center;
-          text-transform: uppercase;
-          font-size: 7.5pt;
-        }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .text-left { text-align: left; }
-        .font-bold { font-weight: bold; }
-        .bg-total {
-          background-color: #f9f9f9;
-          font-weight: bold;
-        }
-        .status-aman { color: #15803d; font-weight: bold; }
-        .status-perhatian { color: #b45309; font-weight: bold; }
-        .status-kritis { color: #b91c1c; font-weight: bold; }
-        .status-belum { color: #475569; }
-
-        .summary-box {
-          border: 1px solid #ccc;
-          padding: 8px 12px;
-          margin-bottom: 15px;
-          background-color: #fafafa;
-          font-size: 8pt;
-          display: flex;
-          justify-content: space-between;
-        }
-
-        .signatures {
-          margin-top: 25px;
-          width: 100%;
-          page-break-inside: avoid;
-        }
-        .signatures table {
-          width: 100%;
-          border: none;
-        }
-        .signatures td {
-          border: none;
-          text-align: center;
-          vertical-align: top;
-          font-size: 8.5pt;
-          width: 33%;
-        }
-        .sign-space {
-          height: 60px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>PEMERINTAH KABUPATEN KONAWE SELATAN</h1>
-        <h2>BAGIAN ADMINISTRASI PEMBANGUNAN SETDA</h2>
-        <h3>LAPORAN EVALUASI REALISASI FISIK DAN KEUANGAN (RFK) PAKET PEMBANGUNAN</h3>
-        <p>Alamat: Kompleks Perkantoran Pemerintah Daerah Kab. Konawe Selatan, Andoolo</p>
-      </div>
-
-      <table class="meta-table">
-        <tr>
-          <td width="15%"><strong>Tahun Anggaran</strong></td>
-          <td width="35%">: ${tahunAnggaran}</td>
-          <td width="15%"><strong>OPD Terpilih</strong></td>
-          <td width="35%">: ${filterOpdNama || 'Semua Perangkat Daerah'}</td>
-        </tr>
-        <tr>
-          <td><strong>Bulan Evaluasi</strong></td>
-          <td>: ${namaBulan.toUpperCase()} (Bulan ${bulan})</td>
-          <td><strong>Tanggal Cetak</strong></td>
-          <td>: ${currentDate}</td>
-        </tr>
-      </table>
-
-      <div class="summary-box">
-        <div><strong>Total Paket:</strong> ${items.length} Paket</div>
-        <div><strong>Total Pagu:</strong> ${formatRupiah(summary?.totalPagu || 0)}</div>
-        <div><strong>Total Kontrak:</strong> ${formatRupiah(summary?.totalKontrak || 0)}</div>
-        <div><strong>Realisasi Keu:</strong> ${formatRupiah(summary?.totalRealisasiKeuangan || 0)} (${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%)</div>
-        <div><strong>Rata Fisik:</strong> ${(summary?.avgRealisasiFisik || 0).toFixed(2)}% (Target: ${(summary?.avgTargetFisik || 0).toFixed(2)}%)</div>
-        <div><strong>Rata Deviasi:</strong> ${(summary?.avgDeviasiFisik || 0) >= 0 ? '+' : ''}${(summary?.avgDeviasiFisik || 0).toFixed(2)}%</div>
-      </div>
-
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th width="3%">No</th>
-            <th width="15%">OPD & Sub Unit</th>
-            <th width="20%">Nama Paket Pembangunan</th>
-            <th width="10%">Metode / Sumber Dana</th>
-            <th width="12%">Pagu / Kontrak</th>
-            <th width="11%">Realisasi Keu (Rp)</th>
-            <th width="5%">% Keu</th>
-            <th width="5%">Target</th>
-            <th width="5%">Realisasi Fisik</th>
-            <th width="5%">Deviasi</th>
-            <th width="9%">Status Capaian</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items
-            .map(
-              (item, idx) => `
-            <tr>
-              <td class="text-center">${idx + 1}</td>
-              <td>
-                <strong>${item.opd?.singkatan || item.opd?.namaOpd || '-'}</strong><br/>
-                <span style="font-size: 7.5pt; color: #555;">${item.subUnit?.namaSubUnit || '-'}</span>
-              </td>
-              <td>
-                <strong>${item.namaPaket}</strong><br/>
-                <span style="font-size: 7pt; color: #666;">No Kontrak: ${item.nomorKontrak || '-'}</span><br/>
-                <span style="font-size: 7pt; color: #666;">Rekanan: ${item.pemenangRekanan || '-'}</span>
-              </td>
-              <td>
-                ${item.metodePemilihan || '-'}<br/>
-                <span style="font-size: 7.5pt; color: #555;">Dana: ${item.sumberDana || '-'}</span>
-              </td>
-              <td class="text-right">
-                <span style="color: #666;">Pagu: ${formatRupiah(item.nilaiPagu)}</span><br/>
-                <strong>Kontrak: ${formatRupiah(item.nilaiKontrak)}</strong>
-              </td>
-              <td class="text-right">
-                <strong>${formatRupiah(item.realisasiKeuangan)}</strong>
-              </td>
-              <td class="text-center font-bold">
-                ${(item.persenKeuangan || 0).toFixed(1)}%
-              </td>
-              <td class="text-center">
-                ${(item.targetFisik || 0).toFixed(1)}%
-              </td>
-              <td class="text-center font-bold">
-                ${(item.realisasiFisik || 0).toFixed(1)}%
-              </td>
-              <td class="text-center font-bold ${
-                item.deviasiFisik >= 0
-                  ? 'status-aman'
-                  : item.deviasiFisik >= -10
-                  ? 'status-perhatian'
-                  : 'status-kritis'
-              }">
-                ${item.deviasiFisik >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(1)}%
-              </td>
-              <td class="text-center ${
-                item.status === 'AMAN'
-                  ? 'status-aman'
-                  : item.status === 'PERHATIAN'
-                  ? 'status-perhatian'
-                  : item.status === 'KRITIS'
-                  ? 'status-kritis'
-                  : 'status-belum'
-              }">
-                ${
-                  item.status === 'AMAN'
-                    ? 'Aman'
-                    : item.status === 'PERHATIAN'
-                    ? 'Perhatian'
-                    : item.status === 'KRITIS'
-                    ? 'Kritis (SCM)'
-                    : 'Belum Mulai'
-                }
-              </td>
-            </tr>
-          `
-            )
-            .join('')}
-          <tr class="bg-total">
-            <td colspan="4" class="text-center font-bold">TOTAL / RATA-RATA EVALUASI</td>
-            <td class="text-right font-bold">${formatRupiah(summary?.totalKontrak || 0)}</td>
-            <td class="text-right font-bold">${formatRupiah(summary?.totalRealisasiKeuangan || 0)}</td>
-            <td class="text-center font-bold">${(summary?.persenSerapanKeuangan || 0).toFixed(1)}%</td>
-            <td class="text-center font-bold">${(summary?.avgTargetFisik || 0).toFixed(1)}%</td>
-            <td class="text-center font-bold">${(summary?.avgRealisasiFisik || 0).toFixed(1)}%</td>
-            <td class="text-center font-bold">${(summary?.avgDeviasiFisik || 0) >= 0 ? '+' : ''}${(summary?.avgDeviasiFisik || 0).toFixed(1)}%</td>
-            <td class="text-center font-bold">
-              Kritis: ${summary?.countStatus?.kritis || 0}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="signatures">
+      <head>
+        <meta charset="UTF-8">
+        <title>Laporan RFK ${escapeHtml(namaBulan)} ${tahunAnggaran}</title>
+        <style>
+          @page { size: A4 landscape; margin: 9mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 7pt; }
+          h1, h2, p { margin: 0; }
+          .header { text-align: center; margin-bottom: 7px; }
+          .header h1 { font-size: 12pt; }
+          .header h2 { margin-top: 2px; font-size: 9pt; }
+          .period { margin-top: 4px; font-size: 8pt; font-weight: bold; }
+          .meta { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; }
+          .summary { display: flex; gap: 14px; padding: 5px 7px; margin-bottom: 7px; border: 1px solid #aaa; background: #f6f6f6; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; }
+          th, td { border: 1px solid #555; padding: 3px; vertical-align: middle; }
+          th { background: #e9eef3; text-align: center; font-size: 6.5pt; }
+          td { line-height: 1.25; }
+          small { display: block; margin-top: 2px; color: #555; font-size: 6pt; }
+          .center { text-align: center; }
+          .money { text-align: right; white-space: nowrap; }
+          .bold { font-weight: bold; }
+          .wrap { overflow-wrap: anywhere; }
+          .total td { background: #e9eef3; font-weight: bold; }
+          .signatures { display: flex; justify-content: space-between; margin-top: 18px; page-break-inside: avoid; }
+          .signature { width: 34%; text-align: center; }
+          .space { height: 42px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>LAPORAN REALISASI FISIK DAN KEUANGAN</h1>
+          <h2>KABUPATEN KONAWE SELATAN T.A. ${tahunAnggaran}</h2>
+          <p class="period">${escapeHtml(namaBulan.toUpperCase())} ${tahunAnggaran}</p>
+        </div>
+        <div class="meta">
+          <span><strong>OPD:</strong> ${escapeHtml(filterOpdNama || 'Semua OPD')}</span>
+          <span><strong>Bulan:</strong> B${String(bulan).padStart(2, '0')}</span>
+        </div>
+        <div class="summary">
+          <span><strong>Paket:</strong> ${items.length}</span>
+          <span><strong>Pagu:</strong> ${escapeHtml(formatRupiah(summary?.totalPagu || 0))}</span>
+          <span><strong>Kontrak:</strong> ${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</span>
+          <span><strong>Realisasi:</strong> ${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))} (${(summary?.persenSerapanKeuangan || 0).toFixed(1)}%)</span>
+        </div>
         <table>
-          <tr>
-            <td>
-              Mengetahui,<br/>
-              <strong>Pengguna Anggaran / PPK</strong>
-              <div class="sign-space"></div>
-              <strong>( .................................................... )</strong><br/>
-              NIP. .....................................................
-            </td>
-            <td></td>
-            <td>
-              Andoolo, ${currentDate}<br/>
-              <strong>Tim Evaluasi & Pelaporan Pembangunan</strong>
-              <div class="sign-space"></div>
-              <strong>( .................................................... )</strong><br/>
-              NIP. .....................................................
-            </td>
-          </tr>
+          <colgroup>
+            <col style="width:3%"><col style="width:20%"><col style="width:9%"><col style="width:9%">
+            <col style="width:11%"><col style="width:7%"><col style="width:7%"><col style="width:5%">
+            <col style="width:9%"><col style="width:4%"><col style="width:7%"><col style="width:9%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th rowspan="2">No</th><th rowspan="2">Jenis Kegiatan</th><th rowspan="2">Anggaran (Rp)</th>
+              <th rowspan="2">Nilai Kontrak</th><th rowspan="2">Nomor Kontrak</th>
+              <th colspan="2">Tanggal Kontrak</th><th colspan="3">Realisasi</th>
+              <th rowspan="2">Sumber Dana</th><th rowspan="2">Keterangan</th>
+            </tr>
+            <tr><th>Mulai</th><th>Berakhir</th><th>Fisik (%)</th><th>Keuangan (Rp)</th><th>%</th></tr>
+          </thead>
+          <tbody>
+            ${rows}
+            <tr class="total">
+              <td colspan="2" class="center">JUMLAH</td>
+              <td class="money">${escapeHtml(formatRupiah(summary?.totalPagu || 0))}</td>
+              <td class="money">${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</td>
+              <td colspan="3"></td>
+              <td class="center">${(summary?.avgRealisasiFisik || 0).toFixed(1)}%</td>
+              <td class="money">${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))}</td>
+              <td class="center">${(summary?.persenSerapanKeuangan || 0).toFixed(1)}%</td>
+              <td></td><td></td>
+            </tr>
+          </tbody>
         </table>
-      </div>
-
-      <script>
-        window.onload = function() {
-          window.print();
-        }
-      </script>
-    </body>
-    </html>
-  `;
+        <div class="signatures">
+          <div class="signature">Mengetahui,<br><strong>Pengguna Anggaran / PPK</strong><div class="space"></div><strong>( ................................ )</strong></div>
+          <div class="signature">Andoolo, ${escapeHtml(currentDate)}<br><strong>Tim Evaluasi RFK</strong><div class="space"></div><strong>( ................................ )</strong></div>
+        </div>
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+    </html>`;
 
   printWindow.document.open();
   printWindow.document.write(htmlContent);
