@@ -640,6 +640,9 @@ export class PembangunanService {
         'Jasa Lainnya',
       ],
       sumberDana: [
+        'APBD',
+        'APBN',
+        'BLUD',
         'DAU (Dana Alokasi Umum)',
         'DAK Fisik',
         'DAK Non Fisik',

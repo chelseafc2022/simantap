@@ -15,6 +15,8 @@ import {
 } from "./components/paket-form-dialog"
 import { PaketDetailDialog } from "./components/paket-detail-dialog"
 import { DeletePaketDialog } from "./components/delete-paket-dialog"
+import { SirupBulkSyncDialog } from "./components/sirup-bulk-sync-dialog"
+import { ResetPaketDialog } from "./components/reset-paket-dialog"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -50,6 +52,8 @@ import {
   TrendingUp,
   MapPin,
   Layers,
+  Database,
+  RotateCcw,
 } from "lucide-react"
 
 export default function PaketPembangunanPage() {
@@ -93,6 +97,8 @@ export default function PaketPembangunanPage() {
   const [formDefaultTab, setFormDefaultTab] = useState<"info" | "targets">("info")
   const [detailOpen, setDetailOpen] = useState<boolean>(false)
   const [deleteOpen, setDeleteOpen] = useState<boolean>(false)
+  const [bulkSyncOpen, setBulkSyncOpen] = useState<boolean>(false)
+  const [resetOpen, setResetOpen] = useState<boolean>(false)
   const [selectedPaket, setSelectedPaket] = useState<PaketItem | null>(null)
 
   // 1. Fetch OPD list (from real SIMPEG instansi)
@@ -278,15 +284,42 @@ export default function PaketPembangunanPage() {
             <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
             <span>Segarkan Data</span>
           </Button>
+
           {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
-            <Button
-              size="sm"
-              onClick={handleOpenCreate}
-              className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Tambah Paket Baru</span>
-            </Button>
+            <>
+              {isSuperRole && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setResetOpen(true)}
+                  className="h-8 gap-1.5 text-xs border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/40 shadow-xs font-medium"
+                  title="Kosongkan seluruh data paket MONALISA kembali menjadi 0 (Khusus Administrator)"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-rose-600" />
+                  <span>Reset Paket</span>
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBulkSyncOpen(true)}
+                className="h-8 gap-1.5 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/50 shadow-xs font-medium"
+                title="Tarik seluruh paket pengadaan otomatis dari SiRUP LKPP"
+              >
+                <Database className="h-3.5 w-3.5 text-blue-600" />
+                <span>Sinkronkan SiRUP</span>
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={handleOpenCreate}
+                className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Tambah Paket Baru</span>
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -845,6 +878,36 @@ export default function PaketPembangunanPage() {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         paket={selectedPaket}
+      />
+
+      {/* Dialog Bulk Sync SiRUP LKPP */}
+      <SirupBulkSyncDialog
+        open={bulkSyncOpen}
+        onOpenChange={setBulkSyncOpen}
+        opdId={
+          isSuperRole
+            ? selectedOpd
+            : userOpdId || ""
+        }
+        opdNama={
+          isSuperRole
+            ? (selectedOpd === "ALL"
+                ? "SEMUA OPD SE-KABUPATEN"
+                : opdList.find((o) => o.id === selectedOpd)?.namaOpd || "Pilih OPD")
+            : userOpdNama || "OPD Anda"
+        }
+        tahunAnggaran={tahunAnggaran}
+        isSuperRole={isSuperRole}
+        opdList={opdList}
+      />
+
+      {/* Dialog Reset / Kosongkan Paket (Khusus Administrator) */}
+      <ResetPaketDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        tahunAnggaran={tahunAnggaran}
+        selectedOpd={selectedOpd}
+        selectedOpdNama={opdList.find((o) => o.id === selectedOpd)?.namaOpd}
       />
     </div>
   )

@@ -26,6 +26,7 @@ import { RedisModule } from './core/redis/redis.module';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { PembangunanModule } from './modules/pembangunan/pembangunan.module';
+import { SirupModule } from './modules/sirup/sirup.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -56,6 +57,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     UsersModule,
     PembangunanModule,
+    SirupModule,
   ],
   providers: [
     // Global Guards (JWT by default, check @Public and @Roles)
