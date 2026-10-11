@@ -47,10 +47,7 @@ function DynamicBreadcrumb() {
                 className="text-xs sm:text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 min-w-0"
               >
                 <span className="shrink-0 font-bold text-foreground tracking-tight">
-                  SI-MANTAP
-                </span>
-                <span className="text-[11px] sm:text-xs text-muted-foreground font-medium truncate hidden md:inline">
-                  (SISTEM INFORMASI MONITORING DAN EVALUASI DATA PEMBANGUNAN TERPADU)
+                  MONALISA KONSEL (Monitoring Realisasi Anggaran & Fisik Data Pembangunan Konawe Selatan)
                 </span>
               </Link>
             </BreadcrumbLink>
@@ -97,7 +94,7 @@ export function SiteHeader() {
           />
           <DynamicBreadcrumb />
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="w-44 sm:w-60">
+            <div className="w-28 sm:w-60">
               <SearchTrigger onClick={() => setSearchOpen(true)} />
             </div>
             <ModeToggle />

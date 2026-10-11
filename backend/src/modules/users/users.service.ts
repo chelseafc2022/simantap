@@ -38,7 +38,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Menampilkan daftar pengguna SIMANTAP terpaginasi
+   * Menampilkan daftar pengguna MONALISA KONSEL terpaginasi
    */
   async findAll(query: QueryUserDto) {
     const {
@@ -171,7 +171,7 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    // Definisi template hak akses menu SIMANTAP (Format terinspirasi dari SIDAPEM)
+    // Definisi template hak akses menu MONALISA KONSEL (Format terinspirasi dari SIDAPEM)
     const getRolePermissions = (kode: string | RoleEnum) => {
       switch (kode) {
         case RoleEnum.ADMINISTRATOR:
@@ -1052,7 +1052,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Mengambil detail 1 user SIMANTAP
+   * Mengambil detail 1 user MONALISA KONSEL
    */
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
@@ -1084,7 +1084,7 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Menetapkan / Mengubah Hak Akses Role Pegawai (Mengadopsi pola konsel-setara)
-   * Jika pegawai belum terdaftar di SIMANTAP, otomatis menarik data dari E-Gov & SIMPEG
+   * Jika pegawai belum terdaftar di MONALISA KONSEL, otomatis menarik data dari E-Gov & SIMPEG
    */
   async setRole(dto: SetRoleDto, adminId?: string) {
     const cleanNip = dto.nip.trim();
@@ -1099,7 +1099,7 @@ export class UsersService implements OnModuleInit {
     }
     const primaryRole = assignedRoles[0];
 
-    // 1. Cek apakah user sudah terdaftar di SIMANTAP
+    // 1. Cek apakah user sudah terdaftar di MONALISA KONSEL
     let user = await this.prisma.user.findUnique({
       where: { nip: cleanNip },
     });
@@ -1222,7 +1222,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Mencabut hak akses role pegawai di SIMANTAP
+   * Mencabut hak akses role pegawai di MONALISA KONSEL
    */
   async revokeRole(nip: string, adminId?: string) {
     const cleanNip = nip.trim();
@@ -1263,13 +1263,13 @@ export class UsersService implements OnModuleInit {
     });
 
     return {
-      message: `Hak akses sistem SIMANTAP untuk '${user.namaLengkap}' berhasil dicabut (Status: Non-Aktif). Peran tetap tersimpan.`,
+      message: `Hak akses sistem MONALISA KONSEL untuk '${user.namaLengkap}' berhasil dicabut (Status: Non-Aktif). Peran tetap tersimpan.`,
     };
   }
 
   /**
    * Mengembalikan peran ke default (Belum Diberi Akses)
-   * Menghapus record pengguna dari database lokal SIMANTAP sehingga datanya kembali bersih dan kembali ke Direktori ASN
+   * Menghapus record pengguna dari database lokal MONALISA KONSEL sehingga datanya kembali bersih dan kembali ke Direktori ASN
    */
   async resetToDefault(nip: string, adminId?: string) {
     const cleanNip = nip.trim();
@@ -1280,7 +1280,7 @@ export class UsersService implements OnModuleInit {
 
     if (!user) {
       throw new NotFoundException(
-        `Pengguna dengan NIP '${cleanNip}' tidak terdaftar di SIMANTAP`,
+        `Pengguna dengan NIP '${cleanNip}' tidak terdaftar di MONALISA KONSEL`,
       );
     }
 
@@ -1305,7 +1305,7 @@ export class UsersService implements OnModuleInit {
       },
     });
 
-    // Hapus akun dari SIMANTAP lokal agar datanya kembali bersih
+    // Hapus akun dari MONALISA KONSEL lokal agar datanya kembali bersih
     await this.prisma.user.delete({
       where: { id: user.id },
     });
@@ -1324,7 +1324,7 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Direktori Pegawai E-Gov & SIMPEG terpaginasi
-   * Diperkaya dengan informasi status hak akses aktif di SIMANTAP
+   * Diperkaya dengan informasi status hak akses aktif di MONALISA KONSEL
    */
   async getPegawaiDirectory(query: QueryPegawaiDirectoryDto) {
     const {
@@ -1360,7 +1360,7 @@ export class UsersService implements OnModuleInit {
     // Ambil semua NIP dari halaman ini
     const nips = result.data.map((p) => p.nip);
 
-    // Cek user yang sudah terdaftar di SIMANTAP
+    // Cek user yang sudah terdaftar di MONALISA KONSEL
     const localUsers = await this.prisma.user.findMany({
       where: { nip: { in: nips } },
       select: {

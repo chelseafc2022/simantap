@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   FileCheck2,
-  Clock,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react"
@@ -88,11 +87,10 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
                 formatRupiah(s.totalRealisasiKeuangan)
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+            <div className="mt-1.5">
               <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
                 {s.persenSerapanKeuangan}% Serapan
               </Badge>
-              <span className="truncate">dari total kontrak</span>
             </div>
           </div>
         </CardContent>
@@ -154,10 +152,9 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
                 `${s.avgDeviasiFisik > 0 ? "+" : ""}${s.avgDeviasiFisik}%`
               )}
             </div>
-            <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1.5">
-              <span>Status Kumulatif:</span>
+            <p className="mt-1.5 text-xs flex items-center gap-1.5">
               <span className={`font-semibold ${isDeviasiPositif ? "text-emerald-600" : "text-red-600"}`}>
-                {isDeviasiPositif ? "On Track / Lebih Cepat" : "Terlambat dari Rencana"}
+                {isDeviasiPositif ? "Sesuai target" : "Terlambat"}
               </span>
             </p>
           </div>
@@ -190,9 +187,6 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
                 {s.countStatus.kritis} Kritis
               </Badge>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Total <span className="font-semibold text-foreground">{s.totalPaket}</span> paket terdaftar
-            </p>
           </div>
         </CardContent>
       </Card>

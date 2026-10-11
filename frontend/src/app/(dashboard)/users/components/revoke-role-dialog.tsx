@@ -52,7 +52,7 @@ export function RevokeRoleDialog({ open, onOpenChange, target }: RevokeRoleDialo
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive text-lg">
             <AlertTriangle className="h-5 w-5" />
-            Cabut Hak Akses SIMANTAP
+            Cabut Hak Akses MONALISA KONSEL
           </DialogTitle>
           <DialogDescription>
             Tindakan ini akan menonaktifkan status akun pegawai dan membatalkan seluruh sesi login aktif. Peran (role) akun tetap tersimpan.

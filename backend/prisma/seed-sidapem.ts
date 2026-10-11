@@ -4,7 +4,7 @@ import * as mysql from 'mysql2/promise';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🚀 Memulai Seeder Data Riil SIDAPEM ke PostgreSQL Lokal SIMANTAP (2024–2026)...');
+  console.log('🚀 Memulai Seeder Data Riil SIDAPEM ke PostgreSQL Lokal MONALISA KONSEL (2024–2026)...');
 
   // 1. Koneksi READ-ONLY ke MySQL SIDAPEM & SIMPEG
   const mysqlConn = await mysql.createConnection({

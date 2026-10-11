@@ -57,8 +57,7 @@ export function NavMain({
 
   return (
     <SidebarGroup className="py-1.5">
-      <SidebarGroupLabel className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground/75 px-3 py-1 flex items-center gap-1.5 select-none">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 shrink-0" />
+      <SidebarGroupLabel className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground/75 px-3 py-1 select-none">
         <span className="truncate">{label}</span>
       </SidebarGroupLabel>
       <SidebarMenu className="gap-1 mt-0.5">
@@ -213,9 +212,6 @@ export function NavMain({
                           </span>
                         )}
                       </div>
-                      {isItemActive && !item.badge && (
-                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/50 group-data-[collapsible=icon]:hidden shrink-0" />
-                      )}
                     </Link>
                   </SidebarMenuButton>
                 )}

@@ -35,7 +35,7 @@ export class SetRoleDto {
 
   @ApiPropertyOptional({
     description:
-      'ID OPD di SIMANTAP (opsional, otomatis ditarik dari SIMPEG jika kosong)',
+      'ID OPD di MONALISA KONSEL (opsional, otomatis ditarik dari SIMPEG jika kosong)',
   })
   @IsOptional()
   @IsString()

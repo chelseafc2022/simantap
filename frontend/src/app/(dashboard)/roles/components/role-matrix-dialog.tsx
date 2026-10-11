@@ -305,7 +305,7 @@ export function RoleMatrixDialog({
                 </div>
                 <DialogDescription className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
                   {role.deskripsi ||
-                    "Kelompok pengguna dan konfigurasi izin operasional resmi SIMANTAP."}
+                    "Kelompok pengguna dan konfigurasi izin operasional resmi MONALISA KONSEL."}
                 </DialogDescription>
               </div>
             </div>

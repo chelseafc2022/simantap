@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,33 +10,21 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
   Building2,
   FolderGit2,
-  FileCheck,
-  Check,
-  X,
 } from "lucide-react"
 import { isExcludedOpd } from "@/lib/utils"
 
 interface OpdSubunitProgressTableProps {
   paketList: any[]
-  rekapList: any[]
-  opdMasterList: any[]
   bulan: number
   tahun: number
-  namaBulanAktif: string
 }
 
 export function OpdSubunitProgressTable({
   paketList,
-  rekapList,
-  opdMasterList,
   bulan,
   tahun,
-  namaBulanAktif,
 }: OpdSubunitProgressTableProps) {
   const [search, setSearch] = useState("")
   const [expandedOpd, setExpandedOpd] = useState<Record<string, boolean>>({})
@@ -211,11 +199,8 @@ export function OpdSubunitProgressTable({
           <div>
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <FolderGit2 className="h-4 w-4 text-primary" />
-              Progres Pengisian Data OPD & Sub-Unit Kerja
+              Progres Pengisian OPD & Sub-Unit
             </CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Monitoring kepatuhan input rencana target fisik, realisasi fisik lapangan, dan serapan SP2D keuangan ({namaBulanAktif} {tahun})
-            </CardDescription>
           </div>
 
           <div className="flex items-center gap-2">
@@ -260,7 +245,7 @@ export function OpdSubunitProgressTable({
           </div>
         ) : (
           <div className="divide-y divide-border/50">
-            {filteredList.map((opd, idx) => {
+            {filteredList.map((opd) => {
               const isExpanded = !!expandedOpd[opd.opdId]
 
               return (

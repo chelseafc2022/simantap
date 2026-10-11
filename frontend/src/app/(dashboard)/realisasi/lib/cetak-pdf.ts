@@ -241,7 +241,7 @@ export function cetakLaporanRealisasiPDF({
 
       <div class="meta-bar">
         <div class="opd">UNIT KERJA: ${namaOpd.toUpperCase()}</div>
-        <div class="tanggal">Dicetak pada: ${tanggalCetak}, Pukul ${waktuCetak} WITA (SIMANTAP)</div>
+        <div class="tanggal">Dicetak pada: ${tanggalCetak}, Pukul ${waktuCetak} WITA (MONALISA KONSEL)</div>
       </div>
 
       <table>

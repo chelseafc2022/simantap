@@ -6,7 +6,7 @@
 
 | Parameter | Deskripsi |
 | :--- | :--- |
-| **Nama Proyek** | **SIMANTAP** (Sistem Informasi Monitoring dan Evaluasi Data Pembangunan Terpadu) |
+| **Nama Proyek** | **MONALISA KONSEL** (Monitoring Realisasi Anggaran dan Fisik Data Pembangunan Konawe Selatan) |
 | **Instansi Pengampu** | Bagian Administrasi Pembangunan, Sekretariat Daerah Kabupaten Konawe Selatan |
 | **Tahun Anggaran** | 2026 |
 | **Versi Dokumen** | v1.0.0 (Comprehensive Baseline) |
@@ -38,7 +38,7 @@ Selama ini, proses monitoring dan evaluasi menghadapi berbagai kendala:
 
 ## 3. ARSITEKTUR & TEKNOLOGI STACK
 
-SIMANTAP dibangun dengan pendekatan arsitektur modern **Decoupled Architecture** (Pemisahan menyeluruh antara Frontend Client-Side Application dan Backend API Micro/Monolithic Engine) yang menjamin performa tinggi, keamanan berstandar enterprise, serta skalabilitas masa depan.
+MONALISA KONSEL dibangun dengan pendekatan arsitektur modern **Decoupled Architecture** (Pemisahan menyeluruh antara Frontend Client-Side Application dan Backend API Micro/Monolithic Engine) yang menjamin performa tinggi, keamanan berstandar enterprise, serta skalabilitas masa depan.
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -59,7 +59,7 @@ SIMANTAP dibangun dengan pendekatan arsitektur modern **Decoupled Architecture**
                     |                                       |
 +-------------------v---------------+       +---------------v-----------------------+
 |        DATABASE LAYER             |       |       EXTERNAL INTEGRATION            |
-|  - PostgreSQL (SIMANTAP Core)     |       |  - e-Gov Konawe Selatan (Auth)        |
+|  - PostgreSQL (MONALISA KONSEL Core) |    |  - e-Gov Konawe Selatan (Auth)        |
 |  - Prisma Migrations & Relations  |       |  - SIMPEG Konawe Selatan (NIP/Pegawai)|
 |  - Redis Server (In-Memory Data)  |       |  - SMTP / Email Mailer Gateway        |
 +-----------------------------------+       +---------------------------------------+
@@ -86,7 +86,7 @@ SIMANTAP dibangun dengan pendekatan arsitektur modern **Decoupled Architecture**
 
 ## 4. ROLE-BASED ACCESS CONTROL (RBAC) & MATRIX WEWENANG
 
-Manajemen pengguna SIMANTAP dirancang berjenjang per Organisasi Perangkat Daerah (OPD) dan Unit Kerja, terintegrasi dengan data pegawai dari **SIMPEG** dan akun **e-Gov Konawe Selatan**:
+Manajemen pengguna MONALISA KONSEL dirancang berjenjang per Organisasi Perangkat Daerah (OPD) dan Unit Kerja, terintegrasi dengan data pegawai dari **SIMPEG** dan akun **e-Gov Konawe Selatan**:
 
 | No | Nama Role | Kategori Level | Deskripsi & Hak Akses Utama |
 | :--- | :--- | :--- | :--- |
@@ -119,29 +119,29 @@ Manajemen pengguna SIMANTAP dirancang berjenjang per Organisasi Perangkat Daerah
 ## 5. SKEMA INTEGRASI AKUN (SIMPEG & E-GOV KONAWE SELATAN)
 
 ### 5.1 Arsitektur Single Identity
-Sistem SIMANTAP tidak membuat basis data otentikasi pegawai baru yang terisolasi, melainkan terhubung langsung dengan ekosistem kepegawaian Pemerintah Kabupaten Konawe Selatan:
+Sistem MONALISA KONSEL tidak membuat basis data otentikasi pegawai baru yang terisolasi, melainkan terhubung langsung dengan ekosistem kepegawaian Pemerintah Kabupaten Konawe Selatan:
 1. **Identitas Pengguna**: Mengacu pada NIP (Nomor Induk Pegawai) ASN yang terdaftar di basis data **SIMPEG**.
 2. **Kredensial & Autentikasi**: Menggunakan akun **e-Gov** Konawe Selatan (`egov.users`).
 3. **Struktur Organisasi**: Menautkan unit kerja dan dinas secara otomatis melalui tabel referensi `simpeg.unit_kerja` dan `simpeg.instansi`.
-4. **Otorisasi SIMANTAP**: Akun e-Gov di-mapping ke tabel `simantap_user_roles` untuk menentukan perannya (Admin SiRUP, Admin PPK, Bendahara, Kepala OPD, dll).
+4. **Otorisasi MONALISA KONSEL**: Akun e-Gov di-mapping ke tabel `simantap_user_roles` untuk menentukan perannya (Admin SiRUP, Admin PPK, Bendahara, Kepala OPD, dll).
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as ASN / Pegawai
-    participant FE as Frontend SIMANTAP (Next.js)
-    participant BE as Backend SIMANTAP (NestJS)
+    participant FE as Frontend MONALISA KONSEL (Next.js)
+    participant BE as Backend MONALISA KONSEL (NestJS)
     participant eGov as Database e-Gov / SIMPEG
     participant Redis as Redis Cache & Session
-    participant DB as Database PostgreSQL SIMANTAP
+    participant DB as Database PostgreSQL MONALISA KONSEL
 
     User->>FE: Input NIP/Username & Password
     FE->>BE: POST /api/v1/auth/login
     BE->>eGov: Query egov.users JOIN simpeg.biodata & unit_kerja
     alt Kredensial Valid
         eGov-->>BE: Return data profil pegawai, NIP, instansi_id, unit_kerja_id
-        BE->>DB: Query role SIMANTAP berdasarkan NIP/User_id
-        DB-->>BE: Role SIMANTAP (misal: ADMIN_PPK, Unit: Dinkes)
+        BE->>DB: Query role MONALISA KONSEL berdasarkan NIP/User_id
+        DB-->>BE: Role MONALISA KONSEL (misal: ADMIN_PPK, Unit: Dinkes)
         BE->>Redis: Simpan Refresh Token Session (TTL 7 hari)
         BE-->>FE: Return Access Token (JWT 15 menit) + Refresh Token (HttpOnly Cookie)
         FE->>User: Redirect ke Dashboard sesuai Role
@@ -678,7 +678,7 @@ Sesuai ketentuan Kerangka Acuan Kerja (KAK), proyek diselesaikan dalam jangka wa
 
 ```mermaid
 gantt
-    title JADWAL PELAKSANAAN PROYEK SIMANTAP (30 HARI KALENDER)
+    title JADWAL PELAKSANAAN PROYEK MONALISA KONSEL (30 HARI KALENDER)
     dateFormat  YYYY-MM-DD
     section Fase 1: Analisis & Desain
     Analisis Kebutuhan & Integrasi SIMPEG/e-Gov  :2026-10-01, 4d

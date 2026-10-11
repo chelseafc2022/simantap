@@ -11,7 +11,7 @@ import { LaporanStatCards } from "./components/laporan-stat-cards"
 import { KontrakKritisAlert } from "./components/kontrak-kritis-alert"
 import { exportLaporanToExcel } from "./lib/export-excel"
 import { cetakLaporanPdf } from "./lib/cetak-laporan-pdf"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,11 +44,6 @@ import {
   ChevronRight,
   FilterX,
   FileText,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
   BarChart3,
   Flame,
   LayoutGrid,
@@ -416,16 +411,22 @@ export default function LaporanDanEvaluasiPage() {
     bulan !== currentMonthNo
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 w-full max-w-[1600px] mx-auto">
+    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* 1. Page Title & Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Laporan & Evaluasi RFK
-            </h1>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              LAPORAN & EVALUASI
+            </span>
+            <Badge variant="outline" className="text-[10px] py-0 border-border">
+              {BULAN_NAMES[bulan - 1]} {tahun}
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Laporan &amp; Evaluasi RFK
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Konsolidasi kurva-S fisik dan serapan keuangan, identifikasi kontrak kritis, serta rekapitulasi kinerja OPD
           </p>
         </div>
@@ -673,7 +674,6 @@ export default function LaporanDanEvaluasiPage() {
           </div>
 
           <div className="text-xs text-muted-foreground flex items-center gap-2 flex-shrink-0">
-            <span>Periode:</span>
             <Badge variant="secondary" className="font-semibold text-xs whitespace-nowrap">
               {BULAN_NAMES[bulan - 1]} {tahun}
             </Badge>
@@ -1037,9 +1037,6 @@ export default function LaporanDanEvaluasiPage() {
                 <LayoutGrid className="w-4 h-4 text-primary" />
                 <span className="leading-tight">Matriks Capaian Fisik 12 Bulan (B01 s/d B12)</span>
               </CardTitle>
-              <CardDescription className="text-xs">
-                Perbandingan Realisasi vs Target Fisik per bulan sepanjang TA {tahun}.
-              </CardDescription>
             </CardHeader>
             {/* Hint scroll untuk mobile */}
             <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700">
@@ -1153,9 +1150,6 @@ export default function LaporanDanEvaluasiPage() {
                 <BarChart3 className="w-4 h-4 text-primary" />
                 Rekapitulasi Kinerja dan Peringkat Serapan OPD
               </CardTitle>
-              <CardDescription className="text-xs">
-                Perbandingan kinerja pengadaan, serapan anggaran, dan rata-rata fisik antar OPD.
-              </CardDescription>
             </CardHeader>
             {/* Hint scroll untuk mobile */}
             <div className="block sm:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/40 border-b border-gray-200 dark:border-neutral-700">

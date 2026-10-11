@@ -34,10 +34,10 @@ export function TerpaduHeritageCard() {
               </Badge>
             </div>
             <CardTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-              Apresiasi Perintis: Dari MONEV &amp; SIDAPEM Menuju SI-MANTAP
+              Apresiasi Perintis: Dari MONEV &amp; SIDAPEM Menuju MONALISA KONSEL
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
-              Sesuai dengan visi <strong className="text-foreground">&ldquo;TERPADU&rdquo;</strong>, SI-MANTAP lahir dari apresiasi terhadap dua aplikasi perintis pembangunan Konawe Selatan: <strong className="text-emerald-600 dark:text-emerald-400">MONEV</strong> (Pengawasan Realisasi Fisik &amp; Keuangan) dan <strong className="text-blue-600 dark:text-blue-400">SIDAPEM</strong> (Pengelolaan Data Paket &amp; Kontrak). Saat ini keduanya masih berjalan mandiri dan belum terintegrasi langsung, menjadi landasan utama perancangan sistem terpadu SI-MANTAP ke depan.
+              Sesuai dengan visi <strong className="text-foreground">&ldquo;TERPADU&rdquo;</strong>, MONALISA KONSEL lahir dari apresiasi terhadap dua aplikasi perintis pembangunan Konawe Selatan: <strong className="text-emerald-600 dark:text-emerald-400">MONEV</strong> (Pengawasan Realisasi Fisik &amp; Keuangan) dan <strong className="text-blue-600 dark:text-blue-400">SIDAPEM</strong> (Pengelolaan Data Paket &amp; Kontrak). Saat ini keduanya masih berjalan mandiri dan belum terintegrasi langsung, menjadi landasan utama perancangan sistem terpadu MONALISA KONSEL ke depan.
             </CardDescription>
           </div>
         </div>
@@ -179,14 +179,14 @@ export function TerpaduHeritageCard() {
             <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs sm:text-sm font-bold text-foreground">
-                  Gagasan Menuju Integrasi Penuh: SI-MANTAP Terpadu
+                  Gagasan Menuju Integrasi Penuh: MONALISA KONSEL Terpadu
                 </span>
                 <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10">
                   Target Roadmap
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Meskipun MONEV dan SIDAPEM saat ini belum terintegrasi secara langsung, SI-MANTAP dirancang sebagai arah masa depan untuk memadukan kedua alur tersebut—menghubungkan data paket dari SIDAPEM dengan pengawasan progres realisasi dari MONEV secara otomatis tanpa entri berulang.
+                Meskipun MONEV dan SIDAPEM saat ini belum terintegrasi secara langsung, MONALISA KONSEL dirancang sebagai arah masa depan untuk memadukan kedua alur tersebut—menghubungkan data paket dari SIDAPEM dengan pengawasan progres realisasi dari MONEV secara otomatis tanpa entri berulang.
               </p>
             </div>
           </div>

@@ -86,7 +86,7 @@ async function bootstrap() {
       docExpansion: 'list',
       filter: true,
     },
-    customSiteTitle: 'SIMANTAP API Documentation',
+    customSiteTitle: 'MONALISA KONSEL API Documentation',
   });
 
   await app.listen(port);

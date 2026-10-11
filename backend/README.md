@@ -1,5 +1,6 @@
-# SIMANTAP Backend Core API
-**Sistem Informasi Monitoring dan Evaluasi Data Pembangunan Terpadu**  
+# MONALISA KONSEL Backend Core API
+**Monitoring Realisasi Anggaran dan Fisik Data Pembangunan Konawe Selatan**
+
 *Pemerintah Kabupaten Konawe Selatan — Bagian Administrasi Pembangunan Sekretariat Daerah*
 
 ---
@@ -130,10 +131,10 @@ Sistem autentikasi dan manajemen pengguna telah mengadopsi arsitektur dari `kons
 1. **Server Database Pemda**: Terhubung ke `mysql.konaweselatankab.go.id` (`egov.users` & `simpeg.biodata`).
 2. **Dual-Authentication**:
    - Jika kredensial cocok di PostgreSQL lokal, langsung login.
-   - Jika user login menggunakan password akun E-Gov, sistem memverifikasi `bcrypt` hash ke database `egov.users`. Jika valid dan sudah memiliki hak akses di SIMANTAP, token JWT diterbitkan secara otomatis.
+   - Jika user login menggunakan password akun E-Gov, sistem memverifikasi `bcrypt` hash ke database `egov.users`. Jika valid dan sudah memiliki hak akses di MONALISA KONSEL, token JWT diterbitkan secara otomatis.
 3. **Manajemen Pengguna & Penugasan Role (RBAC)**:
-   - `GET /api/v1/users`: Menampilkan pengguna aktif SIMANTAP.
+   - `GET /api/v1/users`: Menampilkan pengguna aktif MONALISA KONSEL.
    - `GET /api/v1/users/pegawai/lookup?q=...`: Autocomplete pencarian 10.000+ pegawai ASN dari SIMPEG/E-Gov.
-   - `GET /api/v1/users/pegawai/directory`: Direktori lengkap ASN dengan status apakah sudah memiliki hak akses di SIMANTAP atau belum.
-   - `POST /api/v1/users/set-role`: Menetapkan salah satu dari 7 role RBAC ke pegawai ASN berdasarkan NIP (otomatis membuat akun lokal di SIMANTAP).
-   - `POST /api/v1/users/revoke-role`: Mencabut hak akses pegawai dari SIMANTAP.
+   - `GET /api/v1/users/pegawai/directory`: Direktori lengkap ASN dengan status apakah sudah memiliki hak akses di MONALISA KONSEL atau belum.
+   - `POST /api/v1/users/set-role`: Menetapkan salah satu dari 7 role RBAC ke pegawai ASN berdasarkan NIP (otomatis membuat akun lokal di MONALISA KONSEL).
+   - `POST /api/v1/users/revoke-role`: Mencabut hak akses pegawai dari MONALISA KONSEL.

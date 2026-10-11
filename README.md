@@ -1,4 +1,4 @@
-# 🏛️ SIMANTAP (Sistem Informasi Monitoring dan Evaluasi Data Pembangunan Terpadu)
+# 🏛️ MONALISA KONSEL (Monitoring Realisasi Anggaran dan Fisik Data Pembangunan Konawe Selatan)
 
 > **Pemerintah Kabupaten Konawe Selatan**  
 > _Bagian Administrasi Pembangunan — Sekretariat Daerah_  
@@ -13,9 +13,9 @@
 
 ---
 
-## 📌 1. Tentang SIMANTAP
+## 📌 1. Tentang MONALISA KONSEL
 
-**SIMANTAP** adalah platform web terpadu milik Pemerintah Kabupaten Konawe Selatan untuk digitalisasi koordinasi, pemantauan, evaluasi, dan pengendalian terhadap realisasi pelaksanaan program dan kegiatan pembangunan fisik maupun keuangan yang didanai oleh APBD, APBN, DAK, dan sumber dana lainnya.
+**MONALISA KONSEL** adalah platform web terpadu milik Pemerintah Kabupaten Konawe Selatan untuk digitalisasi koordinasi, pemantauan, evaluasi, dan pengendalian terhadap realisasi pelaksanaan program dan kegiatan pembangunan fisik maupun keuangan yang didanai oleh APBD, APBN, DAK, dan sumber dana lainnya.
 
 ### Masalah yang Diselesaikan:
 
@@ -32,13 +32,13 @@ Database eksternal **E-Gov** dan **SIMPEG** (`xxxxx`):
 
 1. **MUTLAK HANYA BACA (READ-ONLY / SELECT ONLY)**.
 2. **DILARANG KERAS** melakukan aksi manipulasi data apapun (`INSERT`, `UPDATE`, `DELETE`, `DROP`, `ALTER`, `TRUNCATE`) ke database `egov` maupun `simpeg`.
-3. Seluruh penetapan hak akses role, pembuatan sesi SIMANTAP, penugasan peran, dan manajemen data proyek **HANYA DISIMPAN** di basis data lokal PostgreSQL (`simantap`).
+3. Seluruh penetapan hak akses role, pembuatan sesi MONALISA KONSEL, penugasan peran, dan manajemen data proyek **HANYA DISIMPAN** di basis data lokal PostgreSQL (`simantap`).
 
 ---
 
-## 👥 3. Matriks 7 Hak Akses Role SIMANTAP
+## 👥 3. Matriks 7 Hak Akses Role MONALISA KONSEL
 
-SIMANTAP menerapkan model **Multi-Role RBAC (Role-Based Access Control)**, di mana seorang ASN dapat memiliki lebih dari satu peran sesuai surat keputusan/penugasan kedinasan:
+MONALISA KONSEL menerapkan model **Multi-Role RBAC (Role-Based Access Control)**, di mana seorang ASN dapat memiliki lebih dari satu peran sesuai surat keputusan/penugasan kedinasan:
 
 |  No   | Peran (Role)                       | Kode Enum           | Wewenang & Tanggung Jawab Utama                                                                                       |
 | :---: | :--------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +65,7 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
          ▼
 [ Backend: NestJS 11 (Pipes, Guards, Audit Interceptor, Swagger) ]
          │
-         ├──► [ PostgreSQL (Local SIMANTAP DB via Prisma ORM) ] ── (READ-WRITE)
+         ├──► [ PostgreSQL (Local MONALISA KONSEL DB via Prisma ORM) ] ── (READ-WRITE)
          │
          └──► [ MySQL Server Konawe Selatan (E-Gov & SIMPEG) ] ── (STRICTLY READ-ONLY)
 ```
@@ -92,14 +92,14 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 
 1. **Autentikasi Terpadu E-Gov & SIMPEG**:
    - ASN dapat login menggunakan NIP atau Username E-Gov disertai password akun E-Gov masing-masing.
-   - Akun yang valid dari E-Gov secara otomatis dapat ditugaskan hak akses role SIMANTAP oleh Administrator.
+   - Akun yang valid dari E-Gov secara otomatis dapat ditugaskan hak akses role MONALISA KONSEL oleh Administrator.
 2. **Dukungan Multi-Role**:
    - Satu pengguna dapat memegang beberapa peran sekaligus (contoh: _Admin PPK_ sekaligus _Bendahara_).
 3. **Filter Unit Kerja & Sub Unit Kerja yang Dapat Diketik**:
    - Dropdown filter unit kerja berbasis combobox yang dapat diketik kata kuncinya secara instan.
 4. **Mekanisme Cabut Akses vs Kembalikan ke Default**:
    - **Cabut Akses**: Status akun diubah menjadi `Non-Aktif`, sesi login ditarik, namun peran yang telah ditetapkan tetap tersimpan sebagai arsip penugasan.
-   - **Kembalikan ke Default (Belum Diberi Akses)**: Menghapus data akun dari database SIMANTAP lokal, sehingga pengguna kembali bersih (_fresh_) ke Direktori ASN dengan status awal "Belum Diberi Akses".
+   - **Kembalikan ke Default (Belum Diberi Akses)**: Menghapus data akun dari database MONALISA KONSEL lokal, sehingga pengguna kembali bersih (_fresh_) ke Direktori ASN dengan status awal "Belum Diberi Akses".
 
 ---
 
@@ -212,7 +212,7 @@ Aplikasi dibangun menggunakan pola **Decoupled Client-Server Architecture**:
 simantap/
 ├── backend/                        # Backend API (NestJS v11)
 │   ├── prisma/
-│   │   ├── schema.prisma           # Skema Data PostgreSQL SIMANTAP
+│   │   ├── schema.prisma           # Skema Data PostgreSQL MONALISA KONSEL
 │   │   └── seed.ts                 # Script seeding data OPD & Admin
 │   ├── src/
 │   │   ├── common/                 # Guards, Decorators, Enums, Interfaces
@@ -228,7 +228,7 @@ simantap/
 ├── frontend/                       # Web Client Application (Next.js 15)
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── (auth)/login/       # Halaman Login SIMANTAP
+│   │   │   ├── (auth)/login/       # Halaman Login MONALISA KONSEL
 │   │   │   └── (dashboard)/        # Layout Dashboard & Manajemen Akun
 │   │   │       └── users/          # Manajemen Pengguna & Direktori Pegawai
 │   │   ├── components/             # Reusable UI (Sidebar, Dialogs, Combobox)

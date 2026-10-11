@@ -14,7 +14,7 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, PieChart as PieChartIcon, TrendingUp, Wallet } from "lucide-react"
@@ -22,7 +22,6 @@ import { isExcludedOpd } from "@/lib/utils"
 
 interface DashboardChartsProps {
   rekapList: any[]
-  paketList: any[]
   macroStats: {
     totalPaket: number
     nilaiKontrak: number
@@ -42,9 +41,7 @@ interface DashboardChartsProps {
     avgTargetDaerah: number
     deviasiDaerah: number
   }
-  bulan: number
   tahun: number
-  namaBulanAktif: string
 }
 
 function formatJuta(val: number) {
@@ -61,12 +58,9 @@ function formatRupiahFull(val: number) {
 
 export function DashboardCharts({
   rekapList,
-  paketList,
   macroStats,
   executiveStatus,
-  bulan,
   tahun,
-  namaBulanAktif,
 }: DashboardChartsProps) {
   const [chartType, setChartType] = useState<"fisik" | "keuangan">("fisik")
 
@@ -90,41 +84,6 @@ export function DashboardCharts({
       }))
   }, [rekapList])
 
-  // Data Diagram Batang Alternatif: Tren Agregat Bulanan (B01 - B12) dari seluruh paket
-  const monthlyTrendData = useMemo(() => {
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-      "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
-    ]
-    return months.map((mName, idx) => {
-      const bIdx = idx + 1
-      let sumTarget = 0
-      let sumRealFisik = 0
-      let sumRealKeu = 0
-      let count = 0
-
-      for (const p of paketList) {
-        count++
-        const tb = p.targetBulanan?.find((t: any) => t.bulan === bIdx)
-        const rb = p.realisasiBulanan?.find((r: any) => r.bulan === bIdx)
-        if (tb) sumTarget += Number(tb.targetFisik) || 0
-        if (rb) {
-          sumRealFisik += Number(rb.realisasiFisik) || 0
-          sumRealKeu += Number(rb.realisasiKeuangan) || 0
-        }
-      }
-
-      return {
-        bulan: mName,
-        bulanNum: bIdx,
-        targetFisik: count > 0 ? parseFloat((sumTarget / count).toFixed(1)) : 0,
-        realisasiFisik: count > 0 ? parseFloat((sumRealFisik / count).toFixed(1)) : 0,
-        realisasiKeuangan: sumRealKeu,
-        isCurrent: bIdx === bulan,
-      }
-    })
-  }, [paketList, bulan])
-
   // Data Diagram Pie 1: Proporsi Penyerapan Anggaran (Keuangan Terealisasi vs Sisa)
   const pieKeuanganData = useMemo(() => {
     const real = Math.max(0, macroStats.nominalRealisasiKeuangan)
@@ -134,16 +93,6 @@ export function DashboardCharts({
       { name: "Sisa Belum Cair", value: sisa, color: "#f59e0b", percent: Math.max(0, 100 - macroStats.persenSerapanKeuangan) },
     ]
   }, [macroStats])
-
-  // Data Diagram Pie 2: Kategori Kepatuhan Proyek Fisik
-  const pieStatusFisikData = useMemo(() => {
-    return [
-      { name: "Aman (On-Track)", value: executiveStatus.aman, color: "#10b981" },
-      { name: "Perhatian (Ringan)", value: executiveStatus.perhatian, color: "#f59e0b" },
-      { name: "Kritis (Terlambat)", value: executiveStatus.kritis, color: "#f43f5e" },
-      { name: "Belum Mulai", value: executiveStatus.belumMulai, color: "#94a3b8" },
-    ].filter((d) => d.value > 0)
-  }, [executiveStatus])
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -155,12 +104,9 @@ export function DashboardCharts({
               <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
                 {chartType === "fisik"
-                  ? "Diagram Batang: Target Fisik vs Realisasi Fisik (%)"
-                  : "Diagram Batang: Pagu Kontrak vs Realisasi Keuangan (Rp)"}
+                  ? "Target vs Realisasi Fisik"
+                  : "Pagu vs Realisasi Keuangan"}
               </CardTitle>
-              <CardDescription className="text-xs">
-                Perbandingan komparatif 10 Perangkat Daerah utama (Evaluasi {namaBulanAktif} {tahun})
-              </CardDescription>
             </div>
 
             <Tabs
@@ -329,11 +275,8 @@ export function DashboardCharts({
         <CardHeader className="pb-2">
           <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
             <PieChartIcon className="h-4 w-4 text-emerald-500" />
-            Diagram Pie Penyerapan & Status
+            Serapan & Status
           </CardTitle>
-          <CardDescription className="text-xs">
-            Proporsi realisasi keuangan dan kesehatan fisik
-          </CardDescription>
         </CardHeader>
 
         <CardContent className="pt-1 space-y-4">

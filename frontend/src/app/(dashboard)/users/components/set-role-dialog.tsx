@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, ShieldCheck, UserCheck, AlertCircle, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 
-export const SIMANTAP_ROLES = [
+export const MONALISA_ROLES = [
   {
     value: "ADMINISTRATOR",
     label: "Administrator Utama",
@@ -179,7 +179,7 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
             Penetapan / Ubah Hak Akses Role
           </DialogTitle>
           <DialogDescription>
-            Tetapkan peran akun SIMANTAP untuk pegawai ASN. Pegawai dapat memiliki lebih dari 1 peran sekaligus.
+            Tetapkan peran akun MONALISA KONSEL untuk pegawai ASN. Pegawai dapat memiliki lebih dari 1 peran sekaligus.
           </DialogDescription>
         </DialogHeader>
 
@@ -206,7 +206,7 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
                 {target.currentRoles && target.currentRoles.length > 0 ? (
                   <div className="flex flex-wrap gap-1 justify-end max-w-[200px]">
                     {target.currentRoles.map((r) => {
-                      const c = SIMANTAP_ROLES.find((item) => item.value === r)
+                      const c = MONALISA_ROLES.find((item) => item.value === r)
                       return (
                         <Badge key={r} variant="outline" className={`text-[10px] ${c?.badgeClass || ""}`}>
                           {c?.label || r}
@@ -253,7 +253,7 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
 
             {/* Role List with Checkboxes */}
             <div className="space-y-2">
-              {SIMANTAP_ROLES.map((role) => {
+              {MONALISA_ROLES.map((role) => {
                 const isChecked = selectedRoles.includes(role.value)
                 return (
                   <div
@@ -301,7 +301,7 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
                       <span>Kembalikan ke Default (Belum Diberi Akses)</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-snug">
-                      Menghapus data akun dari SIMANTAP agar kembali bersih dan dikembalikan ke Direktori ASN.
+                      Menghapus data akun dari MONALISA KONSEL agar kembali bersih dan dikembalikan ke Direktori ASN.
                     </p>
                   </div>
 

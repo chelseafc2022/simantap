@@ -7,5 +7,5 @@ export default registerAs('mail', () => ({
   pass: process.env.MAIL_PASSWORD || '',
   from:
     process.env.MAIL_FROM ||
-    '"SIMANTAP Pemkab Konawe Selatan" <noreply@konaweselatankab.go.id>',
+    '"MONALISA KONSEL Pemkab Konawe Selatan" <noreply@konaweselatankab.go.id>',
 }));

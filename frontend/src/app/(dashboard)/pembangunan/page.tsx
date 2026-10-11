@@ -49,7 +49,6 @@ import {
   Building2,
   TrendingUp,
   MapPin,
-  Calendar,
   Layers,
 } from "lucide-react"
 
@@ -247,41 +246,46 @@ export default function PaketPembangunanPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 w-full max-w-[1600px] mx-auto">
+    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* Page Title & Breadcrumb Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Data Paket Pembangunan
-            </h1>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              DATA PAKET PBJ
+            </span>
+            <Badge variant="outline" className="text-[10px] py-0 border-border">
+              Tahun Anggaran {tahunAnggaran}
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Pengelolaan paket pekerjaan pengadaan fisik & penetapan kurva rencana fisik bulanan (B01–B12)
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Daftar Paket Pembangunan
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Pengelolaan paket pengadaan, pagu, nilai kontrak, dan target fisik bulanan
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="gap-2 shadow-xs"
+            className="h-8 gap-1.5 text-xs shadow-xs"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Segarkan Data</span>
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            <span>Segarkan Data</span>
           </Button>
           {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
             <Button
               size="sm"
               onClick={handleOpenCreate}
-              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Tambah Paket Baru</span>
-              <span className="sm:hidden">Tambah Paket</span>
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tambah Paket Baru</span>
             </Button>
           )}
         </div>
@@ -294,9 +298,9 @@ export default function PaketPembangunanPage() {
         totalKontrak={totalKontrak}
       />
 
-      {/* Filter Toolbar - Mengadopsi Layout & Style Presisi /users */}
+      {/* Filter Toolbar - Responsif & Presisi */}
       <Card className="border-border/70 shadow-xs bg-card/60 backdrop-blur-xs">
-        <CardContent className="p-4 sm:p-5 space-y-3">
+        <CardContent className="p-3.5 sm:p-4 space-y-3">
           {/* Baris 1: Pencarian Teks Full Width */}
           <div className="relative w-full">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -314,7 +318,7 @@ export default function PaketPembangunanPage() {
           {/* Baris 2: Sejajar 4 Filter: Unit Kerja (OPD), Sub Unit Kerja, Tahun, Metode */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
-            <div className="w-full">
+            <div className="w-full min-w-0">
               {isSuperRole ? (
                 <SearchableCombobox
                   value={selectedOpd === "ALL" ? "all" : selectedOpd}
@@ -339,7 +343,7 @@ export default function PaketPembangunanPage() {
             </div>
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
-            <div className="w-full">
+            <div className="w-full min-w-0">
               {!isSuperRole && !isKepalaOpd && userSubUnitNama ? (
                 <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
                   <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -364,7 +368,7 @@ export default function PaketPembangunanPage() {
             </div>
 
             {/* Filter Tahun Anggaran */}
-            <div className="w-full">
+            <div className="w-full min-w-0">
               <Select
                 value={String(tahunAnggaran)}
                 onValueChange={(val) => {
@@ -384,7 +388,7 @@ export default function PaketPembangunanPage() {
             </div>
 
             {/* Filter Metode Pemilihan PBJ */}
-            <div className="w-full">
+            <div className="w-full min-w-0">
               <Select
                 value={selectedMetode}
                 onValueChange={(val) => {
@@ -413,12 +417,12 @@ export default function PaketPembangunanPage() {
           </div>
 
           {(search || (selectedOpd !== "ALL" && selectedOpd !== "all") || (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") || selectedMetode !== "ALL" || tahunAnggaran !== 2026) && (
-            <div className="flex items-center justify-between pt-2.5 border-t text-xs text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t text-xs text-muted-foreground">
               <span>Filter aktif diterapkan pada daftar paket</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground w-fit self-end sm:self-auto"
                 onClick={handleResetFilter}
               >
                 <FilterX className="h-3.5 w-3.5" />
@@ -584,28 +588,28 @@ export default function PaketPembangunanPage() {
 
         {/* Desktop & Tablet View: Tabel Lebar Penuh dengan Border Abu-Abu Tipis (>= md) */}
         <div className="hidden md:block w-full overflow-x-auto">
-          <Table className="w-full table-fixed min-w-[850px] lg:min-w-full border-collapse">
+          <Table className="w-full min-w-[960px] border-collapse">
             <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
               <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
-                <TableHead className="w-10 text-center text-xs font-semibold py-3 px-1 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-12 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                   No
                 </TableHead>
-                <TableHead className="w-[30%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="min-w-[280px] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Nama Paket & Identitas PBJ
                 </TableHead>
-                <TableHead className="w-[19%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-48 text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Sub Unit Kerja
                 </TableHead>
-                <TableHead className="w-[13%] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-36 text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Metode & Sumber
                 </TableHead>
-                <TableHead className="w-[17%] text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-44 text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
                   Pagu & Kontrak (Rp)
                 </TableHead>
-                <TableHead className="w-[9%] text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-24 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
                   Target B12
                 </TableHead>
-                <TableHead className="w-32 text-center text-xs font-semibold py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-28 text-center text-xs font-semibold py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -787,12 +791,12 @@ export default function PaketPembangunanPage() {
 
         {/* Pagination Bar */}
         {meta.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t text-xs text-muted-foreground bg-muted/20">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 border-t text-xs text-muted-foreground bg-muted/20">
+            <div className="text-center sm:text-left">
               Menampilkan <span className="font-semibold text-foreground">{paketList.length}</span> dari{" "}
               <span className="font-semibold text-foreground">{meta.total}</span> paket pembangunan
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex items-center justify-center sm:justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"

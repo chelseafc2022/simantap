@@ -45,9 +45,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
-  FileCheck2,
-  Clock,
-  Sparkles,
 } from "lucide-react"
 
 export default function RealisasiBulananPage() {
@@ -245,17 +242,23 @@ export default function RealisasiBulananPage() {
     bulan !== currentMonthNo
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 w-full max-w-[1600px] mx-auto">
+    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* Page Title & Breadcrumb Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Realisasi Fisik & Keuangan
-            </h1>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+              REALISASI FISIK & KEUANGAN
+            </span>
+            <Badge variant="outline" className="text-[10px] py-0 border-border">
+              {activeBulanName} {tahunAnggaran}
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Monitoring capaian kurva-S fisik (B01–B12), deviasi target, dan realisasi penyerapan anggaran SP2D/Kas
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Realisasi Fisik &amp; Keuangan
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Monitoring capaian kurva-S fisik (B01–B12), deviasi target, dan penyerapan SP2D anggaran
           </p>
         </div>
 

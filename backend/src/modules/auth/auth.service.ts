@@ -73,14 +73,14 @@ export class AuthService {
   }
 
   /**
-   * Login terpadu: Mendukung akun lokal SIMANTAP dan SSO E-Gov / SIMPEG Konsel
+   * Login terpadu: Mendukung akun lokal MONALISA KONSEL dan SSO E-Gov / SIMPEG Konsel
    * Mengadopsi alur multi-database konsel-setara
    */
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const rawInput = dto.nipOrEmail || dto.identifier || '';
     const cleanInput = rawInput.trim();
 
-    // 1. Coba Autentikasi ke Database Lokal SIMANTAP
+    // 1. Coba Autentikasi ke Database Lokal MONALISA KONSEL
     let targetNip = cleanInput;
     if (!/^\d+$/.test(cleanInput) && !cleanInput.includes('@')) {
       try {
@@ -156,9 +156,9 @@ export class AuthService {
       }
 
       if (!user) {
-        // Akun E-Gov valid, tetapi belum diberikan hak akses role di SIMANTAP oleh Administrator
+        // Akun E-Gov valid, tetapi belum diberikan hak akses role di MONALISA KONSEL oleh Administrator
         throw new ForbiddenException(
-          `Akun E-Gov/SIMPEG atas nama '${egovProfile.namaLengkap}' valid, namun belum diberikan hak akses role pada sistem SIMANTAP. Silakan hubungi Administrator.`,
+          `Akun E-Gov/SIMPEG atas nama '${egovProfile.namaLengkap}' valid, namun belum diberikan hak akses role pada sistem MONALISA KONSEL. Silakan hubungi Administrator.`,
         );
       }
 

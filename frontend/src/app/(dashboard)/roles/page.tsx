@@ -12,11 +12,9 @@ import {
   Users,
   Building2,
   Layers,
-  Eye,
   Edit3,
   RefreshCw,
   Loader2,
-  CheckCircle2,
   UserCheck,
   Globe,
   Briefcase,
@@ -150,20 +148,12 @@ export default function KelompokUserPage() {
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium mb-1">
-            <span>Sistem & Pengguna</span>
-            <span>/</span>
-            <span className="text-primary font-semibold">Kelompok Pengguna</span>
-          </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
             <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
               <ShieldCheck className="h-5 w-5" />
             </span>
             Kelompok Pengguna & Matriks Hak Akses
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
-            Struktur peran (Role-Based Access Control / RBAC), cakupan unit kerja, dan matriks hak akses menu resmi SIMANTAP Kabupaten Konawe Selatan.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -195,9 +185,6 @@ export default function KelompokUserPage() {
             <div className="text-2xl font-black text-foreground">
               {stats.total}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              8 Kelompok Peran Resmi
-            </p>
           </CardContent>
         </Card>
 
@@ -212,9 +199,6 @@ export default function KelompokUserPage() {
             <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
               {stats.pemda}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Akses Unit: Semua OPD
-            </p>
           </CardContent>
         </Card>
 
@@ -229,9 +213,6 @@ export default function KelompokUserPage() {
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
               {stats.opd}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Akses Unit: 1 OPD
-            </p>
           </CardContent>
         </Card>
 
@@ -246,9 +227,6 @@ export default function KelompokUserPage() {
             <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
               {stats.subUnit}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Akses Unit: 1 Sub Unit
-            </p>
           </CardContent>
         </Card>
 
@@ -263,9 +241,6 @@ export default function KelompokUserPage() {
             <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
               {stats.totalUsers}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Pegawai Terhubung
-            </p>
           </CardContent>
         </Card>
       </div>

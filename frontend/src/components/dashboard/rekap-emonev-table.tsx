@@ -1,18 +1,17 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Printer, Search, FileDown, Building2, MapPin, CheckCircle2, AlertCircle } from "lucide-react"
+import { Printer, Search, Building2 } from "lucide-react"
 import { isExcludedOpd } from "@/lib/utils"
 
 interface RekapEmonevTableProps {
   opdMasterList: any[]
   rekapList: any[]
   tahun: number
-  bulan: number
   namaBulanAktif: string
 }
 
@@ -25,7 +24,6 @@ export function RekapEmonevTable({
   opdMasterList,
   rekapList,
   tahun,
-  bulan,
   namaBulanAktif,
 }: RekapEmonevTableProps) {
   const [search, setSearch] = useState("")
@@ -276,7 +274,7 @@ export function RekapEmonevTable({
           <h2>PERSENTASE LAPORAN REALISASI FISIK DAN KEUANGAN (RFK)</h2>
           <h3>PEMERINTAH KABUPATEN KONAWE SELATAN</h3>
           <h3>TAHUN ANGGARAN ${tahun} (PERIODE EVALUASI: ${namaBulanAktif.toUpperCase()})</h3>
-          <div class="badge-tanggal">Dicetak pada: Tanggal ${tanggalCetak}, Pukul ${waktuCetak} WITA melalui SI-MANTAP</div>
+          <div class="badge-tanggal">Dicetak pada: Tanggal ${tanggalCetak}, Pukul ${waktuCetak} WITA melalui MONALISA KONSEL</div>
         </div>
 
         <table>
@@ -322,11 +320,8 @@ export function RekapEmonevTable({
           <div>
             <CardTitle className="text-base font-bold flex items-center gap-2">
               <Building2 className="h-4 w-4 text-emerald-600" />
-              Rekapitulasi Kinerja Seluruh OPD & Kecamatan
+              Rekap Kinerja OPD & Kecamatan
             </CardTitle>
-            <CardDescription className="text-xs mt-0.5">
-              Daftar komprehensif {opdList.length} Organisasi Perangkat Daerah dan {kecamatanList.length} Kecamatan se-Kabupaten Konawe Selatan (TA {tahun} · {namaBulanAktif})
-            </CardDescription>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">

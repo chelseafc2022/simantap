@@ -34,7 +34,7 @@ export class UsersController {
   @Get()
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
-    summary: 'Daftar pengguna aktif SIMANTAP dengan filter role dan OPD',
+    summary: 'Daftar pengguna aktif MONALISA KONSEL dengan filter role dan OPD',
   })
   findAll(@Query() query: QueryUserDto) {
     return this.usersService.findAll(query);
@@ -61,7 +61,7 @@ export class UsersController {
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
     summary:
-      'Direktori seluruh Pegawai ASN E-Gov & SIMPEG terpaginasi beserta status hak akses SIMANTAP',
+      'Direktori seluruh Pegawai ASN E-Gov & SIMPEG terpaginasi beserta status hak akses MONALISA KONSEL',
   })
   getPegawaiDirectory(@Query() query: QueryPegawaiDirectoryDto) {
     return this.usersService.getPegawaiDirectory(query);
@@ -85,7 +85,7 @@ export class UsersController {
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
     summary:
-      'Mencabut hak akses sistem SIMANTAP untuk pegawai (Non-aktifkan status, role tetap tersimpan)',
+      'Mencabut hak akses sistem MONALISA KONSEL untuk pegawai (Non-aktifkan status, role tetap tersimpan)',
   })
   revokeRole(@Body() dto: RevokeRoleDto, @CurrentUser('id') adminId: string) {
     return this.usersService.revokeRole(dto.nip, adminId);
@@ -96,7 +96,7 @@ export class UsersController {
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({
     summary:
-      'Mengembalikan role ke default (Belum Diberi Akses) dan membersihkan data dari SIMANTAP',
+      'Mengembalikan role ke default (Belum Diberi Akses) dan membersihkan data dari MONALISA KONSEL',
   })
   resetToDefault(
     @Body() dto: RevokeRoleDto,
@@ -131,7 +131,7 @@ export class UsersController {
 
   @Get('roles/master')
   @Roles(RoleEnum.ADMINISTRATOR)
-  @ApiOperation({ summary: 'Daftar master role resmi SIMANTAP dari database' })
+  @ApiOperation({ summary: 'Daftar master role resmi MONALISA KONSEL dari database' })
   getMasterRoles() {
     return this.usersService.getMasterRoles();
   }

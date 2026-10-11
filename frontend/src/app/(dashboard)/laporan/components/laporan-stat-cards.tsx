@@ -8,8 +8,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   PieChart,
-  ShieldAlert,
-  Clock,
 } from "lucide-react"
 
 interface LaporanSummary {
@@ -86,14 +84,13 @@ export function LaporanStatCards({ summary, isLoading = false }: LaporanStatCard
                 formatRupiah(s.totalRealisasiKeuangan)
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+            <div className="mt-1.5">
               <Badge
                 variant="secondary"
                 className="font-mono text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
               >
                 {(s.persenSerapanKeuangan || 0).toFixed(1)}% Serapan
               </Badge>
-              <span className="truncate">dari total kontrak</span>
             </div>
           </div>
         </CardContent>
@@ -118,12 +115,10 @@ export function LaporanStatCards({ summary, isLoading = false }: LaporanStatCard
                 `${(s.avgRealisasiFisik || 0).toFixed(1)}%`
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+            <div className="mt-1.5 text-xs text-muted-foreground">
               <span className="text-[11px]">
                 Target: <strong className="text-foreground font-mono">{(s.avgTargetFisik || 0).toFixed(1)}%</strong>
               </span>
-              <span className="text-muted-foreground/60">•</span>
-              <span className="truncate">{s.totalPaket} total paket</span>
             </div>
           </div>
         </CardContent>
@@ -179,10 +174,10 @@ export function LaporanStatCards({ summary, isLoading = false }: LaporanStatCard
             <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
               <span className="truncate">
                 {isDeviasiPositif
-                  ? "Kinerja fisik melampaui target"
+                  ? "Di atas target"
                   : deviasi >= -10
-                  ? "Keterlambatan ringan (< 10%)"
-                  : "Kritis butuh intervensi (> 10%)"}
+                  ? "Terlambat < 10%"
+                  : "Kritis > 10%"}
               </span>
             </div>
           </div>

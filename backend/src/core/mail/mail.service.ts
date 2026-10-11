@@ -25,7 +25,7 @@ export class MailService {
       await this.mailerService.sendMail({
         to: options.to,
         from: this.configService.get<string>('mail.from'),
-        subject: `[SIMANTAP KONSEL] ${options.subject}`,
+        subject: `[MONALISA KONSEL] ${options.subject}`,
         template: options.template,
         context: options.context,
         html: options.html,
@@ -53,7 +53,7 @@ export class MailService {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 8px;">
         <h2 style="color: #dc2626;">PERINGATAN KONTRAK KRITIS (SCM)</h2>
         <p>Yth. <strong>${params.namaPejabat}</strong>,</p>
-        <p>Sistem SIMANTAP mendeteksi deviasi fisik berada di bawah ambang batas toleransi:</p>
+        <p>Sistem MONALISA KONSEL mendeteksi deviasi fisik berada di bawah ambang batas toleransi:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
           <tr>
             <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: bold;">OPD</td>

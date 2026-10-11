@@ -7,11 +7,11 @@ import { useDebounce } from "use-debounce"
 import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
 import { StatCards } from "./components/stat-cards"
-import { SetRoleDialog, SIMANTAP_ROLES, TargetPegawai } from "./components/set-role-dialog"
+import { MONALISA_ROLES, SetRoleDialog, TargetPegawai } from "./components/set-role-dialog"
 import { RevokeRoleDialog } from "./components/revoke-role-dialog"
 import { SearchableCombobox } from "./components/searchable-combobox"
 import { isExcludedOpd } from "@/lib/utils"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -62,7 +62,7 @@ export default function UsersManagementPage() {
   const isAdministrator = userRoles.includes("ADMINISTRATOR")
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<string>("simantap_users")
+  const [activeTab, setActiveTab] = useState<string>("monalisa_users")
 
   // Search & Filter state
   const [search, setSearch] = useState("")
@@ -81,7 +81,7 @@ export default function UsersManagementPage() {
   const [revokeRoleOpen, setRevokeRoleOpen] = useState(false)
   const [targetPegawai, setTargetPegawai] = useState<TargetPegawai | null>(null)
 
-  // 1. Fetch SIMANTAP local users
+  // 1. Fetch MONALISA KONSEL local users
   const {
     data: usersResponse,
     isLoading: isLoadingUsers,
@@ -189,7 +189,7 @@ export default function UsersManagementPage() {
   }, [unitKerjaList])
 
   const getRoleBadge = (roleName: string) => {
-    const roleConfig = SIMANTAP_ROLES.find((r) => r.value === roleName)
+    const roleConfig = MONALISA_ROLES.find((r) => r.value === roleName)
     if (!roleConfig) {
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{roleName}</Badge>
     }
@@ -251,16 +251,12 @@ export default function UsersManagementPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Manajemen Akun & Hak Akses
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Pengelolaan pengguna dan penetapan 7 Peran RBAC SIMANTAP terintegrasi server E-Gov & SIMPEG Konawe Selatan.
-          </p>
         </div>
       </div>
 
       {/* Top Stat Cards */}
       <StatCards
         totalPegawai={directoryMeta.total}
-        totalSimantapUsers={usersMeta.total}
         totalActiveUsers={usersMeta.total}
         totalOpd={38}
         isLoading={isLoadingUsers && isLoadingDirectory}
@@ -272,18 +268,16 @@ export default function UsersManagementPage() {
         {/* TabsList scrollable di mobile */}
         <div className="overflow-x-auto pb-0.5 -mx-1 px-1">
           <TabsList className="bg-muted/60 p-1 flex w-max min-w-full sm:w-auto sm:min-w-0">
-            <TabsTrigger value="simantap_users" className="gap-1.5 text-xs whitespace-nowrap">
+            <TabsTrigger value="monalisa_users" className="gap-1.5 text-xs whitespace-nowrap">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span className="hidden sm:inline">Pengguna Aktif SIMANTAP</span>
-              <span className="sm:hidden">Pengguna</span>
+              <span>Pengguna Aktif</span>
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                 {usersMeta.total}
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="egov_directory" className="gap-1.5 text-xs whitespace-nowrap">
               <Database className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-              <span className="hidden sm:inline">Direktori ASN E-Gov & SIMPEG</span>
-              <span className="sm:hidden">Direktori ASN</span>
+              <span>Direktori ASN</span>
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                 {directoryMeta.total}
               </Badge>
@@ -295,7 +289,7 @@ export default function UsersManagementPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              if (activeTab === "simantap_users") refetchUsers()
+              if (activeTab === "monalisa_users") refetchUsers()
               else refetchDirectory()
             }}
             disabled={isFetchingUsers || isFetchingDirectory}
@@ -307,19 +301,16 @@ export default function UsersManagementPage() {
         </div>
 
         {/* ========================================================= */}
-        {/* TAB 1: PENGGUNA AKTIF SIMANTAP                            */}
+        {/* TAB 1: PENGGUNA AKTIF MONALISA KONSEL                     */}
         {/* ========================================================= */}
-        <TabsContent value="simantap_users" className="space-y-4 m-0">
+        <TabsContent value="monalisa_users" className="space-y-4 m-0">
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="p-4 sm:p-5 border-b border-border/50 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base font-semibold">
-                    Daftar Akun Pengguna SIMANTAP
+                    Daftar Pengguna
                   </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Akun yang telah memiliki penetapan hak akses role di Kabupaten Konawe Selatan
-                  </CardDescription>
                 </div>
 
                 {(roleFilter !== "ALL" || statusFilter !== "ALL" || selectedInstansi !== "all" || selectedUnitKerja !== "all" || search) && (
@@ -412,7 +403,7 @@ export default function UsersManagementPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ALL" className="text-xs">Semua Role</SelectItem>
-                        {SIMANTAP_ROLES.map((r) => (
+                        {MONALISA_ROLES.map((r) => (
                           <SelectItem key={r.value} value={r.value} className="text-xs">
                             {r.label}
                           </SelectItem>
@@ -500,9 +491,9 @@ export default function UsersManagementPage() {
                         </div>
                       </div>
 
-                      {/* Peran SIMANTAP */}
+                      {/* Peran MONALISA KONSEL */}
                       <div className="space-y-1">
-                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Peran SIMANTAP:</span>
+                        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Peran MONALISA KONSEL:</span>
                         <div>
                           {(user.roles && user.roles.length > 0) || user.role ? (
                             <div className="flex flex-wrap gap-1 items-center">
@@ -581,7 +572,7 @@ export default function UsersManagementPage() {
                     <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
                       <TableHead className="text-xs font-semibold min-w-[170px] border-r border-b border-gray-200 dark:border-neutral-700">Pegawai ASN</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[210px] border-r border-b border-gray-200 dark:border-neutral-700">Jabatan & Sub Unit</TableHead>
-                      <TableHead className="text-xs font-semibold min-w-[150px] border-r border-b border-gray-200 dark:border-neutral-700">Peran (Role SIMANTAP)</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[150px] border-r border-b border-gray-200 dark:border-neutral-700">Peran (Role MONALISA KONSEL)</TableHead>
                       <TableHead className="text-xs font-semibold text-center min-w-[85px] border-r border-b border-gray-200 dark:border-neutral-700">Status</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[120px] border-r border-b border-gray-200 dark:border-neutral-700">Terakhir Login</TableHead>
                       <TableHead className="text-xs font-semibold text-right min-w-[160px] pr-4 border-b border-gray-200 dark:border-neutral-700">Aksi</TableHead>
@@ -766,9 +757,6 @@ export default function UsersManagementPage() {
                     <Database className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     Pegawai ASN
                   </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                    Pencarian data seluruh pegawai ASN Pemerintah Kabupaten Konawe Selatan untuk penugasan hak akses
-                  </CardDescription>
                 </div>
 
                 {/* Tombol Reset Filter jika aktif */}
@@ -940,7 +928,7 @@ export default function UsersManagementPage() {
                           className="w-full h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium justify-center"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          {item.hasSimantapAccess ? "Ubah Peran / Akses SIMANTAP" : "Tetapkan Akses SIMANTAP"}
+                          {item.hasSimantapAccess ? "Ubah Peran / Akses MONALISA KONSEL" : "Tetapkan Akses MONALISA KONSEL"}
                         </Button>
                       </div>
                     </div>
@@ -956,7 +944,7 @@ export default function UsersManagementPage() {
                       <TableHead className="text-xs font-semibold min-w-[180px] border-r border-b border-gray-200 dark:border-neutral-700">Pegawai ASN</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[210px] border-r border-b border-gray-200 dark:border-neutral-700">Jabatan ASN</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[210px] border-r border-b border-gray-200 dark:border-neutral-700">Sub Unit Kerja</TableHead>
-                      <TableHead className="text-xs font-semibold min-w-[130px] border-r border-b border-gray-200 dark:border-neutral-700">Hak Akses SIMANTAP</TableHead>
+                      <TableHead className="text-xs font-semibold min-w-[130px] border-r border-b border-gray-200 dark:border-neutral-700">Hak Akses MONALISA KONSEL</TableHead>
                       <TableHead className="text-xs font-semibold text-right min-w-[140px] pr-4 border-b border-gray-200 dark:border-neutral-700">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>

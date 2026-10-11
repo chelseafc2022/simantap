@@ -194,17 +194,17 @@ export default function LoginPage() {
           <div className="login-welcome">
             <div className="login-welcome-logo">
               <Image
-                src="/logo_simantap_header.png"
-                alt="SI-MANTAP Kabupaten Konawe Selatan"
-                width={240}
-                height={268}
+                src="/monalisa_full.png"
+                alt="Logo MONALISA KONSEL"
+                width={700}
+                height={639}
                 quality={100}
                 priority
                 style={{ objectFit: "contain", height: "auto", width: "100%", maxWidth: "230px" }}
               />
             </div>
             <p className="login-welcome-subtitle">
-              Sistem Informasi Manajemen Pengendalian dan Evaluasi Pembangunan Daerah
+              Monitoring Realisasi Anggaran dan Fisik Data Pembangunan Konawe Selatan
             </p>
           </div>
 
@@ -388,14 +388,14 @@ export default function LoginPage() {
 
         <div className="login-mobile-footer-text">
           <div>© 2026 Pemerintah Kabupaten Konawe Selatan</div>
-          <div className="text-muted">SI-MANTAP • Satu Data untuk Pembangunan Daerah</div>
+          <div className="text-muted">MONALISA KONSEL • Satu Data untuk Pembangunan Daerah</div>
         </div>
       </div>
 
       {/* ========== DESKTOP FIXED FOOTER ========== */}
       <div className="login-footer">
         <span className="login-footer-left">© 2026 Pemerintah Kabupaten Konawe Selatan</span>
-        <span className="login-footer-right">SI-MANTAP | Satu Data untuk Pembangunan Daerah yang Lebih Baik</span>
+        <span className="login-footer-right">MONALISA KONSEL | Satu Data untuk Pembangunan Daerah yang Lebih Baik</span>
       </div>
 
       <style jsx>{`

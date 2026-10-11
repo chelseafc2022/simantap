@@ -10,10 +10,8 @@ import {
   Briefcase,
   TrendingUp,
   FileBarChart,
-  Sparkles,
   ShieldCheck,
 } from "lucide-react"
-import { SidebarNotification } from "@/components/sidebar-notification"
 
 import { NavMain, NavMainItem } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -44,7 +42,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: [
         {
           title: "Dashboard",
-          subtitle: "Ringkasan Eksekutif Daerah",
           url: "/dashboard",
           icon: LayoutDashboard,
           isActive: pathname === "/dashboard",
@@ -65,7 +62,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: [
         {
           title: "Paket Pembangunan",
-          subtitle: "Pagu, RUP & Target Fisik",
           url: "/pembangunan",
           icon: Briefcase,
           isActive: pathname.startsWith("/pembangunan"),
@@ -80,8 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           },
         },
         {
-          title: "Realisasi Bulanan",
-          subtitle: "Capaian Fisik & Keuangan",
+          title: "Realisasi Fisik dan Keuangan",
           url: "/realisasi",
           icon: TrendingUp,
           isActive: pathname.startsWith("/realisasi"),
@@ -97,7 +92,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
         {
           title: "Laporan & Evaluasi",
-          subtitle: "Deviasi & Rekap RFK Resmi",
           url: "/laporan",
           icon: FileBarChart,
           isActive: pathname.startsWith("/laporan"),
@@ -120,7 +114,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             items: [
               {
                 title: "Manajemen User",
-                subtitle: "Role RBAC & E-Gov SIMPEG",
                 url: "/users",
                 icon: Users,
                 isActive: pathname.startsWith("/users"),
@@ -136,7 +129,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               },
               {
                 title: "Kelompok Pengguna",
-                subtitle: "Matriks Hak Akses & Menu",
                 url: "/roles",
                 icon: ShieldCheck,
                 isActive: pathname.startsWith("/roles"),
@@ -166,48 +158,47 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar {...props} className="border-r border-sidebar-border/80">
-      {/* ========== SIDEBAR HEADER WITH SIMANTAP LOGO ========== */}
-      <SidebarHeader className="border-b border-sidebar-border/60 p-3 bg-gradient-to-b from-sidebar to-sidebar/95">
+      <SidebarHeader className="border-b border-sidebar-border/60 p-2 bg-gradient-to-b from-sidebar to-sidebar/95">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               asChild
-              className="hover:bg-sidebar-accent/60 transition-all rounded-xl p-2 group h-auto cursor-pointer"
+              className="group h-auto min-h-[108px] cursor-pointer rounded-xl p-1 transition-all hover:bg-sidebar-accent/40 group-data-[collapsible=icon]:min-h-8 group-data-[collapsible=icon]:p-0"
             >
-              <Link href="/dashboard" className="flex items-center gap-3 w-full">
-                {/* Official SIMANTAP Logo Container */}
-                <div className="relative flex aspect-square size-10 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-zinc-900 shadow-md ring-1 ring-black/5 dark:ring-white/10 p-1 group-hover:scale-105 group-hover:shadow-lg transition-all group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0.5">
-                  <Image
-                    src="/simantap_logo.png"
-                    alt="Logo SI-MANTAP"
-                    width={38}
-                    height={38}
-                    style={{ width: "auto", height: "auto" }}
-                    priority
-                    className="object-contain drop-shadow-xs"
-                  />
+             <Link href="/dashboard" className="flex flex-col w-full items-center justify-center gap-1.5 p-1">
+                <Image
+                  src="/monalisa_sidebar.png"
+                  alt="MONALISA KONSEL"
+                  width={768}
+                  height={384}
+                  priority
+                  className="h-auto w-full max-w-[210px] object-contain drop-shadow-sm transition-transform group-hover:scale-[1.02] group-data-[collapsible=icon]:hidden"
+                />
+                {/* Subtitle resmi dengan teks HTML tajam & mudah dibaca */}
+                <div className="text-center group-data-[collapsible=icon]:hidden px-1">
+                  <p className="text-[9.5px] font-bold tracking-tight text-foreground/90 uppercase leading-snug">
+                    Monitoring Realisasi Anggaran &amp; Fisik
+                  </p>
+                  <p className="text-[8.5px] font-semibold text-muted-foreground tracking-tight -mt-0.5">
+                    Data Pembangunan Konawe Selatan
+                  </p>
                 </div>
 
-                {/* Brand Typography */}
-                <div className="grid flex-1 text-left leading-tight gap-0.5 overflow-hidden group-data-[collapsible=icon]:hidden">
-                  <span className="font-black tracking-tight text-lg bg-gradient-to-r from-blue-700 via-emerald-600 to-teal-500 dark:from-blue-400 dark:via-emerald-400 dark:to-teal-300 bg-clip-text text-transparent whitespace-nowrap">
-                    SI-MANTAP
-                  </span>
-                  <span className="truncate text-[11px] font-semibold text-foreground/85">
-                    Kab. Konawe Selatan
-                  </span>
-                  <span className="truncate text-[9.5px] text-muted-foreground font-medium -mt-0.5">
-                    Bag. Administrasi Pembangunan
-                  </span>
+                <div className="hidden size-8 items-center justify-center rounded-lg bg-white p-0.5 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900 dark:ring-white/10 group-data-[collapsible=icon]:flex">
+                  <Image
+                    src="/monalisa_m.png"
+                    alt="Logo MONALISA KONSEL"
+                    width={30}
+                    height={27}
+                    priority
+                    className="h-auto w-full object-contain"
+                  />
                 </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-
-        {/* Tricolor Accent Line from Login Motto (Navy Blue - Emerald Green - Golden Amber) */}
-        <div className="mt-2.5 h-[2.5px] w-full rounded-full bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-400 opacity-90 shadow-xs" />
       </SidebarHeader>
 
       {/* ========== SIDEBAR NAVIGATION ITEMS ========== */}
@@ -215,38 +206,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {navGroups.map((group) => (
           <NavMain key={group.label} label={group.label} items={group.items} />
         ))}
-
-        {/* RFK Reminder Notification */}
-        <SidebarNotification />
-
-        {/* Mini Governmental Motto Card (Inspired by Login Face) */}
-        <div className="mx-2 mt-auto mb-2 p-3 rounded-xl bg-gradient-to-br from-blue-950/5 via-emerald-950/5 to-amber-950/10 dark:from-blue-950/40 dark:via-emerald-950/30 dark:to-amber-950/20 border border-emerald-500/20 shadow-xs overflow-hidden relative group/motto group-data-[collapsible=icon]:hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-blue-600 via-emerald-500 to-amber-400" />
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="relative w-4 h-5 shrink-0">
-              <Image
-                src="/logo_konsel.png"
-                alt="Logo Konawe Selatan"
-                width={16}
-                height={20}
-                style={{ width: "auto", height: "auto" }}
-                className="object-contain"
-              />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-foreground">
-                KONAWE SELATAN
-              </span>
-              <span className="text-[8px] text-muted-foreground font-medium -mt-0.5">
-                Satu Data Pembangunan
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between text-[8px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider pt-1.5 border-t border-border/40">
-            <span>Melayani • Mengawal • Membangun</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1" />
-          </div>
-        </div>
       </SidebarContent>
 
       {/* ========== SIDEBAR FOOTER (USER PROFILE) ========== */}
@@ -256,4 +215,3 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     </Sidebar>
   )
 }
-

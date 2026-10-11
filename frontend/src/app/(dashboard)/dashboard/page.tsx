@@ -360,29 +360,7 @@ export default function DashboardPage() {
       {/* ─── 1. HEADER RINGKAS & LANGSUNG KE INTI (COMPACT EXECUTIVE HEADER) ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-              SIMANTAP EXECUTIVE
-            </span>
-            <Badge variant="outline" className="text-[10px] py-0 border-border">
-              Konawe Selatan · TA {tahun}
-            </Badge>
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={`h-1.5 w-1.5 rounded-full ${healthErr ? "bg-rose-500" : "bg-emerald-500 animate-pulse"}`} />
-              {healthErr ? "Offline" : "Sistem Aktif"}
-            </span>
-
-            {/* User role & unit badge */}
-            {(() => {
-              const unitInfo = getUserUnitLabel(user)
-              if (unitInfo.short === "-") return null
-              return (
-                <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                  · <Building2 className="h-3 w-3 inline text-primary" /> {unitInfo.short}
-                </span>
-              )
-            })()}
-          </div>
+          
 
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Monitoring Realisasi Fisik & Keuangan (RFK)
@@ -535,12 +513,9 @@ export default function DashboardPage() {
       {/* ─── 3. GRAFIK DIAGRAM BATANG & DIAGRAM PIE (RECHARTS) ─── */}
       <DashboardCharts
         rekapList={rekapList}
-        paketList={paketList}
         macroStats={macroStats}
         executiveStatus={executiveStatus}
-        bulan={bulan}
         tahun={tahun}
-        namaBulanAktif={namaBulanAktif}
       />
 
       {/* ─── 4. TABS LAPORAN KINERJA DAERAH ─── */}
@@ -572,7 +547,6 @@ export default function DashboardPage() {
             opdMasterList={opdMasterList}
             rekapList={rekapList}
             tahun={tahun}
-            bulan={bulan}
             namaBulanAktif={namaBulanAktif}
           />
         </TabsContent>
@@ -803,11 +777,8 @@ export default function DashboardPage() {
         <TabsContent value="progres-pengisian" className="mt-0">
           <OpdSubunitProgressTable
             paketList={paketList}
-            rekapList={rekapList}
-            opdMasterList={opdMasterList}
             bulan={bulan}
             tahun={tahun}
-            namaBulanAktif={namaBulanAktif}
           />
         </TabsContent>
       </Tabs>

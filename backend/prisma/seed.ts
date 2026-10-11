@@ -4,12 +4,12 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Memulai proses seeding data master SIMANTAP...');
+  console.log('🌱 Memulai proses seeding data master MONALISA KONSEL...');
 
   // 1. Default Password: Password123!
   const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
 
-  // 2. Master Roles SIMANTAP
+  // 2. Master Roles MONALISA KONSEL
   const MASTER_ROLES = [
     {
       kode: RoleEnum.ADMINISTRATOR,
@@ -74,7 +74,7 @@ async function main() {
     });
     roleMap.set(r.kode, roleRecord.id);
   }
-  console.log('✅ 8 Master roles SIMANTAP berhasil disiapkan');
+  console.log('✅ 8 Master roles MONALISA KONSEL berhasil disiapkan');
 
   // 3. Seed Administrator Utama Resmi (Riswan M. Rizal dari E-Gov / SIMPEG)
   const adminUser = await prisma.user.upsert({

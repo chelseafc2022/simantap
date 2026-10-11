@@ -9,10 +9,10 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   icons: {
     icon: [
-      { url: '/simantap_logo.png', sizes: 'any', type: 'image/png' },
+      { url: '/monalisa_m.png', sizes: 'any', type: 'image/png' },
       { url: '/favicon.ico' },
     ],
-    shortcut: '/simantap_logo.png',
+    shortcut: '/monalisa_m.png',
     apple: '/apple-icon.png',
   },
 };
