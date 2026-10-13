@@ -20,7 +20,7 @@ async function bootstrap() {
   app.useStaticAssets(uploadDir, { prefix: '/uploads' });
 
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('app.port', 4000);
+  const port = configService.get<number>('app.port', 5026);
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
   const clientUrl = configService.get<string>(
     'app.clientUrl',
