@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Fragment } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "@/lib/api-client"
 import {
@@ -467,7 +467,7 @@ export function RoleMatrixDialog({
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {editedMenus.map((menu) => (
-                        <>
+                        <Fragment key={menu.id}>
                           {/* Induk Menu */}
                           <tr
                             key={menu.id}
@@ -581,7 +581,7 @@ export function RoleMatrixDialog({
                                 </td>
                               </tr>
                             ))}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

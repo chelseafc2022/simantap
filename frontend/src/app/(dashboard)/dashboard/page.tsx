@@ -228,44 +228,60 @@ export default function DashboardPage() {
 
   // ── Serapan Keuangan Riil & Statistik Makro ──
   const macroStats = useMemo(() => {
-    let nilaiKontrak = 0
-    let sumFisik = 0
-    let sumKeuanganFromPaket = 0
+    let totalPagu = 0
+    let totalKontrak = 0
+    let nominalRealisasiKeuangan = 0
+    let totalPaket = 0
+    let sumWeightedFisik = 0
+    let totalPaketWithFisik = 0
     let selesai = 0
     let berjalan = 0
     let belumMulai = 0
 
-    for (const p of paketList) {
-      nilaiKontrak += Number(p.nilaiKontrak) || 0
-      const f = Number(p.realisasiFisik) || 0
-      const k = Number(p.realisasiKeuangan) || 0
-      sumFisik += f
-      sumKeuanganFromPaket += k
-      if (f >= 100) selesai++
-      else if (f > 0) berjalan++
-      else belumMulai++
+    if (rekapList.length > 0) {
+      for (const o of rekapList) {
+        const pkts = Number(o.totalPaket) || 0
+        totalPaket += pkts
+        totalPagu += Number(o.totalPagu) || 0
+        totalKontrak += Number(o.totalKontrak) || 0
+        nominalRealisasiKeuangan += Number(o.totalRealisasiKeuangan) || 0
+
+        const avgF = Number(o.avgRealisasiFisik) || 0
+        sumWeightedFisik += avgF * pkts
+        totalPaketWithFisik += pkts
+
+        selesai += Number(o.rekapStatus?.aman) || 0
+        berjalan += (Number(o.rekapStatus?.perhatian) || 0) + (Number(o.rekapStatus?.kritis) || 0)
+        belumMulai += Number(o.rekapStatus?.belumMulai) || 0
+      }
+    } else if (paketList.length > 0) {
+      for (const p of paketList) {
+        totalPaket++
+        totalPagu += Number(p.nilaiPagu) || Number(p.nilaiKontrak) || 0
+        totalKontrak += Number(p.nilaiKontrak) || 0
+        const k = Number(p.realisasiKeuangan) || 0
+        nominalRealisasiKeuangan += k
+
+        const exact = p.realisasiBulanan?.find((r: any) => r.bulan === bulan)
+        const f = exact ? Number(exact.realisasiFisik) : Number(p.realisasiFisik) || 0
+        sumWeightedFisik += f
+        totalPaketWithFisik++
+        if (f >= 100) selesai++
+        else if (f > 0) berjalan++
+        else belumMulai++
+      }
     }
 
-    const n = paketList.length
-    const avgFisik = n > 0 ? sumFisik / n : 0
-
-    const nominalRealisasiKeuangan =
-      rekapList.length > 0
-        ? rekapList.reduce((acc, o) => acc + (Number(o.totalRealisasiKeuangan) || 0), 0)
-        : sumKeuanganFromPaket
-
+    const basisAnggaran = totalPagu > 0 ? totalPagu : totalKontrak
+    const avgFisik = totalPaketWithFisik > 0 ? sumWeightedFisik / totalPaketWithFisik : 0
     const persenSerapanKeuangan =
-      nilaiKontrak > 0
-        ? (nominalRealisasiKeuangan / nilaiKontrak) * 100
-        : n > 0
-        ? sumKeuanganFromPaket / n
-        : 0
-
-    const sisaAnggaran = Math.max(0, nilaiKontrak - nominalRealisasiKeuangan)
+      basisAnggaran > 0 ? (nominalRealisasiKeuangan / basisAnggaran) * 100 : 0
+    const sisaAnggaran = Math.max(0, basisAnggaran - nominalRealisasiKeuangan)
 
     return {
-      totalPaket: n,
-      nilaiKontrak,
+      totalPaket,
+      totalPagu: basisAnggaran,
+      nilaiKontrak: totalKontrak,
       nominalRealisasiKeuangan,
       persenSerapanKeuangan,
       sisaAnggaran,
@@ -274,7 +290,7 @@ export default function DashboardPage() {
       berjalan,
       belumMulai,
     }
-  }, [paketList, rekapList])
+  }, [rekapList, paketList, bulan])
 
   // ── Status Kesehatan Proyek se-Kabupaten ──
   const executiveStatus = useMemo(() => {
@@ -445,12 +461,12 @@ export default function DashboardPage() {
 
       {/* ─── 2. CORE METRICS CARDS (PAGU, REALISASI KEUANGAN, TARGET FISIK, CAPAIAN) ─── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* 1. Nilai Kontrak / Pagu Terkontrak */}
+        {/* 1. Nilai Pagu Anggaran */}
         <StatCard
           icon={Wallet}
           label="Pagu Anggaran"
-          value={paketLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(macroStats.nilaiKontrak)}
-          sub="Total pagu terkontrak"
+          value={rekapLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(macroStats.totalPagu)}
+          sub={macroStats.nilaiKontrak > 0 ? `Kontrak: ${formatCurrency(macroStats.nilaiKontrak)}` : "Total pagu daerah"}
           iconClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
         />
 
@@ -490,7 +506,7 @@ export default function DashboardPage() {
         <StatCard
           icon={HardHat}
           label="Realisasi Fisik"
-          value={paketLoading ? <Skeleton className="h-6 w-14" /> : `${macroStats.avgFisik.toFixed(1)}%`}
+          value={rekapLoading ? <Skeleton className="h-6 w-14" /> : `${macroStats.avgFisik.toFixed(1)}%`}
           sub={
             <span className={executiveStatus.deviasiDaerah >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
               Deviasi: {executiveStatus.deviasiDaerah >= 0 ? "+" : ""}{executiveStatus.deviasiDaerah.toFixed(1)}%
@@ -504,8 +520,8 @@ export default function DashboardPage() {
         <StatCard
           icon={Layers}
           label="Total Paket"
-          value={paketLoading ? <Skeleton className="h-6 w-12" /> : macroStats.totalPaket.toLocaleString("id-ID")}
-          sub={`${macroStats.selesai} Selesai · ${macroStats.berjalan} Berjalan`}
+          value={rekapLoading ? <Skeleton className="h-6 w-12" /> : macroStats.totalPaket.toLocaleString("id-ID")}
+          sub={`${macroStats.selesai} Aman · ${macroStats.berjalan} Perhatian/Kritis`}
           iconClass="bg-slate-100 dark:bg-slate-800 text-slate-500"
         />
       </div>

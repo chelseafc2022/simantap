@@ -285,7 +285,7 @@ export function RekapEmonevTable({
               <th rowspan="2" width="13%">ANGGARAN / PAGU (RP)</th>
               <th colspan="2" class="bg-real">REALISASI KEUANGAN</th>
               <th rowspan="2" width="9%" class="bg-real">REALISASI FISIK (%)</th>
-              <th rowspan="2" width="13%" class="bg-komb">KOMBINASI KEUANGAN & FISIK (%)</th>
+              <th rowspan="2" width="13%" class="bg-komb">REALISASI KEUANGAN & FISIK (%)</th>
             </tr>
             <tr>
               <th width="14%" class="bg-real">KEUANGAN (RP)</th>
