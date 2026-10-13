@@ -1,8 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Mode Static Export untuk web server HestiaCP (public_html)
+  output: "export",
+  trailingSlash: true,
+  images: {
+    unoptimized: true,
+  },
   typescript: {
-    // Validasi TypeScript tetap diaktifkan saat build
     ignoreBuildErrors: false,
   },
 };
