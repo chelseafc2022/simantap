@@ -57,7 +57,7 @@ export function NavMain({
 
   return (
     <SidebarGroup className="py-1.5">
-      <SidebarGroupLabel className="text-[10px] font-bold tracking-wider uppercase text-muted-foreground/75 px-3 py-1 select-none">
+      <SidebarGroupLabel className="text-[10px] font-bold tracking-wider uppercase text-sidebar-foreground/60 px-3 py-1 select-none">
         <span className="truncate">{label}</span>
       </SidebarGroupLabel>
       <SidebarMenu className="gap-1 mt-0.5">
@@ -113,19 +113,19 @@ export function NavMain({
                             className={cn(
                               "text-xs truncate transition-colors",
                               isItemActive
-                                ? "font-bold text-foreground"
-                                : "font-medium text-sidebar-foreground group-hover/menu-button:text-foreground"
+                                ? "font-bold text-sidebar-foreground"
+                                : "font-medium text-sidebar-foreground/80 group-hover/menu-button:text-sidebar-foreground"
                             )}
                           >
                             {item.title}
                           </span>
                           {item.subtitle && (
-                            <span className="text-[10px] text-muted-foreground/75 truncate">
+                            <span className="text-[10px] text-sidebar-foreground/60 truncate">
                               {item.subtitle}
                             </span>
                           )}
                         </div>
-                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden size-3.5 text-muted-foreground" />
+                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden size-3.5 text-sidebar-foreground/50 group-hover/menu-button:text-sidebar-foreground/80" />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
@@ -134,7 +134,7 @@ export function NavMain({
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                               asChild
-                              className="cursor-pointer rounded-lg text-xs"
+                              className="cursor-pointer rounded-lg text-xs text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                               isActive={pathname === subItem.url}
                             >
                               <Link
@@ -194,20 +194,20 @@ export function NavMain({
                             className={cn(
                               "text-xs truncate transition-colors",
                               isItemActive
-                                ? "font-bold text-foreground"
-                                : "font-medium text-sidebar-foreground group-hover/menu-button:text-foreground"
+                                ? "font-bold text-sidebar-foreground"
+                                : "font-medium text-sidebar-foreground/80 group-hover/menu-button:text-sidebar-foreground"
                             )}
                           >
                             {item.title}
                           </span>
                           {item.badge && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
                               {item.badge}
                             </span>
                           )}
                         </div>
                         {item.subtitle && (
-                          <span className="text-[10px] text-muted-foreground/75 truncate mt-0.5">
+                          <span className="text-[10px] text-sidebar-foreground/60 truncate mt-0.5">
                             {item.subtitle}
                           </span>
                         )}

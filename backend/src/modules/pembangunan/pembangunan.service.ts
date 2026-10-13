@@ -759,15 +759,35 @@ export class PembangunanService {
       const nilaiPagu = Number(paket.nilaiPagu) || 0;
       const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
       const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-      const realisasiFisik = realisasiItem
+      let realisasiFisik = realisasiItem
         ? Number(realisasiItem.realisasiFisik)
         : 0;
-      const realisasiKeuangan = realisasiItem
+      let realisasiKeuangan = realisasiItem
         ? Number(realisasiItem.realisasiKeuangan)
         : 0;
-      const catatanOperator = realisasiItem?.catatanOperator || null;
-      const inputBy = realisasiItem?.inputBy || null;
-      const updatedAt = realisasiItem?.updatedAt || null;
+      let catatanOperator = realisasiItem?.catatanOperator || null;
+      let inputBy = realisasiItem?.inputBy || null;
+      let updatedAt = realisasiItem?.updatedAt || null;
+
+      // Auto carry-forward HANYA AKTIF jika bulan sebelumnya sudah tuntas 100%
+      if (!realisasiItem || (realisasiFisik === 0 && realisasiKeuangan === 0)) {
+        const past100 = paket.realisasiBulanan
+          .filter(
+            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) === 100,
+          )
+          .sort((a, b) => b.bulan - a.bulan);
+        if (past100.length > 0) {
+          const latest100 = past100[0];
+          realisasiFisik = 100;
+          if (realisasiKeuangan === 0) {
+            realisasiKeuangan = Number(latest100.realisasiKeuangan) || 0;
+          }
+          if (!catatanOperator)
+            catatanOperator = latest100.catatanOperator || null;
+          if (!inputBy) inputBy = latest100.inputBy || null;
+          if (!updatedAt) updatedAt = latest100.updatedAt || null;
+        }
+      }
 
       const deviasiFisik = parseFloat(
         (realisasiFisik - targetFisik).toFixed(2),
@@ -936,6 +956,9 @@ export class PembangunanService {
     const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
     const nilaiPagu = Number(paket.nilaiPagu) || 0;
 
+    let cumulativeFisik = 0;
+    let cumulativeKeuangan = 0;
+
     const timeline = Array.from({ length: 12 }, (_, idx) => {
       const bulan = idx + 1;
       const targetItem = paket.targetBulanan.find((t) => t.bulan === bulan);
@@ -944,12 +967,29 @@ export class PembangunanService {
       );
 
       const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-      const realisasiFisik = realisasiItem
+      let realisasiFisik = realisasiItem
         ? Number(realisasiItem.realisasiFisik)
         : 0;
-      const realisasiKeuangan = realisasiItem
+      let realisasiKeuangan = realisasiItem
         ? Number(realisasiItem.realisasiKeuangan)
         : 0;
+
+      // Auto carry-forward untuk bulan berikutnya jika bulan sebelumnya sudah 100% atau lebih tinggi
+      if (
+        realisasiFisik === 0 &&
+        cumulativeFisik === 100 &&
+        realisasiItem?.statusVerifikasi !== StatusVerifikasi.TERVERIFIKASI
+      ) {
+        realisasiFisik = cumulativeFisik;
+        if (realisasiKeuangan === 0 && cumulativeKeuangan > 0) {
+          realisasiKeuangan = cumulativeKeuangan;
+        }
+      } else {
+        if (realisasiFisik > cumulativeFisik) cumulativeFisik = realisasiFisik;
+        if (realisasiKeuangan > cumulativeKeuangan)
+          cumulativeKeuangan = realisasiKeuangan;
+      }
+
       const deviasiFisik = parseFloat(
         (realisasiFisik - targetFisik).toFixed(2),
       );
@@ -1064,6 +1104,25 @@ export class PembangunanService {
       throw new ForbiddenException(
         'Data bulan ini sudah terverifikasi oleh MONEV dan terkunci. Hubungi Administrator untuk membuka kunci.',
       );
+    }
+
+    // Cek batasan waktu / LockingPeriod jika bukan Administrator
+    if (!isAdmin) {
+      const lockPeriod = await this.prisma.lockingPeriod.findUnique({
+        where: { tahun_bulan: { tahun: paket.tahunAnggaran, bulan } },
+      });
+      if (
+        lockPeriod &&
+        (lockPeriod.isLocked || new Date() > new Date(lockPeriod.batasInput))
+      ) {
+        const dateStr = new Date(lockPeriod.batasInput).toLocaleString('id-ID', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        });
+        throw new ForbiddenException(
+          `Periode input untuk Bulan ${bulan} telah ditutup (batas akhir: ${dateStr}). Hubungi Administrator untuk permohonan pembukaan kunci.`,
+        );
+      }
     }
 
     // Field-level protection
@@ -1190,6 +1249,16 @@ export class PembangunanService {
           continue; // skip bulan yang sudah terkunci
         }
 
+        // Cek batas waktu / LockingPeriod jika bukan Administrator
+        if (!isAdmin) {
+          const lp = await tx.lockingPeriod.findUnique({
+            where: { tahun_bulan: { tahun: paket.tahunAnggaran, bulan } },
+          });
+          if (lp && (lp.isLocked || new Date() > new Date(lp.batasInput))) {
+            continue; // Skip bulan yang sudah ditutup bagi non-admin
+          }
+        }
+
         // Field-level protection
         let realisasiFisik: number;
         let realisasiKeuangan: number;
@@ -1238,6 +1307,48 @@ export class PembangunanService {
                 : undefined,
           },
         });
+      }
+
+      // Auto-propagate jika ada bulan yang mencapai realisasi fisik 100%
+      const allRealisasi = await tx.realisasiBulanan.findMany({
+        where: { paketId },
+        orderBy: { bulan: 'asc' },
+      });
+      const first100 = allRealisasi.find(
+        (r) => Number(r.realisasiFisik) === 100,
+      );
+      if (first100) {
+        const startBulan = first100.bulan + 1;
+        const refKeuangan = Number(first100.realisasiKeuangan) || 0;
+        for (let b = startBulan; b <= 12; b++) {
+          const targetNext = allRealisasi.find((r) => r.bulan === b);
+          if (
+            targetNext?.statusVerifikasi === StatusVerifikasi.TERVERIFIKASI &&
+            !isAdmin
+          ) {
+            continue;
+          }
+          // Di Skenario A: Keuangan bulan berikutnya hanya sebesar dana yang riil sudah cair (refKeuangan)
+          const nextKeuangan = refKeuangan;
+
+          await tx.realisasiBulanan.upsert({
+            where: { paketId_bulan: { paketId, bulan: b } },
+            create: {
+              paketId,
+              bulan: b,
+              realisasiFisik: 100,
+              realisasiKeuangan: nextKeuangan,
+              catatanOperator: targetNext?.catatanOperator || null,
+              inputById: user?.id || null,
+              statusVerifikasi: StatusVerifikasi.DRAFT,
+            },
+            update: {
+              realisasiFisik: 100,
+              realisasiKeuangan: nextKeuangan,
+              inputById: user?.id || null,
+            },
+          });
+        }
       }
 
       if (user?.id) {
@@ -1329,18 +1440,34 @@ export class PembangunanService {
       const nilaiPagu = Number(paket.nilaiPagu) || 0;
       const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
 
+      let cumulativeFisik = 0;
+      let cumulativeKeuangan = 0;
+
       const timeline = Array.from({ length: 12 }, (_, idx) => {
         const b = idx + 1;
         const targetItem = paket.targetBulanan.find((t) => t.bulan === b);
         const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === b);
 
         const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-        const realisasiFisik = realisasiItem
+        let realisasiFisik = realisasiItem
           ? Number(realisasiItem.realisasiFisik)
           : 0;
-        const realisasiKeuangan = realisasiItem
+        let realisasiKeuangan = realisasiItem
           ? Number(realisasiItem.realisasiKeuangan)
           : 0;
+
+        // Auto carry-forward untuk bulan berikutnya jika bulan sebelumnya sudah 100% atau lebih tinggi
+        if (realisasiFisik === 0 && cumulativeFisik === 100) {
+          realisasiFisik = cumulativeFisik;
+          if (realisasiKeuangan === 0 && cumulativeKeuangan > 0) {
+            realisasiKeuangan = cumulativeKeuangan;
+          }
+        } else {
+          if (realisasiFisik > cumulativeFisik) cumulativeFisik = realisasiFisik;
+          if (realisasiKeuangan > cumulativeKeuangan)
+            cumulativeKeuangan = realisasiKeuangan;
+        }
+
         const deviasiFisik = parseFloat(
           (realisasiFisik - targetFisik).toFixed(2),
         );
@@ -1445,7 +1572,10 @@ export class PembangunanService {
       where: whereConditions,
       include: {
         targetBulanan: { where: { bulan: activeBulan } },
-        realisasiBulanan: { where: { bulan: activeBulan } },
+        realisasiBulanan: {
+          where: { bulan: { lte: activeBulan } },
+          orderBy: { bulan: 'desc' },
+        },
       },
     });
 
@@ -1485,12 +1615,29 @@ export class PembangunanService {
         const target = p.targetBulanan[0]
           ? Number(p.targetBulanan[0].targetFisik)
           : 0;
-        const realFisik = p.realisasiBulanan[0]
-          ? Number(p.realisasiBulanan[0].realisasiFisik)
+
+        const exactRealisasi = p.realisasiBulanan.find(
+          (r) => r.bulan === activeBulan,
+        );
+        let realFisik = exactRealisasi
+          ? Number(exactRealisasi.realisasiFisik)
           : 0;
-        const realKeu = p.realisasiBulanan[0]
-          ? Number(p.realisasiBulanan[0].realisasiKeuangan)
+        let realKeu = exactRealisasi
+          ? Number(exactRealisasi.realisasiKeuangan)
           : 0;
+
+        // Auto carry-forward HANYA AKTIF jika bulan sebelumnya sudah tuntas 100%
+        if (!exactRealisasi || (realFisik === 0 && realKeu === 0)) {
+          const latestPast = p.realisasiBulanan.find(
+            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) === 100,
+          );
+          if (latestPast) {
+            realFisik = 100;
+            if (realKeu === 0)
+              realKeu = Number(latestPast.realisasiKeuangan) || 0;
+          }
+        }
+
         const dev = parseFloat((realFisik - target).toFixed(2));
 
         sumTarget += target;
@@ -1571,6 +1718,24 @@ export class PembangunanService {
     }
     if (realisasi.statusVerifikasi === StatusVerifikasi.DIAJUKAN) {
       throw new BadRequestException('Data ini sudah dalam antrian MONEV.');
+    }
+
+    const userRoles: RoleEnum[] =
+      user?.roles && user.roles.length > 0
+        ? user.roles
+        : user?.role
+          ? [user.role]
+          : [];
+    const isAdmin = userRoles.includes(RoleEnum.ADMINISTRATOR);
+    if (!isAdmin) {
+      const lp = await this.prisma.lockingPeriod.findUnique({
+        where: { tahun_bulan: { tahun: paket.tahunAnggaran, bulan } },
+      });
+      if (lp && (lp.isLocked || new Date() > new Date(lp.batasInput))) {
+        throw new ForbiddenException(
+          `Pengajuan Realisasi Bulan ${bulan} ditutup karena telah melewati batas waktu input. Hubungi Administrator.`,
+        );
+      }
     }
 
     const updated = await this.prisma.realisasiBulanan.update({
@@ -1735,6 +1900,24 @@ export class PembangunanService {
       throw new BadRequestException('Tidak ada file yang diupload.');
     }
 
+    const userRoles: RoleEnum[] =
+      user?.roles && user.roles.length > 0
+        ? user.roles
+        : user?.role
+          ? [user.role]
+          : [];
+    const isAdmin = userRoles.includes(RoleEnum.ADMINISTRATOR);
+    if (!isAdmin) {
+      const lp = await this.prisma.lockingPeriod.findUnique({
+        where: { tahun_bulan: { tahun: paket.tahunAnggaran, bulan } },
+      });
+      if (lp && (lp.isLocked || new Date() > new Date(lp.batasInput))) {
+        throw new ForbiddenException(
+          `Upload bukti fisik Bulan ${bulan} ditutup karena telah melewati batas waktu input. Hubungi Administrator.`,
+        );
+      }
+    }
+
     // Pastikan realisasi bulanan sudah ada — buat jika belum
     let realisasi = await this.prisma.realisasiBulanan.findUnique({
       where: { paketId_bulan: { paketId, bulan } },
@@ -1873,5 +2056,260 @@ export class PembangunanService {
         buktiFisik: r.buktiFisik,
       })),
     };
+  }
+
+  // ─── PERIODE & BATAS WAKTU INPUT (CUT-OFF) ──────────────────────────────
+
+  /**
+   * Mengambil daftar batas waktu input 12 bulan (locking periods)
+   */
+  async getLockingPeriods(tahun?: number) {
+    const targetTahun = tahun || 2026;
+    let periods = await this.prisma.lockingPeriod.findMany({
+      where: { tahun: targetTahun },
+      orderBy: { bulan: 'asc' },
+    });
+
+    if (periods.length === 0) {
+      await this.initDefaultLockingPeriods(targetTahun);
+      periods = await this.prisma.lockingPeriod.findMany({
+        where: { tahun: targetTahun },
+        orderBy: { bulan: 'asc' },
+      });
+    }
+
+    const now = new Date();
+    return periods.map((p) => {
+      const isExpired = now > new Date(p.batasInput);
+      const isEffectiveLocked = p.isLocked || isExpired;
+      return {
+        ...p,
+        isExpired,
+        isEffectiveLocked,
+      };
+    });
+  }
+
+  /**
+   * Inisialisasi default: batas input adalah tanggal 10 bulan berikutnya pukul 23:59:59
+   */
+  private async initDefaultLockingPeriods(tahun: number, tx: any = this.prisma) {
+    for (let bulan = 1; bulan <= 12; bulan++) {
+      const nextMonthYear = bulan === 12 ? tahun + 1 : tahun;
+      const nextMonth = bulan === 12 ? 0 : bulan;
+      const batasInput = new Date(nextMonthYear, nextMonth, 10, 23, 59, 59);
+
+      await tx.lockingPeriod.upsert({
+        where: { tahun_bulan: { tahun, bulan } },
+        create: {
+          tahun,
+          bulan,
+          isLocked: false,
+          batasInput,
+          updatedById: 'Sistem',
+        },
+        update: {},
+      });
+    }
+  }
+
+  /**
+   * Reset batas waktu input seluruh bulan (1-12) ke tanggal 10 bulan berikutnya
+   */
+  async resetDefaultLockingPeriods(tahun?: number, user?: any) {
+    const targetTahun = tahun || 2026;
+    for (let bulan = 1; bulan <= 12; bulan++) {
+      const nextMonthYear = bulan === 12 ? targetTahun + 1 : targetTahun;
+      const nextMonth = bulan === 12 ? 0 : bulan;
+      const batasInput = new Date(nextMonthYear, nextMonth, 10, 23, 59, 59);
+
+      await this.prisma.lockingPeriod.upsert({
+        where: { tahun_bulan: { tahun: targetTahun, bulan } },
+        create: {
+          tahun: targetTahun,
+          bulan,
+          isLocked: false,
+          batasInput,
+          updatedById: user?.namaLengkap || user?.nip || 'Administrator',
+        },
+        update: {
+          isLocked: false,
+          batasInput,
+          updatedById: user?.namaLengkap || user?.nip || 'Administrator',
+        },
+      });
+    }
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'RESET_DEFAULT_LOCKING_PERIODS',
+          resource: 'LOCKING_PERIOD',
+          resourceId: String(targetTahun),
+          payload: { tahun: targetTahun },
+        },
+      });
+    }
+
+    return this.getLockingPeriods(targetTahun);
+  }
+
+  /**
+   * Update batas waktu atau saklar isLocked per bulan (Khusus Administrator)
+   */
+  async updateLockingPeriod(
+    bulan: number,
+    dto: { batasInput?: string; isLocked?: boolean; tahun?: number },
+    user?: any,
+  ) {
+    const targetTahun = dto.tahun || 2026;
+    const updateData: any = {
+      updatedById: user?.namaLengkap || user?.nip || 'Administrator',
+    };
+
+    if (dto.batasInput) {
+      updateData.batasInput = new Date(dto.batasInput);
+    }
+    if (typeof dto.isLocked === 'boolean') {
+      updateData.isLocked = dto.isLocked;
+    }
+
+    const nextMonthYear = bulan === 12 ? targetTahun + 1 : targetTahun;
+    const nextMonth = bulan === 12 ? 0 : bulan;
+    const defaultBatas = new Date(nextMonthYear, nextMonth, 10, 23, 59, 59);
+
+    const updated = await this.prisma.lockingPeriod.upsert({
+      where: { tahun_bulan: { tahun: targetTahun, bulan } },
+      create: {
+        tahun: targetTahun,
+        bulan,
+        isLocked: dto.isLocked ?? false,
+        batasInput: dto.batasInput ? new Date(dto.batasInput) : defaultBatas,
+        updatedById: user?.namaLengkap || user?.nip || 'Administrator',
+      },
+      update: updateData,
+    });
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'UPDATE_LOCKING_PERIOD',
+          resource: 'LOCKING_PERIOD',
+          resourceId: `${targetTahun}_B${bulan}`,
+          payload: { tahun: targetTahun, bulan, ...dto },
+        },
+      });
+    }
+
+    const now = new Date();
+    const isExpired = now > new Date(updated.batasInput);
+    return {
+      ...updated,
+      isExpired,
+      isEffectiveLocked: updated.isLocked || isExpired,
+    };
+  }
+
+  /**
+   * Operasi massal pada periode (kunci semua, buka kunci semua, atur cut-off massal dinamis)
+   */
+  async batchUpdateLockingPeriods(
+    dto: {
+      tahun?: number;
+      action: 'LOCK_ALL' | 'UNLOCK_ALL' | 'SET_CUTOFF_DAY' | 'SET_CUSTOM_DATE';
+      cutoffDay?: number;
+      cutoffHour?: number;
+      cutoffMinute?: number;
+      customDate?: string;
+    },
+    user?: any,
+  ) {
+    const targetTahun = dto.tahun || 2026;
+    const updater = user?.namaLengkap || user?.nip || 'Administrator';
+
+    if (dto.action === 'LOCK_ALL') {
+      await this.prisma.lockingPeriod.updateMany({
+        where: { tahun: targetTahun },
+        data: {
+          isLocked: true,
+          updatedById: updater,
+        },
+      });
+    } else if (dto.action === 'UNLOCK_ALL') {
+      // Buka kunci manual. Jika tanggal batas waktu sudah expired, perpanjang otomatis 7 hari dari sekarang
+      const periods = await this.prisma.lockingPeriod.findMany({
+        where: { tahun: targetTahun },
+      });
+      const now = new Date();
+      for (const p of periods) {
+        let newBatas = p.batasInput;
+        if (new Date(p.batasInput) <= now) {
+          const ext = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          ext.setHours(23, 59, 59, 999);
+          newBatas = ext;
+        }
+        await this.prisma.lockingPeriod.update({
+          where: { id: p.id },
+          data: {
+            isLocked: false,
+            batasInput: newBatas,
+            updatedById: updater,
+          },
+        });
+      }
+    } else if (dto.action === 'SET_CUTOFF_DAY') {
+      const day = Math.min(31, Math.max(1, dto.cutoffDay || 10));
+      const hour = dto.cutoffHour !== undefined ? dto.cutoffHour : 23;
+      const minute = dto.cutoffMinute !== undefined ? dto.cutoffMinute : 59;
+
+      for (let bulan = 1; bulan <= 12; bulan++) {
+        const nextMonthYear = bulan === 12 ? targetTahun + 1 : targetTahun;
+        const nextMonth = bulan === 12 ? 0 : bulan;
+        const daysInNextMonth = new Date(nextMonthYear, nextMonth + 1, 0).getDate();
+        const effectiveDay = Math.min(day, daysInNextMonth);
+        const batasInput = new Date(nextMonthYear, nextMonth, effectiveDay, hour, minute, 59);
+
+        await this.prisma.lockingPeriod.upsert({
+          where: { tahun_bulan: { tahun: targetTahun, bulan } },
+          create: {
+            tahun: targetTahun,
+            bulan,
+            isLocked: false,
+            batasInput,
+            updatedById: updater,
+          },
+          update: {
+            isLocked: false,
+            batasInput,
+            updatedById: updater,
+          },
+        });
+      }
+    } else if (dto.action === 'SET_CUSTOM_DATE' && dto.customDate) {
+      const targetDate = new Date(dto.customDate);
+      await this.prisma.lockingPeriod.updateMany({
+        where: { tahun: targetTahun },
+        data: {
+          batasInput: targetDate,
+          updatedById: updater,
+        },
+      });
+    }
+
+    if (user?.id) {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: `BATCH_UPDATE_LOCKING_PERIODS_${dto.action}`,
+          resource: 'LOCKING_PERIOD',
+          resourceId: String(targetTahun),
+          payload: { tahun: targetTahun, ...dto },
+        },
+      });
+    }
+
+    return this.getLockingPeriods(targetTahun);
   }
 }

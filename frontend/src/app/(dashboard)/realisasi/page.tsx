@@ -546,7 +546,7 @@ export default function RealisasiBulananPage() {
                     <div className="space-y-0.5">
                       <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
                       <div className="font-bold text-foreground">
-                        {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "0%"}
+                        {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
                       </div>
                       <div className="text-[10px] text-muted-foreground font-sans">
                         Target: {item.targetFisik}%
@@ -555,10 +555,10 @@ export default function RealisasiBulananPage() {
                     <div className="space-y-0.5">
                       <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
                       <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
-                        {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "Rp 0"}
+                        {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
                       </div>
                       <div className="text-[10px] text-muted-foreground font-sans">
-                        {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                        {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "-"}
                       </div>
                     </div>
                   </div>
@@ -739,7 +739,7 @@ export default function RealisasiBulananPage() {
                             {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate">
-                            {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                            {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "-"}
                           </div>
                         </div>
                       </TableCell>

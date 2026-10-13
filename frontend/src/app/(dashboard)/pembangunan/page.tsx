@@ -908,6 +908,7 @@ export default function PaketPembangunanPage() {
         tahunAnggaran={tahunAnggaran}
         selectedOpd={selectedOpd}
         selectedOpdNama={opdList.find((o) => o.id === selectedOpd)?.namaOpd}
+        opdList={opdList}
       />
     </div>
   )

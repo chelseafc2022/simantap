@@ -120,18 +120,18 @@ export function NavUser({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span
                   suppressHydrationWarning
-                  className="truncate font-semibold text-xs text-foreground"
+                  className="truncate font-semibold text-xs text-sidebar-foreground"
                 >
                   {displayName}
                 </span>
                 <span
                   suppressHydrationWarning
-                  className="text-muted-foreground truncate text-[11px]"
+                  className="text-sidebar-foreground/70 truncate text-[11px]"
                 >
                   {displaySubtitle}
                 </span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground/70" />
+              <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

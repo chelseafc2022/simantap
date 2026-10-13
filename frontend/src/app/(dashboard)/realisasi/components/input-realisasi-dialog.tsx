@@ -93,6 +93,8 @@ export function InputRealisasiDialog({
       ? [user.role]
       : []
 
+  const isAdmin = userRoles.includes("ADMINISTRATOR")
+
   // Field-level permission flags (mendukung multi-role)
   const canEditFisik = userRoles.some((r) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(r))
   const canEditKeuangan = userRoles.some((r) => ["ADMINISTRATOR", "BENDAHARA"].includes(r))
@@ -128,17 +130,50 @@ export function InputRealisasiDialog({
     enabled: !!paketId && open,
   })
 
-  // Sync server data to local form state
+  // Fetch locking periods (cut-off deadline)
+  const { data: lockingPeriods = [] } = useQuery<any[]>({
+    queryKey: ["locking-periods", detailData?.paket?.tahunAnggaran || 2026],
+    queryFn: async () => {
+      const yr = detailData?.paket?.tahunAnggaran || 2026
+      const res = await apiClient.get(`/pembangunan/periode?tahun=${yr}`)
+      return res.data?.data || []
+    },
+    enabled: open,
+  })
+
+  // Sync server data to local form state with auto-carry forward (Skenario A)
   useEffect(() => {
     if (detailData?.timeline) {
+      // Cari bulan pertama yang fisik sudah 100%
+      const first100Item = detailData.timeline.find(
+        (item: any) => Number(item.realisasiFisik) === 100
+      )
+      const first100Bulan = first100Item ? Number(first100Item.bulan) : null
+      const first100Keuangan = first100Item ? String(first100Item.realisasiKeuangan || "0") : "0"
+
       const updated = Array.from({ length: 12 }, (_, idx) => {
         const b = idx + 1
         const t = detailData.timeline.find((item: any) => item.bulan === b)
+
+        let rFisik = t?.realisasiFisik !== undefined ? String(t.realisasiFisik) : "0"
+        let rKeuangan = t?.realisasiKeuangan !== undefined ? String(t.realisasiKeuangan) : "0"
+
+        // Jika bulan sebelumnya sudah 100% dan bulan ini belum TERVERIFIKASI:
+        // Fisik otomatis 100%, dan keuangan hanya sebesar dana riil yang cair s/d bulan tersebut (bukan nilai kontrak)
+        if (
+          first100Bulan !== null &&
+          b > first100Bulan &&
+          t?.statusVerifikasi !== "TERVERIFIKASI"
+        ) {
+          rFisik = "100"
+          rKeuangan = first100Keuangan
+        }
+
         return {
           bulan: b,
           targetFisik: t?.targetFisik ?? 0,
-          realisasiFisik: t?.realisasiFisik !== undefined ? String(t.realisasiFisik) : "0",
-          realisasiKeuangan: t?.realisasiKeuangan !== undefined ? String(t.realisasiKeuangan) : "0",
+          realisasiFisik: rFisik,
+          realisasiKeuangan: rKeuangan,
           catatanOperator: t?.catatanOperator || "",
           inputBy: t?.inputBy || null,
           updatedAt: t?.updatedAt || null,
@@ -157,6 +192,7 @@ export function InputRealisasiDialog({
 
   const paket = detailData?.paket
   const nilaiKontrak = paket?.nilaiKontrak || 0
+  const nilaiPagu = paket?.nilaiPagu || 0
 
   const formatRupiah = (val: number | string | undefined | null) => {
     const num = typeof val === "string" ? parseFloat(val) : val || 0
@@ -177,6 +213,12 @@ export function InputRealisasiDialog({
   const isLocked = currentMonthData.statusVerifikasi === "TERVERIFIKASI"
   const isDiajukan = currentMonthData.statusVerifikasi === "DIAJUKAN"
   const isDitolak = currentMonthData.statusVerifikasi === "DITOLAK"
+
+  const currentLockPeriod = lockingPeriods.find((p: any) => p.bulan === selectedBulan)
+  const isCutoffExpired = currentLockPeriod?.isExpired || false
+  const isCutoffLocked = currentLockPeriod?.isEffectiveLocked || false
+  const isPeriodLocked = !isAdmin && isCutoffLocked
+  const isFormDisabled = isLocked || isDiajukan || isPeriodLocked
 
   const getStatusBadge = (deviasi: number, target: number, realisasi: number) => {
     if (target === 0 && realisasi === 0) return (
@@ -224,30 +266,78 @@ export function InputRealisasiDialog({
     }
   }
 
-  // Handlers
+  // Handlers with auto-carry forward
   const handleFisikChange = (val: string) => {
-    if (!canEditFisik || isLocked || isDiajukan) return
+    if (!canEditFisik || isFormDisabled) return
     const num = Math.min(100, Math.max(0, parseFloat(val) || 0))
     setTimelineState((prev) => {
       const next = [...prev]
       next[selectedBulan - 1] = { ...next[selectedBulan - 1], realisasiFisik: val === "" ? "" : String(num) }
+
+      // Otomatisasi HANYA AKTIF jika dan hanya jika fisik sudah mencapai 100% (num === 100)
+      if (num === 100) {
+        const curKeu = next[selectedBulan - 1].realisasiKeuangan || "0"
+        for (let i = selectedBulan; i < 12; i++) {
+          const item = next[i]
+          if (item.statusVerifikasi !== "TERVERIFIKASI") {
+            next[i] = {
+              ...item,
+              realisasiFisik: "100",
+              realisasiKeuangan: curKeu,
+            }
+          }
+        }
+      } else {
+        // Jika belum 100% (misal 40%), periksa apakah ada bulan sebelumnya yang 100%
+        const hasPrev100 = next.slice(0, selectedBulan - 1).some((item) => parseFloat(item.realisasiFisik) === 100)
+        if (!hasPrev100) {
+          // Jika tidak ada bulan sebelumnya yang 100%, bulan-bulan berikutnya tetap kosong / strip ("0")
+          for (let i = selectedBulan; i < 12; i++) {
+            const item = next[i]
+            if (item.statusVerifikasi !== "TERVERIFIKASI") {
+              // Jika sebelumnya terisi otomatis 100%, kembalikan ke "0"
+              if (item.realisasiFisik === "100") {
+                next[i] = {
+                  ...item,
+                  realisasiFisik: "0",
+                  realisasiKeuangan: "0",
+                }
+              }
+            }
+          }
+        }
+      }
       return next
     })
   }
 
   const handleKeuanganChange = (val: string) => {
-    if (!canEditKeuangan || isLocked || isDiajukan) return
+    if (!canEditKeuangan || isFormDisabled) return
     const clean = val.replace(/\D/g, "")
     const num = Math.max(0, parseInt(clean) || 0)
     setTimelineState((prev) => {
       const next = [...prev]
       next[selectedBulan - 1] = { ...next[selectedBulan - 1], realisasiKeuangan: String(num) }
+
+      // Otomatisasi keuangan ke bulan berikutnya HANYA AKTIF jika fisik di bulan ini sudah 100%
+      const isFisik100 = parseFloat(next[selectedBulan - 1].realisasiFisik) === 100
+      if (isFisik100) {
+        for (let i = selectedBulan; i < 12; i++) {
+          const item = next[i]
+          if (item.statusVerifikasi !== "TERVERIFIKASI") {
+            next[i] = {
+              ...item,
+              realisasiKeuangan: String(num),
+            }
+          }
+        }
+      }
       return next
     })
   }
 
   const handleCatatanChange = (val: string) => {
-    if (isLocked || isDiajukan) return
+    if (isFormDisabled) return
     setTimelineState((prev) => {
       const next = [...prev]
       next[selectedBulan - 1] = { ...next[selectedBulan - 1], catatanOperator: val }
@@ -419,9 +509,13 @@ export function InputRealisasiDialog({
                 {paket?.namaPaket || "Memuat paket..."}
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm mt-0.5 text-muted-foreground flex items-center gap-2 flex-wrap">
+                <span>Pagu:</span>
+                <span className="font-mono font-semibold text-foreground">{formatRupiah(nilaiPagu)}</span>
+                <span className="text-muted-foreground/60">•</span>
                 <span>Nilai Kontrak:</span>
                 <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{formatRupiah(nilaiKontrak)}</span>
-                <span>• Rekanan: {paket?.pemenangRekanan || "-"}</span>
+                <span className="text-muted-foreground/60">•</span>
+                <span>Rekanan: {paket?.pemenangRekanan || "-"}</span>
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
@@ -470,6 +564,44 @@ export function InputRealisasiDialog({
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Cut-off deadline alert */}
+              {isCutoffLocked && (
+                <div
+                  className={`rounded-lg border p-3 flex items-start gap-2.5 text-xs ${
+                    isPeriodLocked
+                      ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+                      : "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400"
+                  }`}
+                >
+                  <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold">
+                      {isPeriodLocked
+                        ? `Periode Input Ditutup: Bulan ${selectedBulan} (${BULAN_LIST[selectedBulan - 1]?.nama})`
+                        : `Batas Waktu Ditutup untuk OPD (Mode Administrator)`}
+                    </p>
+                    <p className="mt-0.5 opacity-90">
+                      Batas akhir input realisasi:{" "}
+                      <span className="font-mono font-medium">
+                        {currentLockPeriod?.batasInput
+                          ? new Intl.DateTimeFormat("id-ID", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }).format(new Date(currentLockPeriod.batasInput))
+                          : "-"}
+                      </span>
+                      .{" "}
+                      {isPeriodLocked
+                        ? "Formulir saat ini terkunci bagi OPD. Hubungi Administrator untuk permohonan pembukaan kunci."
+                        : "Sebagai Administrator, Anda tetap diizinkan menginput data atau mengubah jadwal batas waktu pada menu Periode."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Status lock / ditolak alert */}
               {isLocked && (
                 <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3 flex items-start gap-2.5">
@@ -537,8 +669,8 @@ export function InputRealisasiDialog({
                         placeholder={canEditFisik ? "Contoh: 35.50" : "Hanya PPK yang dapat mengisi"}
                         value={currentMonthData.realisasiFisik}
                         onChange={(e) => handleFisikChange(e.target.value)}
-                        disabled={!canEditFisik || isLocked || isDiajukan}
-                        className={`font-mono text-sm pr-8 ${(!canEditFisik || isLocked || isDiajukan) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
+                        disabled={!canEditFisik || isFormDisabled}
+                        className={`font-mono text-sm pr-8 ${(!canEditFisik || isFormDisabled) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-muted-foreground">%</span>
                     </div>
@@ -565,8 +697,8 @@ export function InputRealisasiDialog({
                         placeholder={canEditKeuangan ? "Contoh: 150000000" : "Hanya Bendahara yang dapat mengisi"}
                         value={currentKeuanganNum > 0 ? currentKeuanganNum.toLocaleString("id-ID") : ""}
                         onChange={(e) => handleKeuanganChange(e.target.value)}
-                        disabled={!canEditKeuangan || isLocked || isDiajukan}
-                        className={`font-mono text-sm ${(!canEditKeuangan || isLocked || isDiajukan) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
+                        disabled={!canEditKeuangan || isFormDisabled}
+                        className={`font-mono text-sm ${(!canEditKeuangan || isFormDisabled) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
                       />
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
@@ -597,10 +729,10 @@ export function InputRealisasiDialog({
                 <div className="space-y-1.5 pt-2">
                   <Label className="text-xs font-medium">Catatan Kendala Lapangan & Tindak Lanjut</Label>
                   <Textarea
-                    placeholder={isLocked || isDiajukan ? "Data terkunci" : "Tuliskan kendala teknis, cuaca, keterlambatan material, atau solusi (opsional)..."}
+                    placeholder={isFormDisabled ? "Data terkunci" : "Tuliskan kendala teknis, cuaca, keterlambatan material, atau solusi (opsional)..."}
                     value={currentMonthData.catatanOperator}
                     onChange={(e) => handleCatatanChange(e.target.value)}
-                    disabled={isLocked || isDiajukan}
+                    disabled={isFormDisabled}
                     rows={2}
                     className="text-xs"
                   />
@@ -671,7 +803,7 @@ export function InputRealisasiDialog({
                   )}
 
                   {/* Upload controls */}
-                  {!isLocked && !isDiajukan && totalBukti < 5 && (
+                  {!isFormDisabled && totalBukti < 5 && (
                     <div className="flex flex-col sm:flex-row gap-2">
                       <div className="flex-1 space-y-1">
                         <Input
@@ -846,7 +978,7 @@ export function InputRealisasiDialog({
 
           <div className="flex items-center gap-2">
             {/* Tombol Ajukan ke MONEV */}
-            {canAjukan && !isLocked && !isDiajukan && (currentFisikNum > 0 || currentKeuanganNum > 0) && (
+            {canAjukan && !isFormDisabled && (currentFisikNum > 0 || currentKeuanganNum > 0) && (
               <Button
                 type="button"
                 size="sm"
@@ -861,7 +993,7 @@ export function InputRealisasiDialog({
             )}
 
             {/* Tombol Simpan */}
-            {(canEditFisik || canEditKeuangan) && !isLocked && !isDiajukan && (
+            {(canEditFisik || canEditKeuangan) && !isFormDisabled && (
               <Button
                 type="button"
                 size="sm"

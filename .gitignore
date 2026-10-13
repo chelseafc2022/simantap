@@ -42,3 +42,7 @@ Thumbs.db
 coverage/
 *.lcov
 .nyc_output/
+
+# Data / Spreadsheet temporary files
+*.xlsx
+*.xls

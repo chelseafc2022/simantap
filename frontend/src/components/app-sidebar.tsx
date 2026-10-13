@@ -11,6 +11,7 @@ import {
   TrendingUp,
   FileBarChart,
   ShieldCheck,
+  CalendarClock,
 } from "lucide-react"
 
 import { NavMain, NavMainItem } from "@/components/nav-main"
@@ -142,6 +143,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     "bg-gradient-to-r from-indigo-500/15 via-indigo-500/5 to-transparent",
                 },
               },
+              {
+                title: "Jadwal & Batas Waktu",
+                url: "/periode",
+                icon: CalendarClock,
+                isActive: pathname.startsWith("/periode"),
+                colorTheme: {
+                  iconBgActive:
+                    "bg-gradient-to-br from-amber-600 via-orange-600 to-red-500 text-white shadow-md shadow-orange-500/30",
+                  iconBgInactive:
+                    "bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover/menu-button:bg-orange-500/20 group-hover/menu-button:scale-105",
+                  borderActive: "border-l-orange-500",
+                  activeGlow:
+                    "bg-gradient-to-r from-orange-500/15 via-orange-500/5 to-transparent",
+                },
+              },
             ],
           },
         ]
@@ -177,10 +193,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 />
                 {/* Subtitle resmi dengan teks HTML tajam & mudah dibaca */}
                 <div className="text-center group-data-[collapsible=icon]:hidden px-1">
-                  <p className="text-[9.5px] font-bold tracking-tight text-foreground/90 uppercase leading-snug">
+                  <p className="text-[9.5px] font-bold tracking-tight text-sidebar-foreground uppercase leading-snug">
                     Monitoring Realisasi Anggaran &amp; Fisik
                   </p>
-                  <p className="text-[8.5px] font-semibold text-muted-foreground tracking-tight -mt-0.5">
+                  <p className="text-[8.5px] font-semibold text-sidebar-foreground/70 tracking-tight -mt-0.5">
                     Data Pembangunan Konawe Selatan
                   </p>
                 </div>

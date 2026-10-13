@@ -85,6 +85,70 @@ export class PembangunanController {
     return this.pembangunanService.getSubUnitOptions(opdId);
   }
 
+  // ─── PERIODE & BATAS WAKTU INPUT (Cut-off) ──────────────────────────────
+  @Get('periode')
+  @Roles(...ALL_ROLES)
+  @ApiOperation({
+    summary: 'Daftar batas waktu (cut-off) input realisasi 12 bulan',
+  })
+  getLockingPeriods(@Query('tahun') tahun?: string) {
+    return this.pembangunanService.getLockingPeriods(
+      tahun ? parseInt(tahun) : undefined,
+    );
+  }
+
+  @Patch('periode/:bulan')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary:
+      'Update batas waktu atau toggle lock per bulan (Khusus Administrator)',
+  })
+  updateLockingPeriod(
+    @Param('bulan') bulan: string,
+    @Body() dto: { batasInput?: string; isLocked?: boolean; tahun?: number },
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.updateLockingPeriod(
+      parseInt(bulan),
+      dto,
+      user,
+    );
+  }
+
+  @Post('periode/reset-default')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary:
+      'Reset batas waktu input semua bulan ke tanggal 10 bulan berikutnya (Khusus Administrator)',
+  })
+  resetDefaultLockingPeriods(
+    @Body('tahun') tahun: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.resetDefaultLockingPeriods(tahun, user);
+  }
+
+  @Post('periode/batch')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary:
+      'Aksi massal periode: Kunci Semua, Buka Semua, atau Atur Hari Cut-off Massal (Khusus Administrator)',
+  })
+  batchUpdateLockingPeriods(
+    @Body()
+    dto: {
+      tahun?: number;
+      action: 'LOCK_ALL' | 'UNLOCK_ALL' | 'SET_CUTOFF_DAY' | 'SET_CUSTOM_DATE';
+      cutoffDay?: number;
+      cutoffHour?: number;
+      cutoffMinute?: number;
+      customDate?: string;
+    },
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.batchUpdateLockingPeriods(dto, user);
+  }
+
   // ─── MENU 2: Rekap Realisasi ────────────────────────────────────────────
   @Get('realisasi')
   @Roles(...ALL_ROLES)
