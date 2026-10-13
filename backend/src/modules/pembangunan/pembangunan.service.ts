@@ -769,23 +769,25 @@ export class PembangunanService {
       let inputBy = realisasiItem?.inputBy || null;
       let updatedAt = realisasiItem?.updatedAt || null;
 
-      // Auto carry-forward HANYA AKTIF jika bulan sebelumnya sudah tuntas 100%
-      if (!realisasiItem || (realisasiFisik === 0 && realisasiKeuangan === 0)) {
-        const past100 = paket.realisasiBulanan
-          .filter(
-            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) === 100,
-          )
-          .sort((a, b) => b.bulan - a.bulan);
-        if (past100.length > 0) {
-          const latest100 = past100[0];
-          realisasiFisik = 100;
-          if (realisasiKeuangan === 0) {
-            realisasiKeuangan = Number(latest100.realisasiKeuangan) || 0;
-          }
-          if (!catatanOperator)
-            catatanOperator = latest100.catatanOperator || null;
-          if (!inputBy) inputBy = latest100.inputBy || null;
-          if (!updatedAt) updatedAt = latest100.updatedAt || null;
+      // Otomatis Kumulatif: jika bulan aktif belum diisi (0), bawa nilai capaian terakhir dari bulan sebelumnya
+      if (realisasiFisik === 0) {
+        const pastFisik = paket.realisasiBulanan
+          .filter((r) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0)
+          .sort((a, b) => b.bulan - a.bulan)[0];
+        if (pastFisik) {
+          realisasiFisik = Number(pastFisik.realisasiFisik) || 0;
+          if (!catatanOperator) catatanOperator = pastFisik.catatanOperator || null;
+          if (!inputBy) inputBy = pastFisik.inputBy || null;
+          if (!updatedAt) updatedAt = pastFisik.updatedAt || null;
+        }
+      }
+
+      if (realisasiKeuangan === 0) {
+        const pastKeu = paket.realisasiBulanan
+          .filter((r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0)
+          .sort((a, b) => b.bulan - a.bulan)[0];
+        if (pastKeu) {
+          realisasiKeuangan = Number(pastKeu.realisasiKeuangan) || 0;
         }
       }
 
@@ -1456,16 +1458,17 @@ export class PembangunanService {
           ? Number(realisasiItem.realisasiKeuangan)
           : 0;
 
-        // Auto carry-forward untuk bulan berikutnya jika bulan sebelumnya sudah 100% atau lebih tinggi
-        if (realisasiFisik === 0 && cumulativeFisik === 100) {
+        // Otomatis Kumulatif: jika bulan berikutnya belum diisi (0), teruskan nilai kumulatif terakhir
+        if (realisasiFisik === 0 && cumulativeFisik > 0) {
           realisasiFisik = cumulativeFisik;
-          if (realisasiKeuangan === 0 && cumulativeKeuangan > 0) {
-            realisasiKeuangan = cumulativeKeuangan;
-          }
-        } else {
-          if (realisasiFisik > cumulativeFisik) cumulativeFisik = realisasiFisik;
-          if (realisasiKeuangan > cumulativeKeuangan)
-            cumulativeKeuangan = realisasiKeuangan;
+        } else if (realisasiFisik > 0) {
+          cumulativeFisik = realisasiFisik;
+        }
+
+        if (realisasiKeuangan === 0 && cumulativeKeuangan > 0) {
+          realisasiKeuangan = cumulativeKeuangan;
+        } else if (realisasiKeuangan > 0) {
+          cumulativeKeuangan = realisasiKeuangan;
         }
 
         const deviasiFisik = parseFloat(
@@ -1626,15 +1629,22 @@ export class PembangunanService {
           ? Number(exactRealisasi.realisasiKeuangan)
           : 0;
 
-        // Auto carry-forward HANYA AKTIF jika bulan sebelumnya sudah tuntas 100%
-        if (!exactRealisasi || (realFisik === 0 && realKeu === 0)) {
-          const latestPast = p.realisasiBulanan.find(
-            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) === 100,
+        // Otomatis Kumulatif: jika bulan aktif belum diisi (0), bawa nilai capaian terakhir dari bulan sebelumnya
+        if (realFisik === 0) {
+          const pastFisik = p.realisasiBulanan.find(
+            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0,
           );
-          if (latestPast) {
-            realFisik = 100;
-            if (realKeu === 0)
-              realKeu = Number(latestPast.realisasiKeuangan) || 0;
+          if (pastFisik) {
+            realFisik = Number(pastFisik.realisasiFisik) || 0;
+          }
+        }
+
+        if (realKeu === 0) {
+          const pastKeu = p.realisasiBulanan.find(
+            (r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
+          );
+          if (pastKeu) {
+            realKeu = Number(pastKeu.realisasiKeuangan) || 0;
           }
         }
 
