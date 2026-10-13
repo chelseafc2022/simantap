@@ -31,8 +31,19 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // CORS configuration
+  const allowedOrigins = [
+    clientUrl,
+    'https://monalisa.konaweselatankab.go.id',
+    'http://monalisa.konaweselatankab.go.id',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+  if (clientUrl && clientUrl.includes(',')) {
+    allowedOrigins.push(...clientUrl.split(',').map((u) => u.trim()));
+  }
+
   app.enableCors({
-    origin: [clientUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
@@ -89,7 +100,7 @@ async function bootstrap() {
     customSiteTitle: 'MONALISA KONSEL API Documentation',
   });
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`========================================================`);
   logger.log(
