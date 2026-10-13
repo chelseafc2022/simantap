@@ -279,54 +279,54 @@ export function RoleMatrixDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* MODAL DIPERBESAR: max-w-6xl & w-[95vw] */}
-      <DialogContent className="max-w-6xl w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0 border-border/80 shadow-2xl overflow-hidden">
+      {/* MODAL DIPERBESAR & LEGA: override sm:max-w-lg dengan sm:max-w-[95vw] dan xl:max-w-[1400px] */}
+      <DialogContent className="sm:max-w-[95vw] lg:max-w-[94vw] xl:max-w-[1400px] 2xl:max-w-[1520px] w-[96vw] max-h-[94vh] h-[92vh] flex flex-col p-0 gap-0 border-border/80 shadow-2xl overflow-hidden">
         {/* Header Modal */}
         <div className="p-6 bg-gradient-to-r from-blue-900/15 via-emerald-900/15 to-transparent border-b border-border/70 relative shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="size-12 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-teal-500 text-white flex items-center justify-center shadow-lg shrink-0">
                 <ShieldCheck className="h-7 w-7" />
               </div>
-              <div>
+              <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <DialogTitle className="text-2xl font-bold tracking-tight text-foreground">
                     {role.nama}
                   </DialogTitle>
                   <Badge
                     variant="outline"
-                    className="font-mono text-xs font-semibold bg-primary/10 text-primary border-primary/30 px-2 py-0.5"
+                    className="font-mono text-xs font-semibold bg-primary/10 text-primary border-primary/30 px-2.5 py-0.5"
                   >
                     {role.kode}
                   </Badge>
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                     <Edit3 className="h-3 w-3" /> Mode Administrator Aktif
                   </span>
                 </div>
-                <DialogDescription className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+                <DialogDescription className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
                   {role.deskripsi ||
                     "Kelompok pengguna dan konfigurasi izin operasional resmi MONALISA KONSEL."}
                 </DialogDescription>
               </div>
             </div>
 
-            {/* Tombol Simpan Perubahan di Header */}
-            <div className="flex items-center gap-2.5 shrink-0">
+            {/* Tombol Aksi di Header */}
+            <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleResetToDefault}
                 disabled={saveMatrixMutation.isPending}
-                className="text-xs h-9 cursor-pointer"
+                className="text-xs h-9 px-3 cursor-pointer"
               >
-                <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                Reset
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Reset Matriks
               </Button>
               <Button
                 size="sm"
                 onClick={() => saveMatrixMutation.mutate()}
                 disabled={saveMatrixMutation.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 shadow-md cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 px-4 shadow-md cursor-pointer"
               >
                 {saveMatrixMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
@@ -338,10 +338,10 @@ export function RoleMatrixDialog({
             </div>
           </div>
 
-          {/* Cakupan Akses Unit & Pengaturan Wilayah Kerja (Sama Seperti di SIDAPEM) */}
-          <div className="mt-4 pt-3.5 border-t border-border/60 grid grid-cols-1 md:grid-cols-12 gap-4 text-xs items-center">
-            <div className="md:col-span-6 flex flex-col sm:flex-row sm:items-center gap-2.5">
-              <span className="font-bold text-foreground whitespace-nowrap flex items-center gap-1.5">
+          {/* Cakupan Akses Unit & Wilayah Kerja */}
+          <div className="mt-4 pt-3.5 border-t border-border/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-semibold text-foreground whitespace-nowrap flex items-center gap-1.5">
                 <Building2 className="h-4 w-4 text-primary" />
                 *Akses Cakupan Unit:
               </span>
@@ -349,7 +349,7 @@ export function RoleMatrixDialog({
                 value={String(editedAksesUnit)}
                 onValueChange={(val) => setEditedAksesUnit(Number(val))}
               >
-                <SelectTrigger className="w-full sm:w-[280px] h-8 text-xs bg-background/90 border-primary/30">
+                <SelectTrigger className="w-[320px] max-w-full h-8.5 text-xs bg-background/90 border-primary/30 font-medium">
                   <SelectValue placeholder="Pilih cakupan unit..." />
                 </SelectTrigger>
                 <SelectContent className="text-xs">
@@ -358,53 +358,56 @@ export function RoleMatrixDialog({
                   <SelectItem value="3">3 — Semua Unit Kerja (Seluruh Pemda)</SelectItem>
                 </SelectContent>
               </Select>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                ({scopeInfo.desc})
+              </span>
             </div>
 
-            <div className="md:col-span-6 flex items-center justify-between md:justify-end gap-3 text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Users className="h-4 w-4 text-muted-foreground/70 shrink-0" />
-                <span>
-                  Total Anggota:{" "}
-                  <strong className="text-foreground">{role.totalUsers} Pengguna</strong>
-                </span>
-              </div>
+            <div className="flex items-center gap-2 self-start md:self-auto bg-background/70 px-3 py-1.5 rounded-lg border border-border/60 text-muted-foreground">
+              <Users className="h-4 w-4 text-primary shrink-0" />
+              <span>
+                Total Anggota:{" "}
+                <strong className="text-foreground font-semibold">{role.totalUsers} Pengguna</strong>
+              </span>
             </div>
           </div>
         </div>
 
         {/* Content Body dengan Tab */}
-        <div className="p-6 flex-1 overflow-y-auto">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/60 p-1">
-              <TabsTrigger value="matriks" className="text-xs font-semibold cursor-pointer">
-                <Layers className="h-3.5 w-3.5 mr-1.5" />
-                Matriks Hak Akses Menu & Aksi (Read, Add, Edit, Delete)
-              </TabsTrigger>
-              <TabsTrigger value="pengguna" className="text-xs font-semibold cursor-pointer">
-                <Users className="h-3.5 w-3.5 mr-1.5" />
-                Daftar Pengguna Terdaftar ({role.totalUsers})
-              </TabsTrigger>
-            </TabsList>
+        <div className="p-6 flex-1 overflow-y-auto flex flex-col min-h-0 bg-background/50">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between pb-3 shrink-0">
+              <TabsList className="bg-muted/70 p-1 rounded-xl h-10 inline-flex w-auto">
+                <TabsTrigger value="matriks" className="text-xs font-semibold px-4 cursor-pointer data-[state=active]:shadow-sm">
+                  <Layers className="h-3.5 w-3.5 mr-2" />
+                  Matriks Hak Akses Menu & Aksi (Read, Add, Edit, Delete)
+                </TabsTrigger>
+                <TabsTrigger value="pengguna" className="text-xs font-semibold px-4 cursor-pointer data-[state=active]:shadow-sm">
+                  <Users className="h-3.5 w-3.5 mr-2" />
+                  Daftar Pengguna Terdaftar ({role.totalUsers})
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
             {/* TAB 1: Matriks Hak Akses Menu */}
-            <TabsContent value="matriks" className="space-y-4 m-0">
+            <TabsContent value="matriks" className="space-y-4 m-0 flex-1 flex flex-col min-h-0">
               {/* Toolbar Aksi Cepat Matriks */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-muted/40 p-3 rounded-xl border border-border/70">
-                <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-muted/40 px-4 py-3 rounded-xl border border-border/70 shrink-0">
+                <div className="flex items-center gap-2.5 text-muted-foreground">
                   <AlertCircle className="h-4 w-4 text-primary shrink-0" />
                   <span>
-                    Klik pada kotak centang warna untuk mengatur hak akses menu untuk kelompok ini:
+                    Klik pada kotak centang warna untuk mengatur hak akses menu dan aksi operasional untuk kelompok ini:
                   </span>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2.5 flex-wrap">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleSetAllRead}
-                    className="text-[11px] h-7 px-2.5 bg-background cursor-pointer"
+                    className="text-xs h-8 px-3 bg-background hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-500/50 cursor-pointer"
                   >
-                    <CheckSquare className="h-3 w-3 mr-1 text-[#0FA668]" />
+                    <CheckSquare className="h-3.5 w-3.5 mr-1.5 text-[#0FA668]" />
                     Pilih Semua Read
                   </Button>
                   <Button
@@ -412,9 +415,9 @@ export function RoleMatrixDialog({
                     variant="outline"
                     size="sm"
                     onClick={handleSetFullAccess}
-                    className="text-[11px] h-7 px-2.5 bg-background cursor-pointer"
+                    className="text-xs h-8 px-3 bg-background hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:border-blue-500/50 cursor-pointer"
                   >
-                    <Check className="h-3 w-3 mr-1 text-primary" />
+                    <Check className="h-3.5 w-3.5 mr-1.5 text-primary" />
                     Beri Akses Penuh
                   </Button>
                   <Button
@@ -422,47 +425,47 @@ export function RoleMatrixDialog({
                     variant="outline"
                     size="sm"
                     onClick={handleClearAccess}
-                    className="text-[11px] h-7 px-2.5 bg-background text-destructive hover:text-destructive cursor-pointer"
+                    className="text-xs h-8 px-3 bg-background text-destructive hover:bg-destructive/10 hover:border-destructive/40 cursor-pointer"
                   >
-                    <Square className="h-3 w-3 mr-1" />
-                    Kosongkan
+                    <Square className="h-3.5 w-3.5 mr-1.5" />
+                    Kosongkan Semua
                   </Button>
                 </div>
               </div>
 
               {/* Tabel Matriks Menu Aplikasi */}
-              <div className="rounded-xl border border-border/80 overflow-hidden shadow-sm bg-card">
-                <div className="overflow-x-auto">
+              <div className="rounded-xl border border-border/80 overflow-hidden shadow-xs bg-card flex-1 flex flex-col min-h-0">
+                <div className="overflow-x-auto overflow-y-auto max-h-[calc(92vh-330px)]">
                   <table className="w-full text-xs">
-                    <thead>
+                    <thead className="sticky top-0 z-10 shadow-xs">
                       <tr className="bg-gradient-to-r from-blue-700 via-indigo-700 to-teal-700 text-white font-semibold">
-                        <th className="py-3 px-3 text-center w-14">Kode</th>
-                        <th className="py-3 px-4 text-left">Nama Menu Aplikasi</th>
-                        <th className="py-3 px-3 text-center w-24">
-                          <span className="inline-flex items-center gap-1 font-bold">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#0FA668] inline-block" />
+                        <th className="py-3 px-4 text-center w-16">Kode</th>
+                        <th className="py-3 px-5 text-left min-w-[300px]">Nama Menu Aplikasi</th>
+                        <th className="py-3 px-4 text-center w-28">
+                          <span className="inline-flex items-center gap-1.5 font-bold">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#0FA668] inline-block shadow-xs" />
                             Read
                           </span>
                         </th>
-                        <th className="py-3 px-3 text-center w-24">
-                          <span className="inline-flex items-center gap-1 font-bold">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#3695E4] inline-block" />
+                        <th className="py-3 px-4 text-center w-28">
+                          <span className="inline-flex items-center gap-1.5 font-bold">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#3695E4] inline-block shadow-xs" />
                             Add
                           </span>
                         </th>
-                        <th className="py-3 px-3 text-center w-24">
-                          <span className="inline-flex items-center gap-1 font-bold">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#A67D0F] inline-block" />
+                        <th className="py-3 px-4 text-center w-28">
+                          <span className="inline-flex items-center gap-1.5 font-bold">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#A67D0F] inline-block shadow-xs" />
                             Edit
                           </span>
                         </th>
-                        <th className="py-3 px-3 text-center w-24">
-                          <span className="inline-flex items-center gap-1 font-bold">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#DB4839] inline-block" />
+                        <th className="py-3 px-4 text-center w-28">
+                          <span className="inline-flex items-center gap-1.5 font-bold">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#DB4839] inline-block shadow-xs" />
                             Delete
                           </span>
                         </th>
-                        <th className="py-3 px-4 text-left">Catatan Wewenang & Batasan</th>
+                        <th className="py-3 px-5 text-left min-w-[240px]">Catatan Wewenang & Batasan</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -473,16 +476,18 @@ export function RoleMatrixDialog({
                             key={menu.id}
                             className="bg-muted/40 hover:bg-muted/70 transition-colors font-medium"
                           >
-                            <td className="py-3 px-3 text-center font-mono font-bold text-muted-foreground">
+                            <td className="py-3 px-4 text-center font-mono font-bold text-muted-foreground">
                               {menu.urutan}
                             </td>
-                            <td className="py-3 px-4 text-foreground font-bold flex items-center gap-2">
-                              <span className="text-sm">{menu.title}</span>
-                              <span className="text-[10.5px] text-muted-foreground font-mono font-normal">
-                                ({menu.route})
-                              </span>
+                            <td className="py-3 px-5 text-foreground font-bold">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{menu.title}</span>
+                                <span className="text-[11px] text-muted-foreground font-mono font-normal">
+                                  ({menu.route})
+                                </span>
+                              </div>
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3 px-4 text-center">
                               <InteractiveCheckbox
                                 checked={menu.readx === 1}
                                 color="#0FA668"
@@ -490,7 +495,7 @@ export function RoleMatrixDialog({
                                 onChange={() => togglePermission(menu.id, "readx")}
                               />
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3 px-4 text-center">
                               <InteractiveCheckbox
                                 checked={menu.addx === 1}
                                 color="#3695E4"
@@ -498,7 +503,7 @@ export function RoleMatrixDialog({
                                 onChange={() => togglePermission(menu.id, "addx")}
                               />
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3 px-4 text-center">
                               <InteractiveCheckbox
                                 checked={menu.updatex === 1}
                                 color="#A67D0F"
@@ -506,7 +511,7 @@ export function RoleMatrixDialog({
                                 onChange={() => togglePermission(menu.id, "updatex")}
                               />
                             </td>
-                            <td className="py-3 px-3 text-center">
+                            <td className="py-3 px-4 text-center">
                               <InteractiveCheckbox
                                 checked={menu.deletex === 1}
                                 color="#DB4839"
@@ -514,7 +519,7 @@ export function RoleMatrixDialog({
                                 onChange={() => togglePermission(menu.id, "deletex")}
                               />
                             </td>
-                            <td className="py-3 px-4 text-[11.5px] text-muted-foreground">
+                            <td className="py-3 px-5 text-[11.5px] text-muted-foreground">
                               {menu.keterangan || "-"}
                             </td>
                           </tr>
@@ -526,17 +531,19 @@ export function RoleMatrixDialog({
                                 key={sub.id}
                                 className="bg-background hover:bg-muted/30 transition-colors"
                               >
-                                <td className="py-2.5 px-3 text-center font-mono text-[11px] text-muted-foreground pl-4">
+                                <td className="py-2.5 px-4 text-center font-mono text-[11px] text-muted-foreground pl-6">
                                   {sub.urutan}
                                 </td>
-                                <td className="py-2.5 px-4 text-foreground pl-10 flex items-center gap-2 text-xs">
-                                  <span className="text-muted-foreground/60">└─</span>
-                                  <span className="font-medium">{sub.title}</span>
-                                  <span className="text-[10px] text-muted-foreground font-mono">
-                                    ({sub.route})
-                                  </span>
+                                <td className="py-2.5 px-5 text-foreground pl-10">
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="text-muted-foreground/60 font-mono">└─</span>
+                                    <span className="font-medium">{sub.title}</span>
+                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                      ({sub.route})
+                                    </span>
+                                  </div>
                                 </td>
-                                <td className="py-2.5 px-3 text-center">
+                                <td className="py-2.5 px-4 text-center">
                                   <InteractiveCheckbox
                                     checked={sub.readx === 1}
                                     color="#0FA668"
@@ -546,7 +553,7 @@ export function RoleMatrixDialog({
                                     }
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 text-center">
+                                <td className="py-2.5 px-4 text-center">
                                   <InteractiveCheckbox
                                     checked={sub.addx === 1}
                                     color="#3695E4"
@@ -556,7 +563,7 @@ export function RoleMatrixDialog({
                                     }
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 text-center">
+                                <td className="py-2.5 px-4 text-center">
                                   <InteractiveCheckbox
                                     checked={sub.updatex === 1}
                                     color="#A67D0F"
@@ -566,7 +573,7 @@ export function RoleMatrixDialog({
                                     }
                                   />
                                 </td>
-                                <td className="py-2.5 px-3 text-center">
+                                <td className="py-2.5 px-4 text-center">
                                   <InteractiveCheckbox
                                     checked={sub.deletex === 1}
                                     color="#DB4839"
@@ -576,7 +583,7 @@ export function RoleMatrixDialog({
                                     }
                                   />
                                 </td>
-                                <td className="py-2.5 px-4 text-[11px] text-muted-foreground italic">
+                                <td className="py-2.5 px-5 text-[11px] text-muted-foreground italic">
                                   {sub.keterangan || "Sub-modul kegiatan"}
                                 </td>
                               </tr>
@@ -598,7 +605,7 @@ export function RoleMatrixDialog({
                 </span>
                 <Link
                   href="/users"
-                  className="inline-flex items-center gap-1 text-primary hover:underline font-medium text-xs"
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline font-medium text-xs bg-primary/10 hover:bg-primary/20 px-3 py-1 rounded-md transition-colors"
                 >
                   Kelola Pengguna di Manajemen User
                   <ExternalLink className="h-3 w-3" />
@@ -606,7 +613,7 @@ export function RoleMatrixDialog({
               </div>
 
               {role.users && role.users.length > 0 ? (
-                <div className="rounded-xl border border-border/80 overflow-hidden shadow-xs">
+                <div className="rounded-xl border border-border/80 overflow-hidden shadow-xs bg-card">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-muted/70 text-foreground font-semibold border-b border-border/60">
@@ -677,11 +684,13 @@ export function RoleMatrixDialog({
         </div>
 
         {/* Footer Modal dengan Action Buttons */}
-        <div className="px-6 py-3.5 bg-muted/30 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground shrink-0">
+        <div className="px-6 py-4 bg-muted/40 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground">{role.nama}</span>
             <span>•</span>
-            <span>Cakupan: {scopeInfo.label}</span>
+            <Badge variant="outline" className="text-[11px] font-normal py-0 bg-background">
+              Cakupan: {scopeInfo.label}
+            </Badge>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -689,7 +698,7 @@ export function RoleMatrixDialog({
               size="sm"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="text-xs h-8 cursor-pointer"
+              className="text-xs h-8.5 px-4 cursor-pointer"
             >
               Tutup
             </Button>
@@ -697,12 +706,12 @@ export function RoleMatrixDialog({
               size="sm"
               onClick={() => saveMatrixMutation.mutate()}
               disabled={saveMatrixMutation.isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-8 shadow-sm cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-8.5 px-4 shadow-sm cursor-pointer"
             >
               {saveMatrixMutation.isPending ? (
-                <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
               ) : (
-                <Save className="h-3 w-3 mr-1.5" />
+                <Save className="h-3.5 w-3.5 mr-1.5" />
               )}
               {saveMatrixMutation.isPending ? "Menyimpan..." : "Simpan Perubahan Matriks"}
             </Button>
@@ -732,22 +741,22 @@ function InteractiveCheckbox({
     <button
       type="button"
       onClick={onChange}
-      className={`inline-flex items-center justify-center size-6 rounded border transition-all cursor-pointer select-none group ${
+      className={`inline-flex items-center justify-center size-7 rounded-md border transition-all cursor-pointer select-none group ${
         checked
           ? "shadow-xs scale-105"
-          : "bg-muted/40 text-muted-foreground/30 border-border/60 hover:border-foreground/40"
+          : "bg-muted/30 text-muted-foreground/30 border-border/70 hover:border-foreground/40 hover:bg-muted/50"
       }`}
       style={{
-        backgroundColor: checked ? `${color}25` : undefined,
+        backgroundColor: checked ? `${color}22` : undefined,
         borderColor: checked ? color : undefined,
         color: checked ? color : undefined,
       }}
       title={`Klik untuk ${checked ? "mencabut" : "memberikan"} izin ${label}`}
     >
       {checked ? (
-        <Check className="h-3.5 w-3.5 stroke-[3]" />
+        <Check className="h-4 w-4 stroke-[3]" />
       ) : (
-        <X className="h-3 w-3 stroke-[2] opacity-0 group-hover:opacity-60" />
+        <X className="h-3.5 w-3.5 stroke-[2] opacity-0 group-hover:opacity-60" />
       )}
     </button>
   )

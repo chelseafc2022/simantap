@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  typescript: {
+    // Validasi TypeScript tetap diaktifkan saat build
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;
