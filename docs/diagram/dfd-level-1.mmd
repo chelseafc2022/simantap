@@ -1,0 +1,65 @@
+flowchart TB
+    U["Pengguna sesuai peran"]
+    E["E-Gov / SIMPEG: hanya baca"]
+    I["SiRUP / INAPROC: sumber paket"]
+    P1(("1.0 Autentikasi dan akses"))
+    P2(("2.0 Kelola paket dan target"))
+    P3(("3.0 Catat dan ajukan realisasi"))
+    P4(("4.0 Verifikasi realisasi"))
+    P5(("5.0 Monitoring dan laporan"))
+    P6(("6.0 Kelola periode input"))
+    D1[("D1 users, roles, user_roles, refresh_tokens")]
+    D2[("D2 paket_pembangunan")]
+    D3[("D3 target_bulanan")]
+    D4[("D4 realisasi_bulanan")]
+    D5[("D5 bukti_fisik")]
+    D6[("D6 locking_periods")]
+    D7[("D7 Berkas bukti fisik")]
+    DA[("audit_logs")]
+
+    U -->|"Kredensial / pengaturan akses"| P1
+    P1 -->|"Profil, token, status akses"| U
+    P1 -->|"Permintaan baca identitas"| E
+    E -->|"Identitas ASN dan akun"| P1
+    D1 -->|"Akun, peran, sesi"| P1
+    P1 -->|"Akun lokal, peran, sesi"| D1
+    U -->|"Data paket, target, permintaan sinkronisasi"| P2
+    P2 -->|"Permintaan data RUP"| I
+    I -->|"Paket pengadaan"| P2
+    P2 -->|"Permintaan referensi organisasi"| E
+    E -->|"OPD dan subunit"| P2
+    D2 -->|"Paket tersimpan"| P2
+    P2 -->|"Paket baru / perubahan"| D2
+    D3 -->|"Target tersimpan"| P2
+    P2 -->|"Target bulanan"| D3
+    P2 -->|"Hasil pengelolaan"| U
+    U -->|"Fisik, keuangan, bukti, pengajuan"| P3
+    D2 -->|"Paket dan tahun anggaran"| P3
+    D6 -->|"Kunci dan batas input"| P3
+    D4 -->|"Realisasi dan status saat ini"| P3
+    P3 -->|"Realisasi dan status pengajuan"| D4
+    P3 -->|"Metadata bukti"| D5
+    P3 -->|"Berkas unggahan"| D7
+    P3 -->|"Status input / pengajuan"| U
+    U -->|"Permintaan antrian / keputusan dan catatan"| P4
+    D2 -->|"Identitas paket dan OPD"| P4
+    D4 -->|"Realisasi diajukan"| P4
+    D5 -->|"Metadata bukti"| P4
+    D7 -->|"Dokumentasi pendukung"| P4
+    P4 -->|"Status, catatan, verifikator, waktu"| D4
+    P4 -->|"Antrian / hasil verifikasi"| U
+    U -->|"Filter tahun, bulan, OPD"| P5
+    D2 -->|"Paket dan nilai anggaran"| P5
+    D3 -->|"Target fisik"| P5
+    D4 -->|"Realisasi dan status verifikasi"| P5
+    P5 -->|"Permintaan referensi organisasi"| E
+    E -->|"Nama OPD dan subunit"| P5
+    P5 -->|"Rekap fisik, keuangan, dan laporan"| U
+    U -->|"Aturan periode oleh Administrator"| P6
+    D6 -->|"Aturan tersimpan"| P6
+    P6 -->|"Kunci dan tenggat periode"| D6
+    P6 -->|"Status periode"| U
+    P1 -->|"Jejak aktivitas akses"| DA
+    P2 -->|"Jejak perubahan paket"| DA
+    P3 -->|"Jejak realisasi"| DA
+    P4 -->|"Jejak verifikasi"| DA

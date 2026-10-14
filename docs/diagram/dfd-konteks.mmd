@@ -1,0 +1,20 @@
+flowchart LR
+    A["Administrator"]
+    O["Operator: SiRUP, Perencanaan, PPK, Bendahara"]
+    M["MONEV"]
+    P["Kepala OPD / Pimpinan Daerah"]
+    S(("0. MONALISA KONSEL"))
+    E["E-Gov / SIMPEG"]
+    I["SiRUP / INAPROC"]
+    A -->|"Data akun, peran, periode, dan operasional"| S
+    S -->|"Status pengelolaan, data, dan laporan"| A
+    O -->|"Paket, target, realisasi, bukti, dan pengajuan"| S
+    S -->|"Data paket, status input, hasil verifikasi, laporan"| O
+    M -->|"Permintaan sinkronisasi dan keputusan verifikasi"| S
+    S -->|"Hasil sinkronisasi, antrian, bukti, laporan"| M
+    P -->|"Filter monitoring, antrian, dan laporan"| S
+    S -->|"Rekap capaian, antrian, dan laporan"| P
+    S -->|"Permintaan baca akun, ASN, OPD, subunit"| E
+    E -->|"Data identitas dan organisasi"| S
+    S -->|"Permintaan baca paket RUP"| I
+    I -->|"Data paket pengadaan"| S

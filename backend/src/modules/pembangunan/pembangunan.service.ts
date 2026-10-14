@@ -794,9 +794,10 @@ export class PembangunanService {
       const deviasiFisik = parseFloat(
         (realisasiFisik - targetFisik).toFixed(2),
       );
+      const basisAnggaran = nilaiPagu > 0 ? nilaiPagu : nilaiKontrak;
       const persenKeuangan =
-        nilaiKontrak > 0
-          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+        basisAnggaran > 0
+          ? parseFloat(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
           : 0;
 
       // Status capaian berdasarkan standar deviasi fisik
@@ -855,9 +856,20 @@ export class PembangunanService {
       (acc, cur) => acc + cur.realisasiKeuangan,
       0,
     );
+    // Logika Seragam: Jika belum semua paket berkontrak, gunakan totalPagu.
+    // Jika SELURUH paket sudah berkontrak (nilaiKontrak > 0), baru gunakan totalKontrak.
+    const isAllBerkontrak =
+      filtered.length > 0 &&
+      filtered.every((cur) => Number(cur.nilaiKontrak) > 0);
+    const basisAnggaran =
+      isAllBerkontrak && totalKontrak > 0
+        ? totalKontrak
+        : totalPagu > 0
+        ? totalPagu
+        : totalKontrak;
     const persenSerapanKeuangan =
-      totalKontrak > 0
-        ? parseFloat(((totalRealisasiKeuangan / totalKontrak) * 100).toFixed(2))
+      basisAnggaran > 0
+        ? parseFloat(((totalRealisasiKeuangan / basisAnggaran) * 100).toFixed(2))
         : 0;
 
     const countStatus = {
@@ -889,10 +901,54 @@ export class PembangunanService {
       (avgRealisasiFisik - avgTargetFisik).toFixed(2),
     );
 
+    // Urutkan paket:
+    // 1. KRITIS (deviasi paling parah / paling minus di atas)
+    // 2. PERHATIAN (waspada, deviasi -10% s.d. < 0%)
+    // 3. AMAN (sedang berjalan, deviasi >= 0%, realisasi < 100%)
+    // 4. SELESAI (realisasi fisik >= 100%)
+    // 5. BELUM DIISI / BELUM MULAI (target 0 & fisik 0) di paling bawah
+    const sorted = [...filtered].sort((a, b) => {
+      const getPriority = (item: typeof a) => {
+        if (
+          item.status === 'BELUM_MULAI' ||
+          (item.targetFisik === 0 && item.realisasiFisik === 0)
+        ) {
+          return 5;
+        }
+        if (item.status === 'KRITIS') return 1;
+        if (item.status === 'PERHATIAN') return 2;
+        if (item.realisasiFisik >= 100) return 4;
+        return 3; // AMAN (< 100%)
+      };
+
+      const pA = getPriority(a);
+      const pB = getPriority(b);
+
+      if (pA !== pB) return pA - pB;
+
+      // Jika sama-sama KRITIS atau PERHATIAN: urutkan dari deviasi paling parah (paling negatif) ke atas
+      if (pA === 1 || pA === 2) {
+        return a.deviasiFisik - b.deviasiFisik;
+      }
+
+      // Jika sama-sama AMAN: urutkan dari realisasi fisik terendah ke tertinggi
+      if (pA === 3) {
+        return a.realisasiFisik - b.realisasiFisik;
+      }
+
+      // Jika sama-sama SELESAI (100%): urutkan berdasarkan nama paket
+      if (pA === 4) {
+        return a.namaPaket.localeCompare(b.namaPaket);
+      }
+
+      // Default / BELUM_MULAI
+      return a.namaPaket.localeCompare(b.namaPaket);
+    });
+
     // Paginasi array hasil
     const skip = (Number(page) - 1) * Number(limit);
-    const paginatedData = filtered.slice(skip, skip + Number(limit));
-    const totalPages = Math.ceil(filtered.length / Number(limit)) || 1;
+    const paginatedData = sorted.slice(skip, skip + Number(limit));
+    const totalPages = Math.ceil(sorted.length / Number(limit)) || 1;
 
     return {
       data: paginatedData,
@@ -901,6 +957,7 @@ export class PembangunanService {
         totalPaket: filtered.length,
         totalPagu,
         totalKontrak,
+        isAllBerkontrak,
         totalRealisasiKeuangan,
         persenSerapanKeuangan,
         avgTargetFisik,
@@ -995,9 +1052,10 @@ export class PembangunanService {
       const deviasiFisik = parseFloat(
         (realisasiFisik - targetFisik).toFixed(2),
       );
+      const basisAnggaran = nilaiPagu > 0 ? nilaiPagu : nilaiKontrak;
       const persenKeuangan =
-        nilaiKontrak > 0
-          ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+        basisAnggaran > 0
+          ? parseFloat(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
           : 0;
 
       let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
@@ -1474,9 +1532,10 @@ export class PembangunanService {
         const deviasiFisik = parseFloat(
           (realisasiFisik - targetFisik).toFixed(2),
         );
+        const basisAnggaran = nilaiPagu > 0 ? nilaiPagu : nilaiKontrak;
         const persenKeuangan =
-          nilaiKontrak > 0
-            ? parseFloat(((realisasiKeuangan / nilaiKontrak) * 100).toFixed(2))
+          basisAnggaran > 0
+            ? parseFloat(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
             : 0;
 
         let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
@@ -1667,10 +1726,21 @@ export class PembangunanService {
       const avgDeviasiFisik = parseFloat(
         (avgRealisasiFisik - avgTargetFisik).toFixed(2),
       );
+      // Jika belum semua paket berkontrak, gunakan totalPagu.
+      // Jika SELURUH paket sudah berkontrak (nilaiKontrak > 0), baru gunakan totalKontrak.
+      const isAllBerkontrak =
+        totalPaket > 0 &&
+        groupPakets.every((p) => (Number(p.nilaiKontrak) || 0) > 0);
+      const basisAnggaran =
+        isAllBerkontrak && totalKontrak > 0
+          ? totalKontrak
+          : totalPagu > 0
+          ? totalPagu
+          : totalKontrak;
       const persenSerapanKeuangan =
-        totalKontrak > 0
+        basisAnggaran > 0
           ? parseFloat(
-              ((sumRealisasiKeuangan / totalKontrak) * 100).toFixed(2),
+              ((sumRealisasiKeuangan / basisAnggaran) * 100).toFixed(2),
             )
           : 0;
 
@@ -1682,6 +1752,7 @@ export class PembangunanService {
         totalPaket,
         totalPagu,
         totalKontrak,
+        isAllBerkontrak,
         avgTargetFisik,
         avgRealisasiFisik,
         avgDeviasiFisik,

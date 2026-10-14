@@ -159,9 +159,49 @@ export default function RealisasiBulananPage() {
 
   const opdList = Array.isArray(opdResponse) ? opdResponse : []
   const subUnitList = Array.isArray(subUnitResponse) ? subUnitResponse : []
-  const items: CetakRealisasiItem[] = Array.isArray(realisasiResponse?.data)
+  const rawItems: CetakRealisasiItem[] = Array.isArray(realisasiResponse?.data)
     ? realisasiResponse.data
     : []
+
+  // Urutan: Kritis (deviasi paling parah) -> Perhatian/Waspada -> Aman (< 100%) -> Selesai (100%) -> Belum diisi/Belum mulai (paling bawah)
+  const items: CetakRealisasiItem[] = useMemo(() => {
+    return [...rawItems].sort((a, b) => {
+      const getPriority = (item: any) => {
+        if (
+          item.status === "BELUM_MULAI" ||
+          (Number(item.targetFisik || 0) === 0 && Number(item.realisasiFisik || 0) === 0)
+        ) {
+          return 5
+        }
+        if (item.status === "KRITIS") return 1
+        if (item.status === "PERHATIAN") return 2
+        if (Number(item.realisasiFisik || 0) >= 100) return 4
+        return 3 // AMAN (< 100%)
+      }
+
+      const pA = getPriority(a)
+      const pB = getPriority(b)
+
+      if (pA !== pB) return pA - pB
+
+      // Jika sama-sama KRITIS atau PERHATIAN: urutkan deviasi paling parah (paling minus) di atas
+      if (pA === 1 || pA === 2) {
+        return Number(a.deviasiFisik || 0) - Number(b.deviasiFisik || 0)
+      }
+
+      // Jika sama-sama AMAN: progres fisik terendah ke tertinggi
+      if (pA === 3) {
+        return Number(a.realisasiFisik || 0) - Number(b.realisasiFisik || 0)
+      }
+
+      // Jika sama-sama SELESAI (100%): urutkan nama
+      if (pA === 4) {
+        return (a.namaPaket || "").localeCompare(b.namaPaket || "")
+      }
+
+      return (a.namaPaket || "").localeCompare(b.namaPaket || "")
+    })
+  }, [rawItems])
   const summary = realisasiResponse?.summary
   const meta = realisasiResponse?.meta || { total: 0, totalPages: 1, page: 1 }
 
@@ -264,16 +304,19 @@ export default function RealisasiBulananPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCetakPDF}
-            disabled={isLoading || items.length === 0}
-            className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Cetak Laporan RFK</span>
-          </Button>
+          {/* Tombol Cetak Laporan RFK HANYA untuk Administrator / Tim Monev Daerah */}
+          {isSuperRole && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCetakPDF}
+              disabled={isLoading || items.length === 0}
+              className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+            >
+              <Printer className="h-4 w-4" />
+              <span>Cetak Laporan RFK</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"

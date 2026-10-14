@@ -1,0 +1,103 @@
+erDiagram
+    users ||--o{ user_roles : memiliki
+    roles ||--o{ user_roles : ditugaskan
+    users ||--o{ refresh_tokens : memiliki
+    users o|--o{ audit_logs : melakukan
+    users o|--o{ paket_pembangunan : membuat
+    users o|--o{ realisasi_bulanan : menginput
+    users o|--o{ realisasi_bulanan : memverifikasi
+    users o|--o{ bukti_fisik : mengunggah
+    paket_pembangunan ||--o{ target_bulanan : memiliki
+    paket_pembangunan ||--o{ realisasi_bulanan : memiliki
+    realisasi_bulanan ||--o{ bukti_fisik : didukung
+
+    users {
+      string id PK
+      string nip UK
+      string email UK
+      string nama_lengkap
+      string role "opsional"
+      string_array roles
+      string status
+      string opd_id "referensi eksternal, bukan FK"
+      string sub_unit_id "referensi eksternal, bukan FK"
+    }
+    roles {
+      string id PK
+      string kode UK
+      string nama
+    }
+    user_roles {
+      string id PK
+      string user_id FK
+      string role_id FK
+    }
+    refresh_tokens {
+      string id PK
+      string user_id FK
+      string token_hash
+      boolean is_revoked
+      datetime expires_at
+    }
+    audit_logs {
+      string id PK
+      string user_id FK "nullable"
+      string action
+      string resource
+      string resource_id "bukan FK"
+      json payload
+    }
+    paket_pembangunan {
+      string id PK
+      int tahun_anggaran
+      string opd_id "referensi eksternal"
+      string sub_unit_id "referensi eksternal"
+      string kode_rup_kontrak
+      string nama_paket
+      decimal nilai_pagu
+      decimal nilai_kontrak
+      string created_by_id FK "nullable"
+    }
+    target_bulanan {
+      string id PK
+      string paket_id FK
+      int bulan
+      float target_fisik
+    }
+    realisasi_bulanan {
+      string id PK
+      string paket_id FK
+      int bulan
+      float realisasi_fisik
+      decimal realisasi_keuangan
+      string input_by_id FK "nullable"
+      string status_verifikasi
+      string catatan_verifikasi
+      string verifikasi_oleh_id FK "nullable"
+      datetime verifikasi_at
+      datetime diajukan_at
+    }
+    bukti_fisik {
+      string id PK
+      string realisasi_id FK
+      string nama_file
+      string path_file
+      string upload_oleh_id FK "nullable"
+    }
+    locking_periods {
+      string id PK
+      int tahun
+      int bulan
+      boolean is_locked
+      datetime batas_input
+      string updated_by_id "bukan FK"
+    }
+    system_settings {
+      string id PK
+      int tahun_anggaran
+      float ambang_kuning
+      float ambang_merah
+      boolean egov_active
+      boolean simpeg_active
+      boolean sirup_active
+    }

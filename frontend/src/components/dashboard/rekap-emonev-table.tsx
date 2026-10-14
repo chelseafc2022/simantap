@@ -51,9 +51,14 @@ export function RekapEmonevTable({
       const isKecamatan = namaOpd.toUpperCase().includes("KECAMATAN")
 
       const totalPagu = Number(match?.totalPagu ?? match?.totalKontrak ?? opd.total_pagu ?? 0)
+      const totalKontrak = Number(match?.totalKontrak ?? 0)
+      const isAllBerkontrak = Boolean(match?.isAllBerkontrak)
       const realisasiKeuangan = Number(match?.totalRealisasiKeuangan ?? opd.total_realisasi_keuangan ?? 0)
-      const persenKeuangan = totalPagu > 0
-        ? Number(((realisasiKeuangan / totalPagu) * 100).toFixed(2))
+
+      // Selaras dengan Backend: jika belum semua paket berkontrak, basis totalPagu. Jika sudah semua berkontrak, basis totalKontrak.
+      const basisAnggaran = isAllBerkontrak && totalKontrak > 0 ? totalKontrak : (totalPagu > 0 ? totalPagu : totalKontrak)
+      const persenKeuangan = basisAnggaran > 0
+        ? Number(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
         : Number(match?.persenSerapanKeuangan ?? opd.realisasi_keuangan_persen ?? 0)
       const persenFisik = Number((match?.avgRealisasiFisik ?? opd.realisasi_fisik_persen ?? 0).toFixed(2))
       const kombinasi = Number(((persenKeuangan + persenFisik) / 2).toFixed(2))
@@ -90,81 +95,98 @@ export function RekapEmonevTable({
     return a.namaOpd.localeCompare(b.namaOpd)
   }
 
-  // Pisahkan OPD dan Kecamatan dengan urutan kinerja terbaik di atas
-  const opdList = useMemo(() => {
-    return mergedList.filter((d) => !d.isKecamatan).sort(sortByPerformanceDesc)
+  // Pisahkan OPD dan Kecamatan
+  const opdAll = useMemo(() => {
+    return mergedList.filter((d) => !d.isKecamatan)
   }, [mergedList])
 
-  const kecamatanList = useMemo(() => {
-    return mergedList.filter((d) => d.isKecamatan).sort(sortByPerformanceDesc)
+  const kecamatanAll = useMemo(() => {
+    return mergedList.filter((d) => d.isKecamatan)
   }, [mergedList])
 
-  // Hitung Subtotal OPD
+  // OPD Penyedia (sudah input minimal 1 paket) vs OPD Non Penyedia (belum input paket)
+  const opdPenyedia = useMemo(() => {
+    return opdAll.filter((d) => d.totalPaket > 0).sort(sortByPerformanceDesc)
+  }, [opdAll])
+
+  const opdNonPenyedia = useMemo(() => {
+    return opdAll.filter((d) => d.totalPaket === 0).sort((a, b) => a.namaOpd.localeCompare(b.namaOpd))
+  }, [opdAll])
+
+  // Kecamatan Penyedia vs Non Penyedia
+  const kecamatanPenyedia = useMemo(() => {
+    return kecamatanAll.filter((d) => d.totalPaket > 0).sort(sortByPerformanceDesc)
+  }, [kecamatanAll])
+
+  const kecamatanNonPenyedia = useMemo(() => {
+    return kecamatanAll.filter((d) => d.totalPaket === 0).sort((a, b) => a.namaOpd.localeCompare(b.namaOpd))
+  }, [kecamatanAll])
+
+  // Hitung Subtotal OPD (Hanya OPD Penyedia yang memiliki paket pembangunan)
   const totalOpd = useMemo(() => {
     let pagu = 0
     let keu = 0
     let sumFisik = 0
-    opdList.forEach((d) => {
+    opdPenyedia.forEach((d) => {
       pagu += d.totalPagu
       keu += d.realisasiKeuangan
       sumFisik += d.persenFisik
     })
     const persenKeuangan = pagu > 0 ? Number(((keu / pagu) * 100).toFixed(2)) : 0
-    const persenFisik = opdList.length > 0 ? Number((sumFisik / opdList.length).toFixed(2)) : 0
+    const persenFisik = opdPenyedia.length > 0 ? Number((sumFisik / opdPenyedia.length).toFixed(2)) : 0
     const kombinasi = Number(((persenKeuangan + persenFisik) / 2).toFixed(2))
     return { pagu, keu, persenKeuangan, persenFisik, kombinasi }
-  }, [opdList])
+  }, [opdPenyedia])
 
-  // Hitung Subtotal Kecamatan
+  // Hitung Subtotal Kecamatan (Hanya Kecamatan Penyedia)
   const totalKecamatan = useMemo(() => {
     let pagu = 0
     let keu = 0
     let sumFisik = 0
-    kecamatanList.forEach((d) => {
+    kecamatanPenyedia.forEach((d) => {
       pagu += d.totalPagu
       keu += d.realisasiKeuangan
       sumFisik += d.persenFisik
     })
     const persenKeuangan = pagu > 0 ? Number(((keu / pagu) * 100).toFixed(2)) : 0
-    const persenFisik = kecamatanList.length > 0 ? Number((sumFisik / kecamatanList.length).toFixed(2)) : 0
+    const persenFisik = kecamatanPenyedia.length > 0 ? Number((sumFisik / kecamatanPenyedia.length).toFixed(2)) : 0
     const kombinasi = Number(((persenKeuangan + persenFisik) / 2).toFixed(2))
     return { pagu, keu, persenKeuangan, persenFisik, kombinasi }
-  }, [kecamatanList])
+  }, [kecamatanPenyedia])
 
-  // Grand Total Daerah
+  // Grand Total Daerah (Hanya mengakumulasikan OPD & Kecamatan Penyedia)
   const grandTotal = useMemo(() => {
     const pagu = totalOpd.pagu + totalKecamatan.pagu
     const keu = totalOpd.keu + totalKecamatan.keu
-    const totalCount = opdList.length + kecamatanList.length
+    const totalCount = opdPenyedia.length + kecamatanPenyedia.length
     const persenKeuangan = pagu > 0 ? Number(((keu / pagu) * 100).toFixed(2)) : 0
     const persenFisik =
       totalCount > 0
         ? Number(
             (
-              (totalOpd.persenFisik * opdList.length +
-                totalKecamatan.persenFisik * kecamatanList.length) /
+              (totalOpd.persenFisik * opdPenyedia.length +
+                totalKecamatan.persenFisik * kecamatanPenyedia.length) /
               totalCount
             ).toFixed(2)
           )
         : 0
     const kombinasi = Number(((persenKeuangan + persenFisik) / 2).toFixed(2))
     return { pagu, keu, persenKeuangan, persenFisik, kombinasi }
-  }, [totalOpd, totalKecamatan, opdList.length, kecamatanList.length])
+  }, [totalOpd, totalKecamatan, opdPenyedia.length, kecamatanPenyedia.length])
 
   // Filter Search
-  const filteredOpd = useMemo(() => {
-    if (!search.trim()) return opdList
+  const filterList = (list: any[]) => {
+    if (!search.trim()) return list
     const q = search.toLowerCase()
-    return opdList.filter(
+    return list.filter(
       (d) => d.namaOpd.toLowerCase().includes(q) || d.singkatan.toLowerCase().includes(q)
     )
-  }, [opdList, search])
+  }
 
-  const filteredKecamatan = useMemo(() => {
-    if (!search.trim()) return kecamatanList
-    const q = search.toLowerCase()
-    return kecamatanList.filter((d) => d.namaOpd.toLowerCase().includes(q))
-  }, [kecamatanList, search])
+  const filteredOpdPenyedia = useMemo(() => filterList(opdPenyedia), [opdPenyedia, search])
+  const filteredOpdNonPenyedia = useMemo(() => filterList(opdNonPenyedia), [opdNonPenyedia, search])
+  const filteredKecamatanPenyedia = useMemo(() => filterList(kecamatanPenyedia), [kecamatanPenyedia, search])
+  const filteredKecamatanNonPenyedia = useMemo(() => filterList(kecamatanNonPenyedia), [kecamatanNonPenyedia, search])
 
   // Fungsi Cetak Laporan PDF Resmi (Mengadopsi format E-MONEV Kabupaten Konawe Selatan)
   const handleCetakPDF = () => {
@@ -178,15 +200,17 @@ export function RekapEmonevTable({
     let menit = d.getMinutes() < 10 ? `0${d.getMinutes()}` : d.getMinutes()
     const waktuCetak = `${jam}.${menit}`
 
-    // Baris tabel OPD
+    // 1. Baris tabel OPD Penyedia
     let rowsHtml = ""
-    opdList.forEach((data, i) => {
+    opdPenyedia.forEach((data, i) => {
+      const isRed = data.persenKeuangan === 0 || data.persenFisik === 0
+      const textColor = isRed ? "color:#c00000;font-weight:bold;" : ""
       const styleKeu = data.persenKeuangan < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
       const styleFisik = data.persenFisik < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
       const styleKomb = data.kombinasi < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
       rowsHtml += `<tr>
         <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
-        <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
+        <td style="border:1px solid #000;padding:4px;text-transform:uppercase;${textColor}">${data.namaOpd}</td>
         <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.totalPagu)}</td>
         <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.realisasiKeuangan)}</td>
         <td style="text-align:center;border:1px solid #000;padding:4px;${styleKeu}">${data.persenKeuangan}%</td>
@@ -197,7 +221,7 @@ export function RekapEmonevTable({
 
     // Subtotal OPD
     rowsHtml += `<tr style="background-color:#ffc000;font-weight:bold;font-style:italic;">
-      <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH PERANGKAT DAERAH (OPD)</td>
+      <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH</td>
       <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalOpd.pagu)}</td>
       <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalOpd.keu)}</td>
       <td style="text-align:center;border:1px solid #000;padding:5px;">${totalOpd.persenKeuangan}%</td>
@@ -205,39 +229,91 @@ export function RekapEmonevTable({
       <td style="text-align:center;border:1px solid #000;padding:5px;">${totalOpd.kombinasi}%</td>
     </tr>`
 
-    // Pembatas & Baris Kecamatan
-    if (kecamatanList.length > 0) {
+    // OPD NON PENYEDIA
+    if (opdNonPenyedia.length > 0) {
       rowsHtml += `<tr style="background-color:#b8cce4;">
-        <td colspan="7" style="font-weight:bold;border:1px solid #000;padding:6px 10px;text-align:left;">KECAMATAN SE-KABUPATEN KONAWE SELATAN</td>
+        <td style="border:1px solid #000;padding:4px;"></td>
+        <td style="font-weight:bold;border:1px solid #000;padding:5px 6px;text-align:left;">OPD NON PENYEDIA</td>
+        <td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td>
       </tr>`
 
-      kecamatanList.forEach((data, i) => {
-        const styleKeu = data.persenKeuangan < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-        const styleFisik = data.persenFisik < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-        const styleKomb = data.kombinasi < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
+      opdNonPenyedia.forEach((data, i) => {
         rowsHtml += `<tr>
           <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
           <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
-          <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.totalPagu)}</td>
-          <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.realisasiKeuangan)}</td>
-          <td style="text-align:center;border:1px solid #000;padding:4px;${styleKeu}">${data.persenKeuangan}%</td>
-          <td style="text-align:center;border:1px solid #000;padding:4px;${styleFisik}">${data.persenFisik}%</td>
-          <td style="text-align:center;border:1px solid #000;padding:4px;${styleKomb}">${data.kombinasi}%</td>
+          <td style="border:1px solid #000;padding:4px;"></td>
+          <td style="border:1px solid #000;padding:4px;"></td>
+          <td style="border:1px solid #000;padding:4px;"></td>
+          <td style="border:1px solid #000;padding:4px;"></td>
+          <td style="border:1px solid #000;padding:4px;"></td>
         </tr>`
       })
-
-      // Subtotal Kecamatan
-      rowsHtml += `<tr style="background-color:#ffc000;font-weight:bold;font-style:italic;">
-        <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH KECAMATAN</td>
-        <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.pagu)}</td>
-        <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.keu)}</td>
-        <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenKeuangan}%</td>
-        <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenFisik}%</td>
-        <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.kombinasi}%</td>
-      </tr>`
     }
 
-    // Grand Total Keseluruhan
+    // 2. Baris Kecamatan
+    if (kecamatanPenyedia.length > 0 || kecamatanNonPenyedia.length > 0) {
+      if (kecamatanPenyedia.length > 0) {
+        rowsHtml += `<tr style="background-color:#b8cce4;">
+          <td colspan="7" style="font-weight:bold;border:1px solid #000;padding:6px 10px;text-align:left;">KECAMATAN SE-KABUPATEN KONAWE SELATAN</td>
+        </tr>`
+
+        kecamatanPenyedia.forEach((data, i) => {
+          const styleKeu = data.persenKeuangan < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
+          const styleFisik = data.persenFisik < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
+          const styleKomb = data.kombinasi < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
+          rowsHtml += `<tr>
+            <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
+            <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
+            <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.totalPagu)}</td>
+            <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.realisasiKeuangan)}</td>
+            <td style="text-align:center;border:1px solid #000;padding:4px;${styleKeu}">${data.persenKeuangan}%</td>
+            <td style="text-align:center;border:1px solid #000;padding:4px;${styleFisik}">${data.persenFisik}%</td>
+            <td style="text-align:center;border:1px solid #000;padding:4px;${styleKomb}">${data.kombinasi}%</td>
+          </tr>`
+        })
+
+        // Subtotal Kecamatan Penyedia
+        rowsHtml += `<tr style="background-color:#ffc000;font-weight:bold;font-style:italic;">
+          <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH KECAMATAN</td>
+          <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.pagu)}</td>
+          <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.keu)}</td>
+          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenKeuangan}%</td>
+          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenFisik}%</td>
+          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.kombinasi}%</td>
+        </tr>`
+      }
+
+      // KECAMATAN NON PENYEDIA
+      if (kecamatanNonPenyedia.length > 0) {
+        rowsHtml += `<tr style="background-color:#b8cce4;">
+          <td style="border:1px solid #000;padding:4px;"></td>
+          <td style="font-weight:bold;border:1px solid #000;padding:5px 6px;text-align:left;">KECAMATAN NON PENYEDIA</td>
+          <td style="border:1px solid #000;"></td>
+          <td style="border:1px solid #000;"></td>
+          <td style="border:1px solid #000;"></td>
+          <td style="border:1px solid #000;"></td>
+          <td style="border:1px solid #000;"></td>
+        </tr>`
+
+        kecamatanNonPenyedia.forEach((data, i) => {
+          rowsHtml += `<tr>
+            <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
+            <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
+            <td style="border:1px solid #000;padding:4px;"></td>
+            <td style="border:1px solid #000;padding:4px;"></td>
+            <td style="border:1px solid #000;padding:4px;"></td>
+            <td style="border:1px solid #000;padding:4px;"></td>
+            <td style="border:1px solid #000;padding:4px;"></td>
+          </tr>`
+        })
+      }
+    }
+
+    // Grand Total Keseluruhan (Hanya dari yang aktif berpaket)
     rowsHtml += `<tr style="background-color:#92d050;font-weight:bold;font-size:10pt;">
       <td colspan="2" style="text-align:right;border:1px solid #000;padding:7px 15px;">TOTAL KESELURUHAN KABUPATEN</td>
       <td style="text-align:right;border:1px solid #000;padding:7px;">${formatRupiah(grandTotal.pagu)}</td>
@@ -362,7 +438,7 @@ export function RekapEmonevTable({
               onClick={() => setFilterKategori("opd")}
               className="h-7 text-xs px-2.5"
             >
-              OPD ({opdList.length})
+              OPD ({opdPenyedia.length} Aktif / {opdAll.length})
             </Button>
             <Button
               variant={filterKategori === "kecamatan" ? "default" : "outline"}
@@ -370,7 +446,7 @@ export function RekapEmonevTable({
               onClick={() => setFilterKategori("kecamatan")}
               className="h-7 text-xs px-2.5"
             >
-              Kecamatan ({kecamatanList.length})
+              Kecamatan ({kecamatanPenyedia.length} Aktif / {kecamatanAll.length})
             </Button>
           </div>
         </div>
@@ -408,95 +484,166 @@ export function RekapEmonevTable({
               {/* 1. BAGIAN OPD */}
               {filterKategori !== "kecamatan" && (
                 <>
-                  {filteredOpd.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
-                      <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium">
-                        <div className="flex items-center gap-1.5">
-                          <span className="uppercase">{item.namaOpd}</span>
-                          {item.totalPaket > 0 && (
-                            <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">
-                              {item.totalPaket} Pkt
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
-                        {formatRupiah(item.totalPagu)}
-                      </td>
-                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
-                        {formatRupiah(item.realisasiKeuangan)}
-                      </td>
-                      <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
-                        item.persenKeuangan >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenKeuangan > 0 ? "text-amber-600" : "text-rose-500"
-                      }`}>
-                        {item.persenKeuangan}%
-                      </td>
-                      <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
-                        item.persenFisik >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenFisik > 0 ? "text-amber-600" : "text-rose-500"
-                      }`}>
-                        {item.persenFisik}%
-                      </td>
-                      <td className={`py-2 px-2 text-center font-mono font-bold ${
-                        item.kombinasi >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.kombinasi > 0 ? "text-amber-600" : "text-rose-500"
-                      }`}>
-                        {item.kombinasi}%
-                      </td>
-                    </tr>
-                  ))}
+                  {/* 1.A. OPD PENYEDIA (SUDAH INPUT MINIMAL 1 PAKET) */}
+                  {filteredOpdPenyedia.map((item, idx) => {
+                    const isZero = item.persenKeuangan === 0 || item.persenFisik === 0
+                    return (
+                      <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                        <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                        <td className={`py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium ${isZero ? "text-rose-600 dark:text-rose-400 font-bold" : ""}`}>
+                          <div className="flex items-center gap-1.5">
+                            <span className="uppercase">{item.namaOpd}</span>
+                            {item.totalPaket > 0 && (
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-mono">
+                                {item.totalPaket} Pkt
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
+                          {formatRupiah(item.totalPagu)}
+                        </td>
+                        <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">
+                          {formatRupiah(item.realisasiKeuangan)}
+                        </td>
+                        <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
+                          item.persenKeuangan >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenKeuangan > 0 ? "text-amber-600" : "text-rose-500"
+                        }`}>
+                          {item.persenKeuangan}%
+                        </td>
+                        <td className={`py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold ${
+                          item.persenFisik >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.persenFisik > 0 ? "text-amber-600" : "text-rose-500"
+                        }`}>
+                          {item.persenFisik}%
+                        </td>
+                        <td className={`py-2 px-2 text-center font-mono font-bold ${
+                          item.kombinasi >= 75 ? "text-emerald-600 dark:text-emerald-400" : item.kombinasi > 0 ? "text-amber-600" : "text-rose-500"
+                        }`}>
+                          {item.kombinasi}%
+                        </td>
+                      </tr>
+                    )
+                  })}
 
-                  {/* SUB TOTAL OPD */}
-                  <tr className="bg-amber-400/20 font-bold border-t-2 border-b border-amber-500/30 text-amber-950 dark:text-amber-200">
-                    <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/30 font-semibold italic">
-                      JUMLAH PERANGKAT DAERAH (OPD)
+                  {/* SUB TOTAL OPD (JUMLAH) */}
+                  <tr className="bg-amber-400/25 font-bold border-t-2 border-b border-amber-500/40 text-amber-950 dark:text-amber-200">
+                    <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/40 font-bold italic">
+                      JUMLAH
                     </td>
-                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalOpd.pagu)}</td>
-                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalOpd.keu)}</td>
-                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalOpd.persenKeuangan}%</td>
-                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalOpd.persenFisik}%</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/40 font-mono">{formatRupiah(totalOpd.pagu)}</td>
+                    <td className="py-2.5 px-3 text-right border-r border-amber-500/40 font-mono">{formatRupiah(totalOpd.keu)}</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/40 font-mono">{totalOpd.persenKeuangan}%</td>
+                    <td className="py-2.5 px-2 text-center border-r border-amber-500/40 font-mono">{totalOpd.persenFisik}%</td>
                     <td className="py-2.5 px-2 text-center font-mono">{totalOpd.kombinasi}%</td>
                   </tr>
+
+                  {/* 1.B. OPD NON PENYEDIA (BELUM INPUT PAKET PEMBANGUNAN) */}
+                  {filteredOpdNonPenyedia.length > 0 && (
+                    <>
+                      <tr className="bg-blue-100 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-900/50">
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="py-2 px-3 text-left font-bold text-blue-950 dark:text-blue-200 border-r border-gray-200 dark:border-neutral-700 uppercase tracking-wider">
+                          OPD NON PENYEDIA
+                        </td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td></td>
+                      </tr>
+
+                      {filteredOpdNonPenyedia.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-muted/20 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                          <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium uppercase text-muted-foreground">
+                            {item.namaOpd}
+                          </td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2"></td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
 
               {/* 2. BAGIAN KECAMATAN */}
               {filterKategori !== "opd" && (
                 <>
-                  <tr className="bg-blue-500/15 border-y-2 border-blue-500/30 text-blue-950 dark:text-blue-200 font-bold">
-                    <td colSpan={7} className="py-2 px-4 uppercase tracking-wider text-xs">
-                      Kecamatan se-Kabupaten Konawe Selatan (25 Kecamatan)
-                    </td>
-                  </tr>
+                  {/* 2.A. KECAMATAN PENYEDIA (JIKA ADA) */}
+                  {filteredKecamatanPenyedia.length > 0 && (
+                    <>
+                      <tr className="bg-blue-500/15 border-y-2 border-blue-500/30 text-blue-950 dark:text-blue-200 font-bold">
+                        <td colSpan={7} className="py-2 px-4 uppercase tracking-wider text-xs">
+                          Kecamatan Penyedia Pembangunan ({filteredKecamatanPenyedia.length} Kecamatan)
+                        </td>
+                      </tr>
 
-                  {filteredKecamatan.map((item, idx) => (
-                    <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
-                      <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
-                      <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium uppercase">{item.namaOpd}</td>
-                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.totalPagu)}</td>
-                      <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.realisasiKeuangan)}</td>
-                      <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold text-muted-foreground">
-                        {item.persenKeuangan}%
-                      </td>
-                      <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold text-muted-foreground">
-                        {item.persenFisik}%
-                      </td>
-                      <td className="py-2 px-2 text-center font-mono font-bold text-muted-foreground">
-                        {item.kombinasi}%
-                      </td>
-                    </tr>
-                  ))}
+                      {filteredKecamatanPenyedia.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                          <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium uppercase">{item.namaOpd}</td>
+                          <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.totalPagu)}</td>
+                          <td className="py-2 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono">{formatRupiah(item.realisasiKeuangan)}</td>
+                          <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold">
+                            {item.persenKeuangan}%
+                          </td>
+                          <td className="py-2 px-2 text-center border-r border-gray-200 dark:border-neutral-700 font-mono font-bold">
+                            {item.persenFisik}%
+                          </td>
+                          <td className="py-2 px-2 text-center font-mono font-bold">
+                            {item.kombinasi}%
+                          </td>
+                        </tr>
+                      ))}
 
-                  {/* SUB TOTAL KECAMATAN */}
-                  <tr className="bg-amber-400/20 font-bold border-t-2 border-b border-amber-500/30 text-amber-950 dark:text-amber-200">
-                    <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/30 font-semibold italic">
-                      JUMLAH KECAMATAN
-                    </td>
-                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalKecamatan.pagu)}</td>
-                    <td className="py-2.5 px-3 text-right border-r border-amber-500/30 font-mono">{formatRupiah(totalKecamatan.keu)}</td>
-                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalKecamatan.persenKeuangan}%</td>
-                    <td className="py-2.5 px-2 text-center border-r border-amber-500/30 font-mono">{totalKecamatan.persenFisik}%</td>
-                    <td className="py-2.5 px-2 text-center font-mono">{totalKecamatan.kombinasi}%</td>
-                  </tr>
+                      {/* SUB TOTAL KECAMATAN */}
+                      <tr className="bg-amber-400/25 font-bold border-t-2 border-b border-amber-500/40 text-amber-950 dark:text-amber-200">
+                        <td colSpan={2} className="py-2.5 px-4 text-right border-r border-amber-500/40 font-bold italic">
+                          JUMLAH KECAMATAN
+                        </td>
+                        <td className="py-2.5 px-3 text-right border-r border-amber-500/40 font-mono">{formatRupiah(totalKecamatan.pagu)}</td>
+                        <td className="py-2.5 px-3 text-right border-r border-amber-500/40 font-mono">{formatRupiah(totalKecamatan.keu)}</td>
+                        <td className="py-2.5 px-2 text-center border-r border-amber-500/40 font-mono">{totalKecamatan.persenKeuangan}%</td>
+                        <td className="py-2.5 px-2 text-center border-r border-amber-500/40 font-mono">{totalKecamatan.persenFisik}%</td>
+                        <td className="py-2.5 px-2 text-center font-mono">{totalKecamatan.kombinasi}%</td>
+                      </tr>
+                    </>
+                  )}
+
+                  {/* 2.B. KECAMATAN NON PENYEDIA */}
+                  {filteredKecamatanNonPenyedia.length > 0 && (
+                    <>
+                      <tr className="bg-blue-100 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-900/50">
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="py-2 px-3 text-left font-bold text-blue-950 dark:text-blue-200 border-r border-gray-200 dark:border-neutral-700 uppercase tracking-wider">
+                          KECAMATAN NON PENYEDIA
+                        </td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td className="border-r border-gray-200 dark:border-neutral-700"></td>
+                        <td></td>
+                      </tr>
+
+                      {filteredKecamatanNonPenyedia.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-muted/20 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                          <td className="py-2 px-3 text-center border-r border-gray-200 dark:border-neutral-700 text-muted-foreground font-mono">{idx + 1}</td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700 font-medium uppercase text-muted-foreground">
+                            {item.namaOpd}
+                          </td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-3 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2 border-r border-gray-200 dark:border-neutral-700"></td>
+                          <td className="py-2 px-2"></td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
 

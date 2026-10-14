@@ -89,7 +89,7 @@ export function LaporanStatCards({ summary, isLoading = false }: LaporanStatCard
                 variant="secondary"
                 className="font-mono text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
               >
-                {(s.persenSerapanKeuangan || 0).toFixed(1)}% Serapan
+                {(s.persenSerapanKeuangan || 0).toFixed(2)}% Serapan
               </Badge>
             </div>
           </div>

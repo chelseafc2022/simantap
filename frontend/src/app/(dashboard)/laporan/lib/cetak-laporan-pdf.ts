@@ -165,7 +165,7 @@ export function cetakLaporanPdf({
           <span><strong>Paket:</strong> ${items.length}</span>
           <span><strong>Pagu:</strong> ${escapeHtml(formatRupiah(summary?.totalPagu || 0))}</span>
           <span><strong>Kontrak:</strong> ${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</span>
-          <span><strong>Realisasi:</strong> ${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))} (${(summary?.persenSerapanKeuangan || 0).toFixed(1)}%)</span>
+          <span><strong>Realisasi:</strong> ${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))} (${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%)</span>
         </div>
         <table>
           <colgroup>
@@ -191,7 +191,7 @@ export function cetakLaporanPdf({
               <td colspan="3"></td>
               <td class="center">${(summary?.avgRealisasiFisik || 0).toFixed(1)}%</td>
               <td class="money">${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))}</td>
-              <td class="center">${(summary?.persenSerapanKeuangan || 0).toFixed(1)}%</td>
+              <td class="center">${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%</td>
               <td></td><td></td>
             </tr>
           </tbody>

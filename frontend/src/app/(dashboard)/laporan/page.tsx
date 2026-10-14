@@ -275,22 +275,42 @@ export default function LaporanDanEvaluasiPage() {
     return []
   }, [rfkData])
 
-  const summary = useMemo(
-    () =>
-      rfkData?.summary || {
-        activeBulan: bulan,
-        totalPaket: items.length,
-        totalPagu: 0,
-        totalKontrak: 0,
-        totalRealisasiKeuangan: 0,
-        persenSerapanKeuangan: 0,
-        avgTargetFisik: 0,
-        avgRealisasiFisik: 0,
-        avgDeviasiFisik: 0,
-        countStatus: { aman: 0, perhatian: 0, kritis: 0, belumMulai: 0 },
-      },
-    [rfkData, items.length, bulan]
-  )
+  const summary = useMemo(() => {
+    const raw = rfkData?.summary
+    const totalPagu = Number(raw?.totalPagu || 0)
+    const totalKontrak = Number(raw?.totalKontrak || 0)
+    const totalRealisasiKeuangan = Number(raw?.totalRealisasiKeuangan || 0)
+    
+    // Aturan terpadu: jika belum semua paket berkontrak, persen dihitung terhadap Pagu.
+    // Jika SELURUH paket sudah berkontrak, baru dihitung terhadap Nilai Kontrak.
+    const isAllBerkontrak =
+      raw?.isAllBerkontrak ??
+      (items.length > 0 && items.every((i: any) => Number(i.nilaiKontrak) > 0))
+    const basisAnggaran =
+      isAllBerkontrak && totalKontrak > 0
+        ? totalKontrak
+        : totalPagu > 0
+        ? totalPagu
+        : totalKontrak
+    const persenSerapanKeuangan =
+      basisAnggaran > 0
+        ? parseFloat(((totalRealisasiKeuangan / basisAnggaran) * 100).toFixed(2))
+        : Number(raw?.persenSerapanKeuangan || 0)
+
+    return {
+      activeBulan: bulan,
+      totalPaket: raw?.totalPaket ?? items.length,
+      totalPagu,
+      totalKontrak,
+      isAllBerkontrak,
+      totalRealisasiKeuangan,
+      persenSerapanKeuangan,
+      avgTargetFisik: Number(raw?.avgTargetFisik || 0),
+      avgRealisasiFisik: Number(raw?.avgRealisasiFisik || 0),
+      avgDeviasiFisik: Number(raw?.avgDeviasiFisik || 0),
+      countStatus: raw?.countStatus || { aman: 0, perhatian: 0, kritis: 0, belumMulai: 0 },
+    }
+  }, [rfkData, items, bulan])
 
   const meta = useMemo(
     () => rfkData?.meta || { total: items.length, totalPages: 1, page: 1, limit: 15 },
@@ -375,7 +395,18 @@ export default function LaporanDanEvaluasiPage() {
 
       allItems.push(...pageItems)
       if (currentPage === 1) {
-        reportSummary = res.data?.summary || payload?.summary || summary
+        const rawS = res.data?.summary || payload?.summary || summary
+        const tPagu = Number(rawS?.totalPagu || 0)
+        const tKontrak = Number(rawS?.totalKontrak || 0)
+        const tKeu = Number(rawS?.totalRealisasiKeuangan || 0)
+        const b = tPagu > 0 ? tPagu : tKontrak
+        reportSummary = {
+          ...rawS,
+          totalPagu: tPagu,
+          totalKontrak: tKontrak,
+          totalRealisasiKeuangan: tKeu,
+          persenSerapanKeuangan: b > 0 ? parseFloat(((tKeu / b) * 100).toFixed(2)) : 0,
+        }
       }
 
       totalPages = Math.max(1, Number(pageMeta?.totalPages) || 1)
@@ -500,27 +531,32 @@ export default function LaporanDanEvaluasiPage() {
             </SelectContent>
           </Select>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportExcel}
-            disabled={isLoadingRfk || isExporting}
-            className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
-          >
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-            Excel
-          </Button>
+          {/* Tombol Export Excel & Cetak PDF HANYA untuk Administrator / Tim Monev Daerah */}
+          {isSuperRole && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={isLoadingRfk || isExporting}
+                className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
+              >
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                Excel
+              </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCetakPdf}
-            disabled={isLoadingRfk || isPrinting || items.length === 0}
-            className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
-          >
-            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-            Cetak
-          </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCetakPdf}
+                disabled={isLoadingRfk || isPrinting || items.length === 0}
+                className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+              >
+                {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+                Cetak
+              </Button>
+            </>
+          )}
 
           <Button
             variant="outline"
@@ -999,7 +1035,7 @@ export default function LaporanDanEvaluasiPage() {
                           <TableCell colSpan={3} className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
                           <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.avgRealisasiFisik.toFixed(1)}%</TableCell>
                           <TableCell className="px-3 py-3 text-right font-mono whitespace-nowrap text-emerald-600 dark:text-emerald-400 border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalRealisasiKeuangan)}</TableCell>
-                          <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.persenSerapanKeuangan.toFixed(1)}%</TableCell>
+                          <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.persenSerapanKeuangan.toFixed(2)}%</TableCell>
                           <TableCell className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
                           <TableCell className="px-3 py-3 text-[10px] font-medium border-t border-gray-300 dark:border-neutral-700 whitespace-nowrap">
                             Aman {summary.countStatus.aman} · Waspada {summary.countStatus.perhatian} · Kritis {summary.countStatus.kritis}
@@ -1207,6 +1243,12 @@ export default function LaporanDanEvaluasiPage() {
                     </TableRow>
                   ) : (
                     rekapOpdData.rekap
+                      .map((opd: any) => {
+                        const tP = Number(opd.totalPagu || opd.totalKontrak || 0)
+                        const tR = Number(opd.totalRealisasiKeuangan || 0)
+                        const persen = tP > 0 ? parseFloat(((tR / tP) * 100).toFixed(2)) : Number(opd.persenSerapanKeuangan || 0)
+                        return { ...opd, persenSerapanKeuangan: persen }
+                      })
                       .sort((a: any, b: any) => b.persenSerapanKeuangan - a.persenSerapanKeuangan)
                       .map((opd: any, idx: number) => {
                         const isKritisExist = opd.countKritis > 0
@@ -1242,7 +1284,7 @@ export default function LaporanDanEvaluasiPage() {
                             <TableCell className="py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-[11px] font-mono font-semibold">
-                                  <span>{opd.persenSerapanKeuangan.toFixed(1)}%</span>
+                                  <span>{opd.persenSerapanKeuangan.toFixed(2)}%</span>
                                 </div>
                                 <Progress value={Math.min(100, opd.persenSerapanKeuangan)} className="h-1.5" />
                               </div>

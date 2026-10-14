@@ -53,6 +53,7 @@ import { TerpaduHeritageCard } from "@/components/dashboard/terpadu-heritage-car
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
 import { RekapEmonevTable } from "@/components/dashboard/rekap-emonev-table"
 import { OpdSubunitProgressTable } from "@/components/dashboard/opd-subunit-progress-table"
+import { OpdUserDashboard } from "@/components/dashboard/opd-user-dashboard"
 import { isExcludedOpd } from "@/lib/utils"
 
 // ────────────────────────────────────────────────────────────
@@ -155,6 +156,9 @@ export default function DashboardPage() {
   }, [user])
 
   const isAdministrator = userRoles.includes("ADMINISTRATOR")
+  const isSuperRole = userRoles.some((r) =>
+    ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r)
+  )
 
   // ── Backend Health ──
   const { isError: healthErr } = useQuery({
@@ -369,6 +373,28 @@ export default function DashboardPage() {
 
   const bulanObj = BULAN_OPTIONS.find((b) => b.value === bulan)
   const namaBulanAktif = bulanObj ? bulanObj.label : `Bulan ${bulan}`
+
+  // Jika bukan role Pengawas Daerah (Administrator, Pimpinan Daerah, Tim Monev), tampilkan Dashboard Khusus OPD mereka
+  if (!isSuperRole && user) {
+    return (
+      <OpdUserDashboard
+        user={user}
+        tahun={tahun}
+        bulan={bulan}
+        namaBulanAktif={namaBulanAktif}
+        tahunOptions={tahunOptions}
+        onChangeTahun={setTahun}
+        onChangeBulan={setBulan}
+        onResetPeriode={() => {
+          setBulan(defaultBulan)
+          setTahun(defaultTahun)
+        }}
+        bulanOptions={BULAN_OPTIONS}
+        defaultTahun={defaultTahun}
+        defaultBulan={defaultBulan}
+      />
+    )
+  }
 
   return (
     <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1">

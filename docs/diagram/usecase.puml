@@ -1,0 +1,64 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+title Use Case MONALISA KONSEL
+actor "Semua pengguna" as ALL
+actor "Administrator" as ADM
+actor "Admin SiRUP" as SIR
+actor "Admin Perencanaan" as REN
+actor "Admin PPK" as PPK
+actor "Bendahara" as BEN
+actor "MONEV" as MON
+actor "Kepala OPD" as KEP
+actor "Pimpinan Daerah" as PIM
+actor "E-Gov / SIMPEG" as EG
+actor "SiRUP melalui INAPROC" as IN
+rectangle "MONALISA KONSEL" {
+  usecase "Login, lihat profil, dan logout" as U1
+  usecase "Kelola akun dan penugasan peran" as U2
+  usecase "Kelola periode dan batas input" as U3
+  usecase "Cari dan sinkronkan paket SiRUP" as U4
+  usecase "Tambah dan ubah paket pembangunan" as U5
+  usecase "Susun target fisik bulanan" as U6
+  usecase "Input realisasi fisik dan bukti" as U7
+  usecase "Input realisasi keuangan" as U8
+  usecase "Ajukan realisasi untuk verifikasi" as U9
+  usecase "Verifikasi atau tolak realisasi" as U10
+  usecase "Lihat antrian verifikasi" as U11
+  usecase "Pantau paket, realisasi, dan laporan" as U12
+  usecase "Hapus paket / reset paket SiRUP" as U13
+}
+ALL -- U1
+ALL -- U12
+ADM -- U2
+ADM -- U3
+ADM -- U4
+ADM -- U5
+ADM -- U6
+ADM -- U7
+ADM -- U8
+ADM -- U9
+ADM -- U10
+ADM -- U11
+ADM -- U13
+SIR -- U4
+SIR -- U5
+REN -- U5
+REN -- U6
+PPK -- U7
+PPK -- U9
+BEN -- U8
+BEN -- U9
+MON -- U4
+MON -- U10
+MON -- U11
+KEP -- U11
+PIM -- U11
+EG -- U1
+EG -- U2
+IN -- U4
+note bottom of ALL
+Mewakili delapan peran untuk fungsi bersama.
+Autentikasi adalah prasyarat fitur yang dilindungi.
+end note
+@enduml

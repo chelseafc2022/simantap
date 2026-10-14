@@ -1,0 +1,58 @@
+flowchart LR
+    ALL["Semua pengguna"]
+    ADM["Administrator"]
+    SIR["Admin SiRUP"]
+    REN["Admin Perencanaan"]
+    PPK["Admin PPK"]
+    BEN["Bendahara"]
+    MON["MONEV"]
+    KEP["Kepala OPD"]
+    PIM["Pimpinan Daerah"]
+    EG["E-Gov / SIMPEG"]
+    IN["SiRUP melalui INAPROC"]
+
+    subgraph SYS["MONALISA KONSEL"]
+      U1([Login, lihat profil, dan logout])
+      U2([Kelola akun dan penugasan peran])
+      U3([Kelola periode dan batas input])
+      U4([Cari dan sinkronkan paket SiRUP])
+      U5([Tambah dan ubah paket pembangunan])
+      U6([Susun target fisik bulanan])
+      U7([Input realisasi fisik dan bukti])
+      U8([Input realisasi keuangan])
+      U9([Ajukan realisasi untuk verifikasi])
+      U10([Verifikasi atau tolak realisasi])
+      U11([Lihat antrian verifikasi])
+      U12([Pantau paket, realisasi, dan laporan])
+      U13([Hapus paket / reset paket SiRUP])
+    end
+
+    ALL --- U1
+    ALL --- U12
+    ADM --- U2
+    ADM --- U3
+    ADM --- U4
+    ADM --- U5
+    ADM --- U6
+    ADM --- U7
+    ADM --- U8
+    ADM --- U9
+    ADM --- U10
+    ADM --- U11
+    ADM --- U13
+    SIR --- U4
+    SIR --- U5
+    REN --- U5
+    REN --- U6
+    PPK --- U7
+    PPK --- U9
+    BEN --- U8
+    BEN --- U9
+    MON --- U4
+    MON --- U10
+    MON --- U11
+    KEP --- U11
+    PIM --- U11
+    EG --- U1
+    EG --- U2
+    IN --- U4
