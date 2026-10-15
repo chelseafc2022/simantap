@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Printer, Search, Building2 } from "lucide-react"
+import { Printer, Search, Building2, ChevronDown } from "lucide-react"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuRadioGroup, DropdownMenuRadioItem } from "@/components/ui/dropdown-menu"
 import { isExcludedOpd } from "@/lib/utils"
+import { printRekapReport, type RekapScope, type RekapTemplate } from "./rekap-emonev-print"
 
 interface RekapEmonevTableProps {
   opdMasterList: any[]
@@ -27,6 +29,7 @@ export function RekapEmonevTable({
   namaBulanAktif,
 }: RekapEmonevTableProps) {
   const [search, setSearch] = useState("")
+  const [printScope, setPrintScope] = useState<RekapScope>("semua")
   const [filterKategori, setFilterKategori] = useState<"semua" | "opd" | "kecamatan">("semua")
 
   // Gabungkan 65 Master OPD (40 OPD + 25 Kecamatan) dengan data rekap aktual
@@ -188,205 +191,19 @@ export function RekapEmonevTable({
   const filteredKecamatanPenyedia = useMemo(() => filterList(kecamatanPenyedia), [kecamatanPenyedia, search])
   const filteredKecamatanNonPenyedia = useMemo(() => filterList(kecamatanNonPenyedia), [kecamatanNonPenyedia, search])
 
-  // Fungsi Cetak Laporan PDF Resmi (Mengadopsi format E-MONEV Kabupaten Konawe Selatan)
-  const handleCetakPDF = () => {
-    const d = new Date()
-    const months = [
-      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ]
-    const tanggalCetak = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-    let jam = d.getHours() < 10 ? `0${d.getHours()}` : d.getHours()
-    let menit = d.getMinutes() < 10 ? `0${d.getMinutes()}` : d.getMinutes()
-    const waktuCetak = `${jam}.${menit}`
-
-    // 1. Baris tabel OPD Penyedia
-    let rowsHtml = ""
-    opdPenyedia.forEach((data, i) => {
-      const isRed = data.persenKeuangan === 0 || data.persenFisik === 0
-      const textColor = isRed ? "color:#c00000;font-weight:bold;" : ""
-      const styleKeu = data.persenKeuangan < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-      const styleFisik = data.persenFisik < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-      const styleKomb = data.kombinasi < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-      rowsHtml += `<tr>
-        <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
-        <td style="border:1px solid #000;padding:4px;text-transform:uppercase;${textColor}">${data.namaOpd}</td>
-        <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.totalPagu)}</td>
-        <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.realisasiKeuangan)}</td>
-        <td style="text-align:center;border:1px solid #000;padding:4px;${styleKeu}">${data.persenKeuangan}%</td>
-        <td style="text-align:center;border:1px solid #000;padding:4px;${styleFisik}">${data.persenFisik}%</td>
-        <td style="text-align:center;border:1px solid #000;padding:4px;${styleKomb}">${data.kombinasi}%</td>
-      </tr>`
-    })
-
-    // Subtotal OPD
-    rowsHtml += `<tr style="background-color:#ffc000;font-weight:bold;font-style:italic;">
-      <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH</td>
-      <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalOpd.pagu)}</td>
-      <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalOpd.keu)}</td>
-      <td style="text-align:center;border:1px solid #000;padding:5px;">${totalOpd.persenKeuangan}%</td>
-      <td style="text-align:center;border:1px solid #000;padding:5px;">${totalOpd.persenFisik}%</td>
-      <td style="text-align:center;border:1px solid #000;padding:5px;">${totalOpd.kombinasi}%</td>
-    </tr>`
-
-    // OPD NON PENYEDIA
-    if (opdNonPenyedia.length > 0) {
-      rowsHtml += `<tr style="background-color:#b8cce4;">
-        <td style="border:1px solid #000;padding:4px;"></td>
-        <td style="font-weight:bold;border:1px solid #000;padding:5px 6px;text-align:left;">OPD NON PENYEDIA</td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-      </tr>`
-
-      opdNonPenyedia.forEach((data, i) => {
-        rowsHtml += `<tr>
-          <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
-          <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
-          <td style="border:1px solid #000;padding:4px;"></td>
-          <td style="border:1px solid #000;padding:4px;"></td>
-          <td style="border:1px solid #000;padding:4px;"></td>
-          <td style="border:1px solid #000;padding:4px;"></td>
-          <td style="border:1px solid #000;padding:4px;"></td>
-        </tr>`
-      })
-    }
-
-    // 2. Baris Kecamatan
-    if (kecamatanPenyedia.length > 0 || kecamatanNonPenyedia.length > 0) {
-      if (kecamatanPenyedia.length > 0) {
-        rowsHtml += `<tr style="background-color:#b8cce4;">
-          <td colspan="7" style="font-weight:bold;border:1px solid #000;padding:6px 10px;text-align:left;">KECAMATAN SE-KABUPATEN KONAWE SELATAN</td>
-        </tr>`
-
-        kecamatanPenyedia.forEach((data, i) => {
-          const styleKeu = data.persenKeuangan < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-          const styleFisik = data.persenFisik < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-          const styleKomb = data.kombinasi < 100 ? "color:#c00000" : "color:#2e7d32;font-weight:bold"
-          rowsHtml += `<tr>
-            <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
-            <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
-            <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.totalPagu)}</td>
-            <td style="text-align:right;border:1px solid #000;padding:4px;">${formatRupiah(data.realisasiKeuangan)}</td>
-            <td style="text-align:center;border:1px solid #000;padding:4px;${styleKeu}">${data.persenKeuangan}%</td>
-            <td style="text-align:center;border:1px solid #000;padding:4px;${styleFisik}">${data.persenFisik}%</td>
-            <td style="text-align:center;border:1px solid #000;padding:4px;${styleKomb}">${data.kombinasi}%</td>
-          </tr>`
-        })
-
-        // Subtotal Kecamatan Penyedia
-        rowsHtml += `<tr style="background-color:#ffc000;font-weight:bold;font-style:italic;">
-          <td colspan="2" style="text-align:right;border:1px solid #000;padding:5px 15px;">JUMLAH KECAMATAN</td>
-          <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.pagu)}</td>
-          <td style="text-align:right;border:1px solid #000;padding:5px;">${formatRupiah(totalKecamatan.keu)}</td>
-          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenKeuangan}%</td>
-          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.persenFisik}%</td>
-          <td style="text-align:center;border:1px solid #000;padding:5px;">${totalKecamatan.kombinasi}%</td>
-        </tr>`
-      }
-
-      // KECAMATAN NON PENYEDIA
-      if (kecamatanNonPenyedia.length > 0) {
-        rowsHtml += `<tr style="background-color:#b8cce4;">
-          <td style="border:1px solid #000;padding:4px;"></td>
-          <td style="font-weight:bold;border:1px solid #000;padding:5px 6px;text-align:left;">KECAMATAN NON PENYEDIA</td>
-          <td style="border:1px solid #000;"></td>
-          <td style="border:1px solid #000;"></td>
-          <td style="border:1px solid #000;"></td>
-          <td style="border:1px solid #000;"></td>
-          <td style="border:1px solid #000;"></td>
-        </tr>`
-
-        kecamatanNonPenyedia.forEach((data, i) => {
-          rowsHtml += `<tr>
-            <td style="text-align:center;border:1px solid #000;padding:4px;">${i + 1}</td>
-            <td style="border:1px solid #000;padding:4px;text-transform:uppercase;">${data.namaOpd}</td>
-            <td style="border:1px solid #000;padding:4px;"></td>
-            <td style="border:1px solid #000;padding:4px;"></td>
-            <td style="border:1px solid #000;padding:4px;"></td>
-            <td style="border:1px solid #000;padding:4px;"></td>
-            <td style="border:1px solid #000;padding:4px;"></td>
-          </tr>`
-        })
-      }
-    }
-
-    // Grand Total Keseluruhan (Hanya dari yang aktif berpaket)
-    rowsHtml += `<tr style="background-color:#92d050;font-weight:bold;font-size:10pt;">
-      <td colspan="2" style="text-align:right;border:1px solid #000;padding:7px 15px;">TOTAL KESELURUHAN KABUPATEN</td>
-      <td style="text-align:right;border:1px solid #000;padding:7px;">${formatRupiah(grandTotal.pagu)}</td>
-      <td style="text-align:right;border:1px solid #000;padding:7px;">${formatRupiah(grandTotal.keu)}</td>
-      <td style="text-align:center;border:1px solid #000;padding:7px;">${grandTotal.persenKeuangan}%</td>
-      <td style="text-align:center;border:1px solid #000;padding:7px;">${grandTotal.persenFisik}%</td>
-      <td style="text-align:center;border:1px solid #000;padding:7px;">${grandTotal.kombinasi}%</td>
-    </tr>`
-
-    const printHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Laporan Realisasi Fisik dan Keuangan TA ${tahun} - ${namaBulanAktif}</title>
-        <style>
-          @page { size: landscape; margin: 8mm 10mm; }
-          body { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #000; background: #fff; margin: 0; padding: 10px; }
-          .header-box { text-align: center; margin-bottom: 8px; }
-          .header-box h2 { margin: 0; font-size: 11pt; font-weight: bold; text-transform: uppercase; }
-          .header-box h3 { margin: 2px 0; font-size: 10pt; font-weight: bold; }
-          .badge-tanggal { background-color: #ffeb3b; font-weight: bold; font-style: italic; display: inline-block; padding: 3px 8px; margin: 6px 0; font-size: 9pt; border: 1px solid #d4c200; border-radius: 3px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-          th { border: 1px solid #000; padding: 5px 3px; text-align: center; background-color: #e2e8f0; font-weight: bold; font-size: 8pt; }
-          th.bg-real { background-color: #fef3c7; }
-          th.bg-komb { background-color: #ffedd5; }
-          td { border: 1px solid #000; padding: 3.5px 5px; }
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        </style>
-      </head>
-      <body>
-        <div class="header-box">
-          <h2>PERSENTASE LAPORAN REALISASI FISIK DAN KEUANGAN (RFK)</h2>
-          <h3>PEMERINTAH KABUPATEN KONAWE SELATAN</h3>
-          <h3>TAHUN ANGGARAN ${tahun} (PERIODE EVALUASI: ${namaBulanAktif.toUpperCase()})</h3>
-          <div class="badge-tanggal">Dicetak pada: Tanggal ${tanggalCetak}, Pukul ${waktuCetak} WITA melalui MONALISA KONSEL</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th rowspan="2" width="3%">NO</th>
-              <th rowspan="2" width="28%">ORGANISASI PERANGKAT DAERAH (OPD)</th>
-              <th rowspan="2" width="13%">ANGGARAN / PAGU (RP)</th>
-              <th colspan="2" class="bg-real">REALISASI KEUANGAN</th>
-              <th rowspan="2" width="9%" class="bg-real">REALISASI FISIK (%)</th>
-              <th rowspan="2" width="13%" class="bg-komb">REALISASI KEUANGAN & FISIK (%)</th>
-            </tr>
-            <tr>
-              <th width="14%" class="bg-real">KEUANGAN (RP)</th>
-              <th width="8%" class="bg-real">KEUANGAN (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `
-
-    const printWindow = window.open("", "_blank", "width=1200,height=800")
-    if (!printWindow) {
-      alert("Popup blocker terdeteksi. Silakan izinkan popup untuk mencetak laporan.")
-      return
-    }
-    printWindow.document.write(printHtml)
-    printWindow.document.close()
-    printWindow.focus()
-    setTimeout(() => {
-      printWindow.print()
-    }, 450)
+  const handleCetakPDF = (template: RekapTemplate) => {
+    void printRekapReport({
+      tahun,
+      namaBulanAktif,
+      opdPenyedia,
+      opdNonPenyedia,
+      kecamatanPenyedia,
+      kecamatanNonPenyedia,
+      totalOpd,
+      totalKecamatan,
+      grandTotal,
+      logoUrl: new URL("/logo_konsel.png", window.location.origin).href,
+    }, { template, scope: printScope })
   }
 
   return (
@@ -401,13 +218,34 @@ export function RekapEmonevTable({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              onClick={handleCetakPDF}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 gap-1.5 shadow-sm font-semibold"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              Cetak Laporan / PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 gap-1.5 shadow-sm font-semibold">
+                  <Printer className="h-3.5 w-3.5" />
+                  Cetak Laporan
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>1. Pilih cakupan data</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={printScope} onValueChange={(value) => setPrintScope(value as RekapScope)}>
+                  <DropdownMenuRadioItem value="opd" onSelect={(event) => event.preventDefault()}>OPD</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="kecamatan" onSelect={(event) => event.preventDefault()}>Kecamatan</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="semua" onSelect={(event) => event.preventDefault()}>Semuanya</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>2. Pilih laporan untuk dicetak</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => handleCetakPDF("full")}>
+                  Laporan Full
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleCetakPDF("simple")}>
+                  Laporan Simple
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleCetakPDF("awal")}>
+                  Laporan Awal
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
