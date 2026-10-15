@@ -230,6 +230,12 @@ export class AuthService {
       },
     });
 
+    const accessContext = await this.getAccessContext(
+      user.id,
+      user.opdId,
+      user.subUnitId,
+    );
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -242,8 +248,11 @@ export class AuthService {
         email: user.email,
         role: user.role,
         roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
+        opdId: user.opdId,
+        subUnitId: user.subUnitId,
         opd: this.egovService.getOpdById(user.opdId),
         subUnit: this.egovService.getSubUnitById(user.subUnitId),
+        ...accessContext,
       },
     };
   }
@@ -312,6 +321,12 @@ export class AuthService {
         },
       });
 
+      const accessContext = await this.getAccessContext(
+        user.id,
+        user.opdId,
+        user.subUnitId,
+      );
+
       return {
         accessToken: newTokens.accessToken,
         refreshToken: newTokens.refreshToken,
@@ -324,8 +339,11 @@ export class AuthService {
           email: user.email,
           role: user.role,
           roles: user.roles && user.roles.length > 0 ? user.roles : [user.role],
+          opdId: user.opdId,
+          subUnitId: user.subUnitId,
           opd: this.egovService.getOpdById(user.opdId),
           subUnit: this.egovService.getSubUnitById(user.subUnitId),
+          ...accessContext,
         },
       };
     } catch {
@@ -370,10 +388,57 @@ export class AuthService {
       throw new UnauthorizedException('Pengguna tidak ditemukan');
     }
 
+    const accessContext = await this.getAccessContext(
+      user.id,
+      user.opdId,
+      user.subUnitId,
+    );
+
     return {
       ...user,
       opd: this.egovService.getOpdById(user.opdId),
       subUnit: this.egovService.getSubUnitById(user.subUnitId),
+      ...accessContext,
+    };
+  }
+
+  private async getAccessContext(
+    userId: string,
+    homeOpdId?: string | null,
+    homeSubUnitId?: string | null,
+  ) {
+    const accessScopes = await this.prisma.userAccessScope.findMany({
+      where: { userId },
+      select: { role: true, opdId: true, subUnitId: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const accessibleOpdIds = Array.from(
+      new Set(
+        [homeOpdId, ...accessScopes.map((scope) => scope.opdId)].filter(
+          (opdId): opdId is string => Boolean(opdId),
+        ),
+      ),
+    );
+
+    const accessibleOpds = accessibleOpdIds.map((opdId) => {
+      const opd = this.egovService.getOpdById(opdId);
+      return {
+        id: opdId,
+        kodeOpd: opd?.kodeOpd || opdId,
+        namaOpd: opd?.namaOpd || opdId,
+        singkatan: opd?.singkatan,
+        isHome: opdId === homeOpdId,
+      };
+    });
+
+    return {
+      accessScopes,
+      accessibleOpds,
+      homeScope: {
+        opdId: homeOpdId || null,
+        subUnitId: homeSubUnitId || null,
+      },
     };
   }
 

@@ -111,7 +111,7 @@ export function SearchableCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] min-w-[280px] p-0 shadow-lg border-border/80"
+        className="w-[--radix-popover-trigger-width] min-w-0 max-w-[calc(100vw-1rem)] p-0 shadow-lg border-border/80"
         align="start"
       >
         <Command
@@ -176,4 +176,3 @@ export function SearchableCombobox({
     </Popover>
   )
 }
-

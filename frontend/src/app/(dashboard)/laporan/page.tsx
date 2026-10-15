@@ -80,6 +80,9 @@ export default function LaporanDanEvaluasiPage() {
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
   const userSubUnitId = user?.subUnit?.id
   const userSubUnitNama = user?.subUnit?.namaSubUnit
+  const hasMultipleOpdAccess = (user?.accessibleOpds?.length || 0) > 1
+  const hasAdditionalScope = (user?.accessScopes?.length || 0) > 0
+  const canSelectOpd = isSuperRole || hasAdditionalScope
 
   const currentMonthNo = new Date().getMonth() + 1
 
@@ -99,13 +102,15 @@ export default function LaporanDanEvaluasiPage() {
 
   // Bind OPD & Sub Unit otomatis untuk non-super role
   useEffect(() => {
-    if (!isSuperRole && userOpdId) {
-      setSelectedOpd(userOpdId)
+    if (!isSuperRole) {
+      setSelectedOpd(hasMultipleOpdAccess ? "ALL" : (userOpdId || "ALL"))
     }
-    if (!isSuperRole && !isKepalaOpd && userSubUnitId) {
+    if (!canSelectOpd && !isKepalaOpd && userSubUnitId) {
       setSelectedSubUnit(userSubUnitId)
+    } else if (hasAdditionalScope) {
+      setSelectedSubUnit("ALL")
     }
-  }, [isSuperRole, isKepalaOpd, userOpdId, userSubUnitId])
+  }, [isSuperRole, canSelectOpd, hasMultipleOpdAccess, hasAdditionalScope, isKepalaOpd, userOpdId, userSubUnitId])
 
   // Reset Sub Unit jika OPD berubah
   const handleOpdChange = (val: string) => {
@@ -180,7 +185,7 @@ export default function LaporanDanEvaluasiPage() {
         limit,
       }
 
-      if (!isSuperRole && userOpdId) {
+      if (!canSelectOpd && userOpdId) {
         params.opdId = userOpdId
       } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
         params.opdId = selectedOpd
@@ -225,7 +230,7 @@ export default function LaporanDanEvaluasiPage() {
         bulan,
       }
 
-      if (!isSuperRole && userOpdId) {
+      if (!canSelectOpd && userOpdId) {
         params.opdId = userOpdId
       } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
         params.opdId = selectedOpd
@@ -358,7 +363,7 @@ export default function LaporanDanEvaluasiPage() {
       limit: pageSize,
     }
 
-    if (!isSuperRole && userOpdId) {
+    if (!canSelectOpd && userOpdId) {
       params.opdId = userOpdId
     } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
       params.opdId = selectedOpd
@@ -502,7 +507,7 @@ export default function LaporanDanEvaluasiPage() {
     bulan !== currentMonthNo
 
   return (
-    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* 1. Page Title & Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
@@ -607,7 +612,7 @@ export default function LaporanDanEvaluasiPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
             {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
             <div className="w-full">
-              {isSuperRole ? (
+              {canSelectOpd ? (
                 <SearchableCombobox
                   value={selectedOpd === "ALL" ? "all" : selectedOpd}
                   onValueChange={handleOpdChange}
@@ -629,7 +634,7 @@ export default function LaporanDanEvaluasiPage() {
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
             <div className="w-full">
-              {isSuperRole || isKepalaOpd ? (
+              {canSelectOpd || isKepalaOpd ? (
                 <SearchableCombobox
                   value={selectedSubUnit === "ALL" ? "all" : selectedSubUnit}
                   onValueChange={(val) => {

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useSyncExternalStore } from "react"
+import { useRouter } from "next/navigation"
 import {
   LogOut,
   ChevronsUpDown,
@@ -38,6 +39,8 @@ function getInitials(name?: string): string {
   return clean.substring(0, 2).toUpperCase()
 }
 
+const subscribeToClient = () => () => {}
+
 function formatRole(role?: string): string {
   switch (role) {
     case "ADMINISTRATOR":
@@ -71,13 +74,14 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
   const { logout, user: authUser } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(
+    subscribeToClient,
+    () => true,
+    () => false
+  )
 
   const handleLogout = async () => {
     try {
@@ -85,7 +89,7 @@ export function NavUser({
       toast.info("Mengeluarkan akun...")
       await logout()
     } catch {
-      window.location.href = "/login"
+      router.replace("/login")
     }
   }
 
@@ -97,9 +101,9 @@ export function NavUser({
     : activeUser?.role
     ? formatRole(activeUser.role)
     : (initialUser?.email || "admin@konaweselatankab.go.id")
-  const roleName = activeUser?.role ? formatRole(activeUser.role) : "Administrator"
   const unitInfo = getUserUnitLabel(activeUser)
   const displayUnit = unitInfo.short !== "-" ? unitInfo.short : undefined
+  const assignedPpkOpdName = activeUser?.accessibleOpds?.find((opd) => !opd.isHome)?.namaOpd
   const initials = getInitials(displayName)
 
   return (
@@ -136,7 +140,7 @@ export function NavUser({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-xl p-2 shadow-xl border-border/80"
-            side={isMobile ? "bottom" : "right"}
+            side={isMobile ? "top" : "right"}
             align="end"
             sideOffset={8}
           >
@@ -162,7 +166,9 @@ export function NavUser({
                         variant="outline"
                         className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0 font-medium"
                       >
-                        {formatRole(r)}
+                        {r === "ADMIN_PPK" && assignedPpkOpdName
+                          ? `Admin PPK - ${assignedPpkOpdName}`
+                          : formatRole(r)}
                       </Badge>
                     ))}
                     {activeUser?.nip && (

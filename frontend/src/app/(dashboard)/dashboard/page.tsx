@@ -397,7 +397,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1">
 
       {/* ─── 1. HEADER RINGKAS & LANGSUNG KE INTI (COMPACT EXECUTIVE HEADER) ─── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 pb-3 border-b border-border/60">

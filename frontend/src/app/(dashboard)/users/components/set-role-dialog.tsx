@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { isAxiosError } from "axios"
 import { apiClient } from "@/lib/api-client"
+import { SearchableCombobox } from "./searchable-combobox"
 import {
   Dialog,
   DialogContent,
@@ -14,7 +16,16 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, ShieldCheck, UserCheck, AlertCircle, RotateCcw } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import {
+  Loader2,
+  ShieldCheck,
+  UserCheck,
+  AlertCircle,
+  RotateCcw,
+  Building2,
+  Layers,
+} from "lucide-react"
 import { toast } from "sonner"
 
 export const MONALISA_ROLES = [
@@ -84,6 +95,9 @@ export interface TargetPegawai {
   currentRole?: string
   currentRoles?: string[]
   username?: string
+  opdId?: string | null
+  subUnitId?: string | null
+  ppkOpdName?: string | null
 }
 
 interface SetRoleDialogProps {
@@ -92,12 +106,34 @@ interface SetRoleDialogProps {
   target: TargetPegawai | null
 }
 
+interface InstansiItem {
+  id: string | number
+  instansi: string
+}
+
+interface UnitKerjaItem {
+  id: string | number
+  unitKerja: string
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || error.message || fallback
+  }
+  return error instanceof Error ? error.message : fallback
+}
+
 export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps) {
   const queryClient = useQueryClient()
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+  const [selectedOpdId, setSelectedOpdId] = useState("")
+  const [selectedSubUnitId, setSelectedSubUnitId] = useState("")
   const [showConfirmReset, setShowConfirmReset] = useState(false)
+  const isAdminPpkSelected = selectedRoles.includes("ADMIN_PPK")
 
   useEffect(() => {
+    // Dialog dipakai ulang untuk pegawai berbeda; isi form harus mengikuti target aktif.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowConfirmReset(false)
     if (target?.currentRoles && target.currentRoles.length > 0) {
       setSelectedRoles(target.currentRoles)
@@ -106,7 +142,41 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
     } else {
       setSelectedRoles([])
     }
+    setSelectedOpdId(target?.opdId ? String(target.opdId) : "")
+    setSelectedSubUnitId(target?.subUnitId ? String(target.subUnitId) : "")
   }, [target, open])
+
+  const { data: instansiList = [], isLoading: isLoadingInstansi } = useQuery({
+    queryKey: ["simpeg-instansi"],
+    queryFn: async () => {
+      const res = await apiClient.get("/users/pegawai/instansi")
+      return res.data?.data || []
+    },
+    enabled: open && isAdminPpkSelected,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const { data: unitKerjaList = [], isLoading: isLoadingUnitKerja } = useQuery({
+    queryKey: ["simpeg-unit-kerja", selectedOpdId],
+    queryFn: async () => {
+      const res = await apiClient.get("/users/pegawai/unit-kerja", {
+        params: { instansiId: selectedOpdId },
+      })
+      return res.data?.data || []
+    },
+    enabled: open && isAdminPpkSelected && !!selectedOpdId,
+    staleTime: 10 * 60 * 1000,
+  })
+
+  const instansiOptions = instansiList.map((item: InstansiItem) => ({
+    id: String(item.id),
+    label: item.instansi,
+  }))
+
+  const unitKerjaOptions = unitKerjaList.map((item: UnitKerjaItem) => ({
+    id: String(item.id),
+    label: item.unitKerja,
+  }))
 
   const toggleRole = (roleValue: string) => {
     setSelectedRoles((prev) => {
@@ -126,6 +196,12 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
         nip: target.nip,
         roles: selectedRoles,
         role: selectedRoles[0],
+        ...(isAdminPpkSelected
+          ? {
+              opdId: selectedOpdId,
+              subUnitId: selectedSubUnitId,
+            }
+          : {}),
       })
       return res.data
     },
@@ -137,9 +213,8 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
       queryClient.invalidateQueries({ queryKey: ["pegawai-directory"] })
       onOpenChange(false)
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.message || err.message || "Gagal menetapkan role"
-      toast.error(msg)
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Gagal menetapkan role"))
     },
   })
 
@@ -161,9 +236,8 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
       setShowConfirmReset(false)
       onOpenChange(false)
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.message || err.message || "Gagal mengembalikan ke default"
-      toast.error(msg)
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Gagal mengembalikan ke default"))
     },
   })
 
@@ -209,7 +283,9 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
                       const c = MONALISA_ROLES.find((item) => item.value === r)
                       return (
                         <Badge key={r} variant="outline" className={`text-[10px] ${c?.badgeClass || ""}`}>
-                          {c?.label || r}
+                          {r === "ADMIN_PPK" && target.ppkOpdName
+                            ? `Admin PPK - ${target.ppkOpdName}`
+                            : c?.label || r}
                         </Badge>
                       )
                     })}
@@ -291,6 +367,54 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
               })}
             </div>
 
+            {isAdminPpkSelected && (
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Cakupan Kerja Admin PPK</p>
+                  <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                    Otomatis menggunakan OPD asal pegawai. Ubah pilihan ini bila PPK bertugas untuk Unit Kerja atau Sub Unit Kerja lain.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">
+                      Unit Kerja
+                    </Label>
+                    <SearchableCombobox
+                      value={selectedOpdId}
+                      onValueChange={(value) => {
+                        setSelectedOpdId(value)
+                        setSelectedSubUnitId("")
+                      }}
+                      items={instansiOptions}
+                      placeholder={isLoadingInstansi ? "Memuat Unit Kerja..." : "Pilih Unit Kerja..."}
+                      searchPlaceholder="Cari Unit Kerja..."
+                      emptyText="Unit Kerja tidak ditemukan."
+                      icon={<Building2 className="h-3.5 w-3.5 text-purple-600 shrink-0" />}
+                      disabled={isLoadingInstansi}
+                      showAllOption={false}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Sub Unit Kerja</Label>
+                    <SearchableCombobox
+                      value={selectedSubUnitId}
+                      onValueChange={setSelectedSubUnitId}
+                      items={unitKerjaOptions}
+                      placeholder={isLoadingUnitKerja ? "Memuat Sub Unit..." : "Pilih Sub Unit Kerja..."}
+                      searchPlaceholder="Cari Sub Unit Kerja..."
+                      emptyText="Sub Unit Kerja tidak ditemukan."
+                      allLabel="Tanpa Sub Unit Kerja"
+                      icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                      disabled={isLoadingUnitKerja || !selectedOpdId}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Opsi Kembalikan ke Default (Belum Diberi Akses) */}
             {hasExistingRoles && (
               <div className="rounded-lg border border-dashed border-destructive/40 bg-destructive/5 p-3 space-y-2 transition-all">
@@ -370,7 +494,12 @@ export function SetRoleDialog({ open, onOpenChange, target }: SetRoleDialogProps
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5"
             onClick={() => mutation.mutate()}
-            disabled={mutation.isPending || resetMutation.isPending || !target || selectedRoles.length === 0}
+            disabled={
+              mutation.isPending ||
+              resetMutation.isPending ||
+              !target ||
+              selectedRoles.length === 0
+            }
           >
             {mutation.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

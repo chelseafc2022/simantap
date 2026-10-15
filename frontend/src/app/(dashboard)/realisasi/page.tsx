@@ -62,6 +62,9 @@ export default function RealisasiBulananPage() {
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
   const userSubUnitId = user?.subUnit?.id
   const userSubUnitNama = user?.subUnit?.namaSubUnit
+  const hasMultipleOpdAccess = (user?.accessibleOpds?.length || 0) > 1
+  const hasAdditionalScope = (user?.accessScopes?.length || 0) > 0
+  const canSelectOpd = isSuperRole || hasAdditionalScope
 
   const currentMonthNo = new Date().getMonth() + 1
 
@@ -82,13 +85,15 @@ export default function RealisasiBulananPage() {
 
   // Lock selectedOpd & selectedSubUnit if non-super role
   useEffect(() => {
-    if (!isSuperRole && userOpdId) {
-      setSelectedOpd(userOpdId)
+    if (!isSuperRole) {
+      setSelectedOpd(hasMultipleOpdAccess ? "ALL" : (userOpdId || "ALL"))
     }
-    if (!isSuperRole && !isKepalaOpd && userSubUnitId) {
+    if (!canSelectOpd && !isKepalaOpd && userSubUnitId) {
       setSelectedSubUnit(userSubUnitId)
+    } else if (hasAdditionalScope) {
+      setSelectedSubUnit("all")
     }
-  }, [isSuperRole, isKepalaOpd, userOpdId, userSubUnitId])
+  }, [isSuperRole, canSelectOpd, hasMultipleOpdAccess, hasAdditionalScope, isKepalaOpd, userOpdId, userSubUnitId])
 
   // 1. Fetch OPD list
   const { data: opdResponse } = useQuery({
@@ -139,7 +144,7 @@ export default function RealisasiBulananPage() {
         bulan,
       }
       if (debouncedSearch) params.search = debouncedSearch
-      if (!isSuperRole && userOpdId) {
+      if (!canSelectOpd && userOpdId) {
         params.opdId = userOpdId
       } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
         params.opdId = selectedOpd
@@ -240,7 +245,7 @@ export default function RealisasiBulananPage() {
     setSearch("")
     setTahunAnggaran(2026)
     setBulan(currentMonthNo)
-    setSelectedOpd(isSuperRole ? "ALL" : (userOpdId || "ALL"))
+    setSelectedOpd(hasMultipleOpdAccess ? "ALL" : (userOpdId || "ALL"))
     setSelectedSubUnit("all")
     setSelectedStatus("ALL")
     setPage(1)
@@ -282,7 +287,7 @@ export default function RealisasiBulananPage() {
     bulan !== currentMonthNo
 
   return (
-    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
@@ -355,7 +360,7 @@ export default function RealisasiBulananPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
             {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
             <div className="w-full">
-              {isSuperRole ? (
+              {canSelectOpd ? (
                 <SearchableCombobox
                   value={selectedOpd === "ALL" ? "all" : selectedOpd}
                   onValueChange={(val) => {
@@ -380,7 +385,7 @@ export default function RealisasiBulananPage() {
 
             {/* Filter Sub Unit Kerja - Searchable & Typeable */}
             <div className="w-full">
-              {!isSuperRole && !isKepalaOpd && userSubUnitNama ? (
+              {!canSelectOpd && !isKepalaOpd && userSubUnitNama ? (
                 <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
                   <Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                   <span className="truncate">{userSubUnitNama}</span>

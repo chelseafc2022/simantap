@@ -192,7 +192,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+          className="bg-sidebar text-sidebar-foreground w-[min(var(--sidebar-width),calc(100vw-1rem))] max-w-[calc(100vw-1rem)] gap-0 overflow-hidden p-0 [&>button]:z-50 [&>button]:top-2.5 [&>button]:right-2.5 [&>button]:flex [&>button]:size-10 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-lg [&>button]:bg-sidebar-accent [&>button]:text-sidebar-foreground [&>button]:opacity-100"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -204,7 +204,9 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-dvh min-h-0 w-full flex-col overflow-hidden">
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -342,7 +344,7 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn("flex shrink-0 flex-col gap-2 p-2", className)}
       {...props}
     />
   )
@@ -354,7 +356,7 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-footer"
       data-sidebar="footer"
       className={cn(
-        "flex flex-col gap-2 p-2",
+        "flex shrink-0 flex-col gap-2 p-2",
         "[&>[data-slot=card]]:group-data-[collapsible=icon]:hidden",
         className
       )}
@@ -383,7 +385,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 touch-pan-y flex-col gap-2 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}
@@ -615,10 +617,7 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+  const width = "70%"
 
   return (
     <div

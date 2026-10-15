@@ -33,6 +33,20 @@ export interface UserProfile {
   roles?: RoleEnum[];
   userRoles?: UserRoleItem[];
   status: 'AKTIF' | 'NON_AKTIF' | 'TERKUNCI';
+  opdId?: string | null;
+  subUnitId?: string | null;
+  accessScopes?: Array<{
+    role: RoleEnum;
+    opdId: string;
+    subUnitId?: string | null;
+  }>;
+  accessibleOpds?: Array<{
+    id: string;
+    kodeOpd: string;
+    namaOpd: string;
+    singkatan?: string;
+    isHome: boolean;
+  }>;
   opd?: {
     id: string;
     kodeOpd: string;

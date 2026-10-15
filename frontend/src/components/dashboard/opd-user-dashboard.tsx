@@ -95,8 +95,21 @@ export function OpdUserDashboard({
   const [filterStatus, setFilterStatus] = useState<string>("ALL")
 
   const userOpdId = user?.opd?.id || user?.opdId
+  const accessibleOpds: Array<{
+    id: string
+    namaOpd: string
+    isHome: boolean
+  }> = user?.accessibleOpds || []
+  const hasMultipleOpdAccess = accessibleOpds.length > 1
+  const [selectedOpdFilter, setSelectedOpdFilter] = useState<string>("AUTO")
+  const selectedOpdId = selectedOpdFilter === "AUTO"
+    ? (hasMultipleOpdAccess ? "ALL" : (userOpdId || "ALL"))
+    : selectedOpdFilter
   const unitLabel = getUserUnitLabel(user)
-  const opdNama = user?.opd?.namaOpd || unitLabel.full || "Organisasi Perangkat Daerah"
+  const selectedOpd = accessibleOpds.find((opd) => opd.id === selectedOpdId)
+  const opdNama = selectedOpdId === "ALL" && hasMultipleOpdAccess
+    ? `${accessibleOpds.length} Unit Kerja dalam Cakupan Anda`
+    : selectedOpd?.namaOpd || user?.opd?.namaOpd || unitLabel.full || "Organisasi Perangkat Daerah"
 
   const userRoles: string[] = useMemo(() => {
     const raw = [
@@ -109,20 +122,20 @@ export function OpdUserDashboard({
 
   // ── Ambil data realisasi dan paket khusus OPD dari endpoint resmi ──
   const { data: realisasiRes, isLoading: realisasiLoading } = useQuery({
-    queryKey: ["opd-dashboard-realisasi", userOpdId, tahun, bulan],
+    queryKey: ["opd-dashboard-realisasi", selectedOpdId, tahun, bulan],
     queryFn: async () => {
       const res = await apiClient.get("/pembangunan/realisasi", {
         params: {
           tahunAnggaran: tahun,
           bulan,
-          opdId: userOpdId || undefined,
+          opdId: selectedOpdId !== "ALL" ? selectedOpdId : undefined,
           limit: 1000,
           page: 1,
         },
       })
       return res.data
     },
-    enabled: Boolean(userOpdId),
+    enabled: Boolean(userOpdId || accessibleOpds.length > 0),
     staleTime: 2 * 60 * 1000,
   })
 
@@ -282,7 +295,7 @@ export function OpdUserDashboard({
   }, [processedPaketList])
 
   return (
-    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1">
       {/* ─── 1. BANNER HEADER KHUSUS OPD ─── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-blue-700/10 via-indigo-600/10 to-sky-500/10 border border-blue-200/60 dark:border-blue-900/40 shadow-xs">
         <div className="space-y-1.5">
@@ -292,7 +305,9 @@ export function OpdUserDashboard({
             </Badge>
             {userRoles.map((r) => (
               <Badge key={r} variant="outline" className="text-[10px] font-mono border-blue-400 text-blue-700 dark:text-blue-300">
-                {r.replace(/_/g, " ")}
+                {r === "ADMIN_PPK" && accessibleOpds.some((opd) => !opd.isHome)
+                  ? `ADMIN PPK - ${accessibleOpds.filter((opd) => !opd.isHome).map((opd) => opd.namaOpd).join(", ")}`
+                  : r.replace(/_/g, " ")}
               </Badge>
             ))}
           </div>
@@ -314,6 +329,26 @@ export function OpdUserDashboard({
 
         {/* Periode Selector */}
         <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
+          {hasMultipleOpdAccess && (
+            <div className="w-52">
+              <Select value={selectedOpdId} onValueChange={setSelectedOpdFilter}>
+                <SelectTrigger className="h-8 text-xs bg-card border-border/70">
+                  <SelectValue placeholder="Pilih Unit Kerja" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL" className="text-xs">
+                    Semua Unit Kerja Saya
+                  </SelectItem>
+                  {accessibleOpds.map((opd) => (
+                    <SelectItem key={opd.id} value={opd.id} className="text-xs">
+                      {opd.namaOpd}{opd.isHome ? " (OPD Asal)" : " (Penugasan PPK)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="w-36">
             <Select value={String(bulan)} onValueChange={(val) => onChangeBulan(Number(val))}>
               <SelectTrigger className="h-8 text-xs bg-card border-border/70">

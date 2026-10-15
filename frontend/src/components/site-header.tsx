@@ -23,6 +23,7 @@ const routeMap: Record<string, string> = {
   "/laporan": "Laporan & Evaluasi",
   "/users": "Manajemen Akun",
   "/roles": "Kelompok Pengguna",
+  "/periode": "Jadwal & Batas Waktu",
 }
 
 function DynamicBreadcrumb() {
@@ -37,7 +38,7 @@ function DynamicBreadcrumb() {
   const isRoot = pathname === "/dashboard"
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
+    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
       <Breadcrumb className="flex min-w-0">
         <BreadcrumbList className="flex-nowrap">
           <BreadcrumbItem className="min-w-0">
@@ -46,8 +47,11 @@ function DynamicBreadcrumb() {
                 href="/dashboard"
                 className="text-xs sm:text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 min-w-0"
               >
-                <span className="shrink-0 font-bold text-foreground tracking-tight">
+                <span className="hidden shrink-0 font-bold text-foreground tracking-tight lg:inline">
                   MONALISA KONSEL (Monitoring Realisasi Anggaran & Fisik Data Pembangunan Konawe Selatan)
+                </span>
+                <span className="truncate font-bold text-foreground tracking-tight lg:hidden">
+                  MONALISA KONSEL
                 </span>
               </Link>
             </BreadcrumbLink>
@@ -55,7 +59,7 @@ function DynamicBreadcrumb() {
           {!isRoot && pageTitle && (
             <>
               <BreadcrumbSeparator className="shrink-0" />
-              <BreadcrumbItem className="shrink-0">
+              <BreadcrumbItem className="hidden shrink-0 sm:flex">
                 <BreadcrumbPage className="text-xs font-semibold text-foreground whitespace-nowrap">
                   {pageTitle}
                 </BreadcrumbPage>
@@ -86,15 +90,15 @@ export function SiteHeader() {
   return (
     <>
       <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-        <div className="flex w-full items-center gap-2 px-4 py-3 lg:px-6">
-          <SidebarTrigger className="-ml-1" />
+        <div className="flex min-w-0 w-full items-center gap-1.5 px-3 py-3 sm:gap-2 sm:px-4 lg:px-6">
+          <SidebarTrigger className="-ml-1 size-9 shrink-0" />
           <Separator
             orientation="vertical"
-            className="mx-2 data-[orientation=vertical]:h-4"
+            className="mx-1 data-[orientation=vertical]:h-4 sm:mx-2"
           />
           <DynamicBreadcrumb />
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <div className="w-28 sm:w-60">
+            <div className="hidden w-60 sm:block">
               <SearchTrigger onClick={() => setSearchOpen(true)} />
             </div>
             <ModeToggle />

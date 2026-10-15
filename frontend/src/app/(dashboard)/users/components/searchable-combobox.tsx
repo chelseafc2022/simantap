@@ -34,6 +34,7 @@ interface SearchableComboboxProps {
   icon?: React.ReactNode
   disabled?: boolean
   className?: string
+  showAllOption?: boolean
 }
 
 export function SearchableCombobox({
@@ -47,6 +48,7 @@ export function SearchableCombobox({
   icon,
   disabled = false,
   className,
+  showAllOption = true,
 }: SearchableComboboxProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -82,7 +84,7 @@ export function SearchableCombobox({
             </span>
           </div>
           <div className="flex items-center gap-1 shrink-0 ml-1">
-            {value !== "all" && !disabled && (
+            {showAllOption && value !== "all" && !disabled && (
               <span
                 role="button"
                 tabIndex={0}
@@ -107,7 +109,7 @@ export function SearchableCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[--radix-popover-trigger-width] min-w-[280px] p-0 shadow-lg border-border/80"
+        className="w-[--radix-popover-trigger-width] min-w-0 max-w-[calc(100vw-1rem)] p-0 shadow-lg border-border/80"
         align="start"
       >
         <Command
@@ -126,22 +128,24 @@ export function SearchableCombobox({
               {emptyText}
             </CommandEmpty>
             <CommandGroup>
-              <CommandItem
-                value={`-- ${allLabel} -- all semua`}
-                onSelect={() => {
-                  onValueChange("all")
-                  setOpen(false)
-                }}
-                className="text-xs cursor-pointer font-medium py-1.5"
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-3.5 w-3.5 shrink-0",
-                    value === "all" ? "opacity-100 text-emerald-600" : "opacity-0"
-                  )}
-                />
-                <span className="truncate">{allLabel}</span>
-              </CommandItem>
+              {showAllOption && (
+                <CommandItem
+                  value={`-- ${allLabel} -- all semua`}
+                  onSelect={() => {
+                    onValueChange("all")
+                    setOpen(false)
+                  }}
+                  className="text-xs cursor-pointer font-medium py-1.5"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-3.5 w-3.5 shrink-0",
+                      value === "all" ? "opacity-100 text-emerald-600" : "opacity-0"
+                    )}
+                  />
+                  <span className="truncate">{allLabel}</span>
+                </CommandItem>
+              )}
               {items.map((item) => (
                 <CommandItem
                   key={item.id}

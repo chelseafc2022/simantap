@@ -25,15 +25,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { user } = useAuth()
+  const { isMobile, setOpenMobile } = useSidebar()
   const userRoles: string[] = [
     ...(user?.role ? [user.role] : []),
     ...(user?.roles || []),
-    ...(user?.userRoles?.map((ur: any) => ur.role?.kode || ur.role) || []),
+    ...(user?.userRoles?.flatMap((ur) =>
+      ur.role?.kode ? [ur.role.kode] : []
+    ) || []),
   ]
   const isAdministrator = userRoles.includes("ADMINISTRATOR")
 
@@ -180,16 +184,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               size="lg"
               asChild
-              className="group h-auto min-h-[108px] cursor-pointer rounded-xl p-1 transition-all hover:bg-sidebar-accent/40 group-data-[collapsible=icon]:min-h-8 group-data-[collapsible=icon]:p-0"
+              className="group h-auto min-h-[92px] cursor-pointer rounded-xl p-1 transition-all hover:bg-sidebar-accent/40 sm:min-h-[108px] group-data-[collapsible=icon]:min-h-8 group-data-[collapsible=icon]:p-0"
             >
-             <Link href="/dashboard" className="flex flex-col w-full items-center justify-center gap-1.5 p-1">
+             <Link
+               href="/dashboard"
+               onClick={() => {
+                 if (isMobile) setOpenMobile(false)
+               }}
+               className="flex flex-col w-full items-center justify-center gap-1.5 p-1 pr-10 md:pr-1"
+             >
                 <Image
                   src="/monalisa_sidebar.png"
                   alt="MONALISA KONSEL"
                   width={768}
                   height={384}
                   priority
-                  className="h-auto w-full max-w-[210px] object-contain drop-shadow-sm transition-transform group-hover:scale-[1.02] group-data-[collapsible=icon]:hidden"
+                  className="h-auto w-full max-w-[170px] object-contain drop-shadow-sm transition-transform group-hover:scale-[1.02] sm:max-w-[210px] group-data-[collapsible=icon]:hidden"
                 />
                 {/* Subtitle resmi dengan teks HTML tajam & mudah dibaca */}
                 <div className="text-center group-data-[collapsible=icon]:hidden px-1">
@@ -225,7 +235,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       {/* ========== SIDEBAR FOOTER (USER PROFILE) ========== */}
-      <SidebarFooter className="border-t border-sidebar-border/60 p-2 bg-gradient-to-t from-sidebar to-sidebar/95">
+      <SidebarFooter className="border-t border-sidebar-border/60 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-sidebar to-sidebar/95">
         <NavUser user={currentUser} />
       </SidebarFooter>
     </Sidebar>

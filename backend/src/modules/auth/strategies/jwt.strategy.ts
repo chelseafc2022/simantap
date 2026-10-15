@@ -7,6 +7,7 @@ import {
   JwtPayload,
 } from '../../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../../core/database/prisma.service';
+import { RoleEnum } from '../../../common/enums/role.enum';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -37,6 +38,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         status: true,
         opdId: true,
         subUnitId: true,
+        accessScopes: {
+          select: {
+            role: true,
+            opdId: true,
+            subUnitId: true,
+          },
+        },
       },
     });
 
@@ -58,6 +66,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
           : [user.role as any],
       opdId: user.opdId,
       subUnitId: user.subUnitId,
+      accessScopes: user.accessScopes.map((scope) => ({
+        ...scope,
+        role: scope.role as RoleEnum,
+      })),
     };
   }
 }

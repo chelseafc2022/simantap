@@ -20,4 +20,9 @@ export interface AuthenticatedUser {
   roles?: RoleEnum[];
   opdId?: string | null;
   subUnitId?: string | null;
+  accessScopes?: Array<{
+    role: RoleEnum;
+    opdId: string;
+    subUnitId?: string | null;
+  }>;
 }

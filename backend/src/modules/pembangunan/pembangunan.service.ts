@@ -36,36 +36,69 @@ export class PembangunanService {
    */
   private checkOpdAccess(user: any, opdId: string, subUnitId?: string | null) {
     if (!user) return;
-    const isSuperRole = [
-      RoleEnum.ADMINISTRATOR,
-      RoleEnum.PIMPINAN_DAERAH,
-      RoleEnum.MONEV,
-    ].includes(user.role);
+    const userRoles = this.getUserRoles(user);
+    const isSuperRole = userRoles.some((role) =>
+      [
+        RoleEnum.ADMINISTRATOR,
+        RoleEnum.PIMPINAN_DAERAH,
+        RoleEnum.MONEV,
+      ].includes(role),
+    );
     if (isSuperRole) return;
 
-    if (user.opdId && user.opdId !== opdId) {
-      throw new ForbiddenException('Anda tidak memiliki akses ke data OPD ini');
+    const hasAccess = this.getAccessibleScopes(user).some(
+      (scope) =>
+        scope.opdId === opdId &&
+        (!scope.subUnitId || scope.subUnitId === subUnitId),
+    );
+
+    if (!hasAccess) {
+      throw new ForbiddenException(
+        'Anda tidak memiliki akses ke data OPD atau Sub Unit Kerja ini',
+      );
+    }
+  }
+
+  private getUserRoles(user?: any): RoleEnum[] {
+    return user?.roles && user.roles.length > 0
+      ? user.roles
+      : user?.role
+        ? [user.role]
+        : [];
+  }
+
+  private getAccessibleScopes(user?: any) {
+    if (!user) return [];
+
+    const userRoles = this.getUserRoles(user);
+    const scopes: Array<{ opdId: string; subUnitId: string | null }> = [];
+
+    if (user.opdId) {
+      scopes.push({
+        opdId: user.opdId,
+        subUnitId: userRoles.includes(RoleEnum.KEPALA_OPD)
+          ? null
+          : user.subUnitId || null,
+      });
     }
 
-    if (user.subUnitId && user.role !== RoleEnum.KEPALA_OPD) {
-      if (!subUnitId || user.subUnitId !== subUnitId) {
-        throw new ForbiddenException(
-          'Anda hanya memiliki hak akses untuk data pada Sub Unit Kerja Anda',
-        );
+    for (const scope of user.accessScopes || []) {
+      if (scope.opdId) {
+        scopes.push({
+          opdId: scope.opdId,
+          subUnitId: scope.subUnitId || null,
+        });
       }
     }
+
+    return scopes;
   }
 
   /**
    * Helper untuk membentuk filter scope OPD / Sub Unit Kerja pada query database
    */
   private buildScopeFilter(user?: any): Prisma.PaketPembangunanWhereInput {
-    const userRoles: RoleEnum[] =
-      user?.roles && user.roles.length > 0
-        ? user.roles
-        : user?.role
-          ? [user.role]
-          : [];
+    const userRoles = this.getUserRoles(user);
 
     if (userRoles.length === 0) return {};
 
@@ -79,20 +112,18 @@ export class PembangunanService {
 
     if (isSuperRole) return {};
 
-    // Semua role non-super HANYA bisa melihat yang di-upload di sub unit kerja masing-masing
-    if (!userRoles.includes(RoleEnum.KEPALA_OPD)) {
-      if (user.subUnitId) {
-        return { subUnitId: user.subUnitId };
-      }
-      return { subUnitId: 'UNASSIGNED_SUB_UNIT' };
+    const scopes = this.getAccessibleScopes(user);
+    if (scopes.length === 0) {
+      return { opdId: 'UNASSIGNED_OPD' };
     }
 
-    // Jika Kepala OPD, kunci ke OPD penanggung jawab
-    if (user.opdId) {
-      return { opdId: user.opdId };
-    }
-
-    return {};
+    return {
+      OR: scopes.map((scope) =>
+        scope.subUnitId
+          ? { opdId: scope.opdId, subUnitId: scope.subUnitId }
+          : { opdId: scope.opdId },
+      ),
+    };
   }
 
   /**
@@ -130,20 +161,14 @@ export class PembangunanService {
 
     // Role-based OPD & SubUnit Scoping (Administrator & MONEV can see all)
     const scopeFilter = this.buildScopeFilter(user);
-    if (scopeFilter.subUnitId) {
-      andConditions.push({ subUnitId: scopeFilter.subUnitId });
-    } else if (scopeFilter.opdId) {
-      andConditions.push({ opdId: scopeFilter.opdId });
-      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-        andConditions.push({ subUnitId });
-      }
-    } else {
-      if (opdId && opdId !== 'ALL' && opdId !== 'all') {
-        andConditions.push({ opdId });
-      }
-      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-        andConditions.push({ subUnitId });
-      }
+    if (Object.keys(scopeFilter).length > 0) {
+      andConditions.push(scopeFilter);
+    }
+    if (opdId && opdId !== 'ALL' && opdId !== 'all') {
+      andConditions.push({ opdId });
+    }
+    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+      andConditions.push({ subUnitId });
     }
 
     // Filter kategori pengadaan
@@ -293,6 +318,41 @@ export class PembangunanService {
       );
     }
 
+    // Jika nilai kontrak diisi, data kontrak teknis wajib lengkap
+    const nilaiKontrakNum = Number(dto.nilaiKontrak) || 0;
+    if (nilaiKontrakNum > 0) {
+      if (!dto.lokasiKegiatan?.trim()) {
+        throw new BadRequestException(
+          'Lokasi pengerjaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!dto.nomorKontrak?.trim()) {
+        throw new BadRequestException(
+          'Nomor kontrak / SPK wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!dto.pemenangRekanan?.trim()) {
+        throw new BadRequestException(
+          'Penyedia jasa / rekanan pemenang wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!dto.tanggalMulai) {
+        throw new BadRequestException(
+          'Tanggal mulai pelaksanaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!dto.tanggalSelesai) {
+        throw new BadRequestException(
+          'Tanggal selesai pelaksanaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (new Date(dto.tanggalSelesai) < new Date(dto.tanggalMulai)) {
+        throw new BadRequestException(
+          'Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai',
+        );
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // 1. Simpan data paket pembangunan
       const paket = await tx.paketPembangunan.create({
@@ -400,6 +460,65 @@ export class PembangunanService {
       ].includes(user.role);
     const assignedOpdId =
       !isSuperRole && user?.opdId ? user.opdId : dto.opdId || existing.opdId;
+
+    // Jika nilai kontrak diisi, data kontrak teknis wajib lengkap
+    const effectiveNilaiKontrak =
+      dto.nilaiKontrak !== undefined
+        ? Number(dto.nilaiKontrak)
+        : Number(existing.nilaiKontrak);
+    if (effectiveNilaiKontrak > 0) {
+      const lokasi =
+        dto.lokasiKegiatan !== undefined
+          ? dto.lokasiKegiatan
+          : existing.lokasiKegiatan;
+      const noKontrak =
+        dto.nomorKontrak !== undefined
+          ? dto.nomorKontrak
+          : existing.nomorKontrak;
+      const rekanan =
+        dto.pemenangRekanan !== undefined
+          ? dto.pemenangRekanan
+          : existing.pemenangRekanan;
+      const tglMulai =
+        dto.tanggalMulai !== undefined
+          ? dto.tanggalMulai
+          : existing.tanggalMulai;
+      const tglSelesai =
+        dto.tanggalSelesai !== undefined
+          ? dto.tanggalSelesai
+          : existing.tanggalSelesai;
+
+      if (!lokasi?.trim()) {
+        throw new BadRequestException(
+          'Lokasi pengerjaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!noKontrak?.trim()) {
+        throw new BadRequestException(
+          'Nomor kontrak / SPK wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!rekanan?.trim()) {
+        throw new BadRequestException(
+          'Penyedia jasa / rekanan pemenang wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!tglMulai) {
+        throw new BadRequestException(
+          'Tanggal mulai pelaksanaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (!tglSelesai) {
+        throw new BadRequestException(
+          'Tanggal selesai pelaksanaan wajib diisi jika nilai kontrak telah ditentukan',
+        );
+      }
+      if (new Date(tglSelesai) < new Date(tglMulai)) {
+        throw new BadRequestException(
+          'Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai',
+        );
+      }
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Update data pokok paket
@@ -605,8 +724,16 @@ export class PembangunanService {
   /**
    * Mengambil daftar referensi OPD aktif dari SIMPEG
    */
-  async getOpdOptions() {
-    return this.egovService.getOpdOptions();
+  async getOpdOptions(user?: any) {
+    const allOptions = await this.egovService.getOpdOptions();
+    if (Object.keys(this.buildScopeFilter(user)).length === 0) {
+      return allOptions;
+    }
+
+    const allowedIds = new Set(
+      this.getAccessibleScopes(user).map((scope) => scope.opdId),
+    );
+    return allOptions.filter((option) => allowedIds.has(option.id));
   }
 
   /**
@@ -685,20 +812,14 @@ export class PembangunanService {
 
     // Filter scope role (Administrator & MONEV can see all)
     const scopeFilter = this.buildScopeFilter(user);
-    if (scopeFilter.subUnitId) {
-      andConditions.push({ subUnitId: scopeFilter.subUnitId });
-    } else if (scopeFilter.opdId) {
-      andConditions.push({ opdId: scopeFilter.opdId });
-      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-        andConditions.push({ subUnitId });
-      }
-    } else {
-      if (opdId && opdId !== 'ALL' && opdId !== 'all') {
-        andConditions.push({ opdId });
-      }
-      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-        andConditions.push({ subUnitId });
-      }
+    if (Object.keys(scopeFilter).length > 0) {
+      andConditions.push(scopeFilter);
+    }
+    if (opdId && opdId !== 'ALL' && opdId !== 'all') {
+      andConditions.push({ opdId });
+    }
+    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+      andConditions.push({ subUnitId });
     }
 
     if (
@@ -1450,20 +1571,14 @@ export class PembangunanService {
 
     // Filter scope role (Administrator & MONEV can see all)
     const scopeFilter = this.buildScopeFilter(user);
-    if (scopeFilter.subUnitId) {
-      andConditions.push({ subUnitId: scopeFilter.subUnitId });
-    } else if (scopeFilter.opdId) {
-      andConditions.push({ opdId: scopeFilter.opdId });
-      if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
-        andConditions.push({ subUnitId });
-      }
-    } else {
-      if (opdId && opdId !== 'ALL') {
-        andConditions.push({ opdId });
-      }
-      if (subUnitId && subUnitId !== 'ALL') {
-        andConditions.push({ subUnitId });
-      }
+    if (Object.keys(scopeFilter).length > 0) {
+      andConditions.push(scopeFilter);
+    }
+    if (opdId && opdId !== 'ALL' && opdId !== 'all') {
+      andConditions.push({ opdId });
+    }
+    if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
+      andConditions.push({ subUnitId });
     }
 
     if (metodePemilihan && metodePemilihan !== 'ALL') {
@@ -1611,22 +1726,19 @@ export class PembangunanService {
     const {
       tahunAnggaran = new Date().getFullYear(),
       bulan = new Date().getMonth() + 1,
+      opdId,
+      subUnitId,
     } = query;
 
     const activeTahun = Number(tahunAnggaran);
     const activeBulan = Math.min(12, Math.max(1, Number(bulan)));
 
-    const isSuperRole = [
-      RoleEnum.ADMINISTRATOR,
-      RoleEnum.PIMPINAN_DAERAH,
-      RoleEnum.MONEV,
-    ].includes(user?.role);
-
     const whereConditions: Prisma.PaketPembangunanWhereInput = {
       tahunAnggaran: activeTahun,
-      ...(!isSuperRole && user?.opdId ? { opdId: user.opdId } : {}),
-      ...(!isSuperRole && user?.subUnitId && user?.role !== RoleEnum.KEPALA_OPD
-        ? { subUnitId: user.subUnitId }
+      ...this.buildScopeFilter(user),
+      ...(opdId && opdId !== 'ALL' && opdId !== 'all' ? { opdId } : {}),
+      ...(subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all'
+        ? { subUnitId }
         : {}),
     };
 
@@ -1799,6 +1911,18 @@ export class PembangunanService {
     }
     if (realisasi.statusVerifikasi === StatusVerifikasi.DIAJUKAN) {
       throw new BadRequestException('Data ini sudah dalam antrian MONEV.');
+    }
+
+    // Jika ada realisasi fisik (> 0), wajib memiliki minimal 1 foto bukti fisik lapangan
+    if (Number(realisasi.realisasiFisik) > 0) {
+      const countBukti = await this.prisma.buktiFisik.count({
+        where: { realisasiId: realisasi.id },
+      });
+      if (countBukti === 0) {
+        throw new BadRequestException(
+          `Realisasi fisik Bulan ${bulan} sebesar ${realisasi.realisasiFisik}% wajib menyertakan minimal 1 foto bukti fisik lapangan sebelum diajukan ke MONEV.`,
+        );
+      }
     }
 
     const userRoles: RoleEnum[] =
@@ -2090,7 +2214,7 @@ export class PembangunanService {
     const filterWhere: Prisma.PaketPembangunanWhereInput = {
       tahunAnggaran: activeTahun,
       ...whereScope,
-      ...(opdId && opdId !== 'ALL' && Object.keys(whereScope).length === 0
+      ...(opdId && opdId !== 'ALL' && opdId !== 'all'
         ? { opdId }
         : {}),
     };

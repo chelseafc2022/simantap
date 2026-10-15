@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { isAxiosError } from "axios"
 import { apiClient } from "@/lib/api-client"
 import { useAuth } from "@/hooks/use-auth"
 import {
-  CalendarClock,
   Lock,
   Unlock,
   RefreshCw,
@@ -71,10 +71,17 @@ interface LockingPeriodItem {
   isEffectiveLocked: boolean
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || error.message || fallback
+  }
+  return error instanceof Error ? error.message : fallback
+}
+
 export default function PeriodePage() {
   const queryClient = useClientQueries()
   const { user, isLoading: isAuthLoading } = useAuth()
-  const [selectedTahun, setSelectedTahun] = useState<number>(2026)
+  const selectedTahun = 2026
   const [batchModalOpen, setBatchModalOpen] = useState(false)
   const [editDates, setEditDates] = useState<Record<number, string>>({})
 
@@ -87,7 +94,9 @@ export default function PeriodePage() {
   const userRoles: string[] = [
     ...(user?.role ? [user.role] : []),
     ...(user?.roles || []),
-    ...(user?.userRoles?.map((ur: any) => ur.role?.kode || ur.role) || []),
+    ...(user?.userRoles?.flatMap((ur) =>
+      ur.role?.kode ? [ur.role.kode] : []
+    ) || []),
   ]
   const isAdministrator = userRoles.includes("ADMINISTRATOR")
 
@@ -127,8 +136,8 @@ export default function PeriodePage() {
       toast.success(`Jadwal Bulan ${vars.bulan} (${NAMA_BULAN[vars.bulan - 1]}) berhasil disimpan`)
       queryClient.invalidateQueries({ queryKey: ["locking-periods"] })
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Gagal memperbarui jadwal periode")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Gagal memperbarui jadwal periode"))
     },
   })
 
@@ -157,8 +166,8 @@ export default function PeriodePage() {
       setBatchModalOpen(false)
       queryClient.invalidateQueries({ queryKey: ["locking-periods"] })
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Gagal menjalankan operasi massal")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Gagal menjalankan operasi massal"))
     },
   })
 
@@ -274,7 +283,7 @@ export default function PeriodePage() {
   const oktPeriod = periods.find((p) => p.bulan === 10)
 
   return (
-    <div className="px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1 w-full">
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
@@ -424,8 +433,12 @@ export default function PeriodePage() {
               <span className="text-xs text-muted-foreground">Memuat daftar periode 12 bulan...</span>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <>
+              <div className="border-b bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground md:hidden">
+                ← Geser tabel ke kiri atau kanan untuk mengatur seluruh kolom →
+              </div>
+              <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+                <Table>
                 <TableHeader>
                   <tr className="bg-muted/40 border-b text-xs text-muted-foreground">
                     <TableHead className="w-16 text-center font-semibold">Kode</TableHead>
@@ -620,8 +633,9 @@ export default function PeriodePage() {
                     )
                   })}
                 </TableBody>
-              </Table>
-            </div>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -639,7 +653,13 @@ export default function PeriodePage() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={batchTab} onValueChange={(v: any) => setBatchTab(v)} className="pt-2">
+          <Tabs
+            value={batchTab}
+            onValueChange={(value) => {
+              if (value === "pola" || value === "seragam") setBatchTab(value)
+            }}
+            className="pt-2"
+          >
             <TabsList className="grid grid-cols-2 w-full">
               <TabsTrigger value="pola" className="text-xs">Pola Tanggal Bulanan</TabsTrigger>
               <TabsTrigger value="seragam" className="text-xs">Tanggal & Jam Seragam</TabsTrigger>

@@ -188,18 +188,22 @@ export default function UsersManagementPage() {
     }))
   }, [unitKerjaList])
 
-  const getRoleBadge = (roleName: string) => {
+  const getRoleBadge = (roleName: string, ppkOpdName?: string | null) => {
     const roleConfig = MONALISA_ROLES.find((r) => r.value === roleName)
     if (!roleConfig) {
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0">{roleName}</Badge>
     }
+    const displayLabel =
+      roleName === "ADMIN_PPK" && ppkOpdName
+        ? `Admin PPK - ${ppkOpdName}`
+        : roleConfig.shortLabel || roleConfig.label
     return (
       <Badge
         variant="outline"
-        title={roleConfig.label}
+        title={displayLabel}
         className={`text-[10px] px-1.5 py-0.5 font-medium whitespace-nowrap shrink-0 ${roleConfig.badgeClass}`}
       >
-        {roleConfig.shortLabel || roleConfig.label}
+        {displayLabel}
       </Badge>
     )
   }
@@ -244,7 +248,7 @@ export default function UsersManagementPage() {
   }
 
   return (
-    <div className="px-4 lg:px-6 space-y-6">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-6">
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -498,7 +502,7 @@ export default function UsersManagementPage() {
                           {(user.roles && user.roles.length > 0) || user.role ? (
                             <div className="flex flex-wrap gap-1 items-center">
                               {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
-                                <span key={r}>{getRoleBadge(r)}</span>
+                                <span key={r}>{getRoleBadge(r, user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opd?.namaOpd)}</span>
                               ))}
                             </div>
                           ) : (
@@ -531,6 +535,11 @@ export default function UsersManagementPage() {
                                 namaLengkap: user.namaLengkap,
                                 jabatan: user.jabatan,
                                 opd: user.opd?.namaOpd,
+                                opdId: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opdId || user.opdId,
+                                subUnitId: user.accessScopes?.some((scope: any) => scope.role === "ADMIN_PPK")
+                                  ? user.accessScopes.find((scope: any) => scope.role === "ADMIN_PPK")?.subUnitId
+                                  : user.subUnitId,
+                                ppkOpdName: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opd?.namaOpd,
                                 currentRole: user.role,
                                 currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                               })
@@ -634,7 +643,7 @@ export default function UsersManagementPage() {
                             {(user.roles && user.roles.length > 0) || user.role ? (
                               <div className="flex flex-wrap gap-1 items-center">
                                 {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
-                                  <span key={r}>{getRoleBadge(r)}</span>
+                                  <span key={r}>{getRoleBadge(r, user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opd?.namaOpd)}</span>
                                 ))}
                               </div>
                             ) : (
@@ -676,6 +685,11 @@ export default function UsersManagementPage() {
                                     namaLengkap: user.namaLengkap,
                                     jabatan: user.jabatan,
                                     opd: user.opd?.namaOpd,
+                                    opdId: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opdId || user.opdId,
+                                    subUnitId: user.accessScopes?.some((scope: any) => scope.role === "ADMIN_PPK")
+                                      ? user.accessScopes.find((scope: any) => scope.role === "ADMIN_PPK")?.subUnitId
+                                      : user.subUnitId,
+                                    ppkOpdName: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opd?.namaOpd,
                                     currentRole: user.role,
                                     currentRoles: (user.roles && user.roles.length > 0) ? user.roles : (user.role ? [user.role] : []),
                                   })
@@ -882,7 +896,7 @@ export default function UsersManagementPage() {
                                 ? item.simantapRoles
                                 : (item.simantapRole ? [item.simantapRole] : [])
                               ).map((r: string) => (
-                                <span key={r}>{getRoleBadge(r)}</span>
+                                <span key={r}>{getRoleBadge(r, item.simantapPpkOpdName)}</span>
                               ))}
                             </div>
                           ) : item.simantapStatus === "NON_AKTIF" ? (
@@ -920,6 +934,9 @@ export default function UsersManagementPage() {
                               namaLengkap: item.namaLengkap,
                               jabatan: item.jabatan,
                               opd: item.opd,
+                              opdId: item.simantapPpkOpdId || item.instansiId,
+                              subUnitId: item.simantapPpkOpdId ? item.simantapPpkSubUnitId : item.unitKerjaId,
+                              ppkOpdName: item.simantapPpkOpdName,
                               currentRole: item.simantapRole,
                               currentRoles: (item.simantapRoles && item.simantapRoles.length > 0) ? item.simantapRoles : (item.simantapRole ? [item.simantapRole] : []),
                               username: item.username,
@@ -1022,7 +1039,7 @@ export default function UsersManagementPage() {
                                   ? item.simantapRoles
                                   : (item.simantapRole ? [item.simantapRole] : [])
                                 ).map((r: string) => (
-                                  <span key={r}>{getRoleBadge(r)}</span>
+                                  <span key={r}>{getRoleBadge(r, item.simantapPpkOpdName)}</span>
                                 ))}
                               </div>
                             ) : item.simantapStatus === "NON_AKTIF" ? (
@@ -1032,7 +1049,7 @@ export default function UsersManagementPage() {
                                     ? item.simantapRoles
                                     : (item.simantapRole ? [item.simantapRole] : [])
                                   ).map((r: string) => (
-                                    <span key={r}>{getRoleBadge(r)}</span>
+                                    <span key={r}>{getRoleBadge(r, item.simantapPpkOpdName)}</span>
                                   ))}
                                 </div>
                                 <Badge variant="outline" className="text-destructive border-destructive/20 text-[9px] py-0 font-normal whitespace-nowrap">
@@ -1054,6 +1071,9 @@ export default function UsersManagementPage() {
                                   namaLengkap: item.namaLengkap,
                                   jabatan: item.jabatan,
                                   opd: item.opd,
+                                  opdId: item.simantapPpkOpdId || item.instansiId,
+                                  subUnitId: item.simantapPpkOpdId ? item.simantapPpkSubUnitId : item.unitKerjaId,
+                                  ppkOpdName: item.simantapPpkOpdName,
                                   currentRole: item.simantapRole,
                                   currentRoles: (item.simantapRoles && item.simantapRoles.length > 0) ? item.simantapRoles : (item.simantapRole ? [item.simantapRole] : []),
                                   username: item.username,

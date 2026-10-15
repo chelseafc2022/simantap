@@ -117,6 +117,13 @@ export class UsersService implements OnModuleInit {
           status: true,
           opdId: true,
           subUnitId: true,
+          accessScopes: {
+            select: {
+              role: true,
+              opdId: true,
+              subUnitId: true,
+            },
+          },
           lastLoginAt: true,
           createdAt: true,
         },
@@ -129,6 +136,11 @@ export class UsersService implements OnModuleInit {
       ...u,
       opd: this.egovService.getOpdById(u.opdId),
       subUnit: this.egovService.getSubUnitById(u.subUnitId),
+      accessScopes: u.accessScopes.map((scope) => ({
+        ...scope,
+        opd: this.egovService.getOpdById(scope.opdId),
+        subUnit: this.egovService.getSubUnitById(scope.subUnitId),
+      })),
     }));
 
     return {
@@ -1058,6 +1070,7 @@ export class UsersService implements OnModuleInit {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
+        accessScopes: true,
         userRoles: {
           include: { role: true },
           orderBy: { role: { urutan: 'asc' } },
@@ -1088,6 +1101,12 @@ export class UsersService implements OnModuleInit {
    */
   async setRole(dto: SetRoleDto, adminId?: string) {
     const cleanNip = dto.nip.trim();
+    const hasOpdAssignment = dto.opdId !== undefined;
+    const hasSubUnitAssignment = dto.subUnitId !== undefined;
+    const requestedOpdId =
+      dto.opdId && dto.opdId !== 'all' ? dto.opdId.trim() : null;
+    const requestedSubUnitId =
+      dto.subUnitId && dto.subUnitId !== 'all' ? dto.subUnitId.trim() : null;
 
     let assignedRoles: RoleEnum[] = [];
     if (dto.roles && dto.roles.length > 0) {
@@ -1116,13 +1135,14 @@ export class UsersService implements OnModuleInit {
         );
       }
 
-      // Tetapkan OPD & Sub Unit dari SIMPEG jika belum ditentukan
-      const assignedOpdId =
-        dto.opdId ||
-        (egovProfile.instansiId ? String(egovProfile.instansiId) : null);
-      const assignedSubUnitId =
-        dto.subUnitId ||
-        (egovProfile.unitKerjaId ? String(egovProfile.unitKerjaId) : null);
+      // OPD pada users selalu menyimpan unit asal pegawai dari SIMPEG.
+      // Penugasan lintas OPD disimpan terpisah pada user_access_scopes.
+      const assignedOpdId = egovProfile.instansiId
+        ? String(egovProfile.instansiId)
+        : null;
+      const assignedSubUnitId = egovProfile.unitKerjaId
+        ? String(egovProfile.unitKerjaId)
+        : null;
 
       const defaultPassword = await bcrypt.hash('Password123!', 10);
       const email = `${cleanNip}@konaweselatankab.go.id`;
@@ -1145,8 +1165,8 @@ export class UsersService implements OnModuleInit {
       action = 'ASSIGN_NEW_ROLE_FROM_EGOV';
     } else {
       // 3. Jika sudah ada di lokal, perbarui role & status
-      let finalOpdId = dto.opdId || user.opdId;
-      let finalSubUnitId = dto.subUnitId || user.subUnitId;
+      let finalOpdId = user.opdId;
+      let finalSubUnitId = user.subUnitId;
 
       if (!finalOpdId || !finalSubUnitId) {
         const egovProfile = await this.egovService.getPegawaiByNip(cleanNip);
@@ -1190,6 +1210,32 @@ export class UsersService implements OnModuleInit {
       });
     }
 
+    if (!assignedRoles.includes(RoleEnum.ADMIN_PPK)) {
+      await this.prisma.userAccessScope.deleteMany({
+        where: { userId: user.id, role: RoleEnum.ADMIN_PPK },
+      });
+    } else if (hasOpdAssignment) {
+      await this.prisma.userAccessScope.deleteMany({
+        where: { userId: user.id, role: RoleEnum.ADMIN_PPK },
+      });
+
+      if (requestedOpdId) {
+        await this.prisma.userAccessScope.create({
+          data: {
+            userId: user.id,
+            role: RoleEnum.ADMIN_PPK,
+            opdId: requestedOpdId,
+            subUnitId: hasSubUnitAssignment ? requestedSubUnitId : null,
+          },
+        });
+      }
+    }
+
+    const accessScopes = await this.prisma.userAccessScope.findMany({
+      where: { userId: user.id },
+      select: { role: true, opdId: true, subUnitId: true },
+    });
+
     // Catat Audit Trail
     await this.prisma.auditLog.create({
       data: {
@@ -1201,7 +1247,10 @@ export class UsersService implements OnModuleInit {
           targetNip: cleanNip,
           assignedRoles,
           primaryRole,
-          opdId: dto.opdId,
+          homeOpdId: user.opdId,
+          homeSubUnitId: user.subUnitId,
+          assignedOpdId: requestedOpdId,
+          assignedSubUnitId: requestedSubUnitId,
         },
       },
     });
@@ -1217,6 +1266,9 @@ export class UsersService implements OnModuleInit {
         roles: user.roles,
         userRoles: masterRoles.map((mr) => ({ role: mr })),
         status: user.status,
+        opdId: user.opdId,
+        subUnitId: user.subUnitId,
+        accessScopes,
       },
     };
   }
@@ -1369,6 +1421,15 @@ export class UsersService implements OnModuleInit {
         role: true,
         roles: true,
         status: true,
+        opdId: true,
+        subUnitId: true,
+        accessScopes: {
+          select: {
+            role: true,
+            opdId: true,
+            subUnitId: true,
+          },
+        },
       },
     });
 
@@ -1377,6 +1438,10 @@ export class UsersService implements OnModuleInit {
     // Gabungkan status akses
     const enrichedData = result.data.map((p) => {
       const local = userMap.get(p.nip);
+      const ppkScope = local?.accessScopes.find(
+        (scope) => scope.role === RoleEnum.ADMIN_PPK,
+      );
+      const ppkOpd = this.egovService.getOpdById(ppkScope?.opdId);
       return {
         ...p,
         hasSimantapAccess: !!local && local.status === 'AKTIF',
@@ -1389,6 +1454,11 @@ export class UsersService implements OnModuleInit {
               : [],
         simantapStatus: local ? local.status : 'BELUM_DIBERI_AKSES',
         simantapUserId: local?.id || null,
+        simantapOpdId: local?.opdId || null,
+        simantapSubUnitId: local?.subUnitId || null,
+        simantapPpkOpdId: ppkScope?.opdId || null,
+        simantapPpkOpdName: ppkOpd?.namaOpd || null,
+        simantapPpkSubUnitId: ppkScope?.subUnitId || null,
       };
     });
 

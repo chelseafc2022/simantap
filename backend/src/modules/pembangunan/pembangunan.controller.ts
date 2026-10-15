@@ -67,13 +67,13 @@ export class PembangunanController {
     return this.pembangunanService.getPengadaanConstants();
   }
 
-  @Public()
   @Get('opd-options')
+  @Roles(...ALL_ROLES)
   @ApiOperation({
     summary: 'Daftar referensi OPD aktif untuk dropdown filter dan formulir',
   })
-  getOpdOptions() {
-    return this.pembangunanService.getOpdOptions();
+  getOpdOptions(@CurrentUser() user: any) {
+    return this.pembangunanService.getOpdOptions(user);
   }
 
   @Public()

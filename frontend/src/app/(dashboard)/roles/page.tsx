@@ -144,7 +144,7 @@ export default function KelompokUserPage() {
   }
 
   return (
-    <div className="px-4 lg:px-6 space-y-6">
+    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-6">
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

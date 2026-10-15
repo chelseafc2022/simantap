@@ -19,6 +19,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export interface NavMainItem {
@@ -49,6 +50,10 @@ export function NavMain({
   items: NavMainItem[]
 }) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   const shouldBeOpen = (item: NavMainItem) => {
     if (item.isActive) return true
@@ -90,7 +95,7 @@ export function NavMain({
                       <SidebarMenuButton
                         tooltip={item.title}
                         className={cn(
-                          "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none",
+                          "cursor-pointer rounded-xl h-auto min-h-11 py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none md:min-h-0",
                           isItemActive &&
                             cn(
                               theme.activeGlow,
@@ -139,6 +144,7 @@ export function NavMain({
                             >
                               <Link
                                 href={subItem.url}
+                                onClick={closeMobileSidebar}
                                 target={
                                   item.title === "Auth Pages" ||
                                   item.title === "Errors"
@@ -166,7 +172,7 @@ export function NavMain({
                     tooltip={item.title}
                     isActive={isItemActive}
                     className={cn(
-                      "cursor-pointer rounded-xl h-auto py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none",
+                      "cursor-pointer rounded-xl h-auto min-h-11 py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none md:min-h-0",
                       isItemActive &&
                         cn(
                           theme.activeGlow,
@@ -176,6 +182,7 @@ export function NavMain({
                   >
                     <Link
                       href={item.url}
+                      onClick={closeMobileSidebar}
                       className="flex items-center gap-2.5 w-full"
                     >
                       <div

@@ -82,7 +82,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Bupati & Wakil Bupati Cards */}
+          {/* Bupati, Wakil Bupati & Sekda Cards */}
           <div className="login-left-officials-header">
             <div className="official-card">
               <div className="official-photo">
@@ -113,6 +113,22 @@ export default function LoginPage() {
               <div className="official-info">
                 <span className="official-name">H. Wahyu Ade Pratama Imran</span>
                 <span className="official-title">Wakil Bupati Konawe Selatan</span>
+              </div>
+            </div>
+
+            <div className="official-card">
+              <div className="official-photo">
+                <Image
+                  src="/sekda.jpg"
+                  alt="H. Ichsan Porosi, ST., MTP"
+                  width={90}
+                  height={110}
+                  style={{ objectFit: "cover", objectPosition: "top" }}
+                />
+              </div>
+              <div className="official-info">
+                <span className="official-name">H. Ichsan Porosi, ST., MTP</span>
+                <span className="official-title">Sekda Konawe Selatan</span>
               </div>
             </div>
           </div>
@@ -496,7 +512,8 @@ export default function LoginPage() {
         .login-left-officials-header {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
         .official-card {
@@ -1180,15 +1197,16 @@ export default function LoginPage() {
             display: flex;
             flex-direction: row;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
-            max-width: 360px;
+            max-width: 520px;
           }
 
           .official-card {
             flex: 1;
-            padding: 4px 8px 4px 4px;
-            gap: 7px;
+            min-width: 0;
+            padding: 4px 6px 4px 4px;
+            gap: 6px;
             border-radius: 8px;
           }
 

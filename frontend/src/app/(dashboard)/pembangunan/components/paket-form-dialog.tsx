@@ -298,6 +298,20 @@ export function PaketFormDialog({
   const selisihEfisiensi = paguNum > kontrakNum ? paguNum - kontrakNum : 0
   const persenEfisiensi = paguNum > 0 ? ((selisihEfisiensi / paguNum) * 100).toFixed(2) : "0.00"
 
+  const isKontrakActive = kontrakNum > 0
+  const kontrakMissingFields = useMemo(() => {
+    if (!isKontrakActive) return []
+    const missing: string[] = []
+    if (!lokasiKegiatan.trim()) missing.push("Lokasi Pekerjaan")
+    if (!nomorKontrak.trim()) missing.push("Nomor Kontrak / SPK")
+    if (!pemenangRekanan.trim()) missing.push("Penyedia Jasa / Rekanan Pemenang")
+    if (!tanggalMulai) missing.push("Tanggal Mulai Pelaksanaan")
+    if (!tanggalSelesai) missing.push("Tanggal Selesai Pelaksanaan")
+    return missing
+  }, [isKontrakActive, lokasiKegiatan, nomorKontrak, pemenangRekanan, tanggalMulai, tanggalSelesai])
+
+  const isKontrakComplete = kontrakMissingFields.length === 0
+
   const durasiKontrak = useMemo(() => {
     if (!tanggalMulai || !tanggalSelesai) return null
     const start = new Date(tanggalMulai)
@@ -315,6 +329,28 @@ export function PaketFormDialog({
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(val)
+  }
+
+  const validateKontrakBeforeNext = (): boolean => {
+    if (!namaPaket.trim()) {
+      toast.error("Nama paket pekerjaan wajib diisi")
+      return false
+    }
+    if (!opdId) {
+      toast.error("Unit Kerja (OPD) wajib dipilih")
+      return false
+    }
+    if (isKontrakActive && !isKontrakComplete) {
+      toast.error("Data kontrak belum lengkap!", {
+        description: `Karena nilai kontrak telah diisi (${formatRupiah(kontrakNum)}), mohon lengkapi: ${kontrakMissingFields.join(", ")} sebelum lanjut mengisi Target Fisik atau Realisasi.`,
+      })
+      return false
+    }
+    if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) < new Date(tanggalMulai)) {
+      toast.error("Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai")
+      return false
+    }
+    return true
   }
 
   // Terapkan data hasil penarikan SiRUP LKPP ke state form
@@ -436,6 +472,14 @@ export function PaketFormDialog({
       if (!opdId) {
         throw new Error("OPD penanggung jawab wajib dipilih")
       }
+      if (isKontrakActive && !isKontrakComplete) {
+        throw new Error(
+          `Nilai kontrak terisi (${formatRupiah(kontrakNum)}). Wajib melengkapi data kontrak: ${kontrakMissingFields.join(", ")} sebelum menyimpan.`
+        )
+      }
+      if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) < new Date(tanggalMulai)) {
+        throw new Error("Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai")
+      }
 
       const targetBulananPayload = targets.map((val, idx) => ({
         bulan: idx + 1,
@@ -527,7 +571,16 @@ export function PaketFormDialog({
         </DialogHeader>
 
         {/* Tab Navigation Bar */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={(tab) => {
+            if (tab === "targets" && !validateKontrakBeforeNext()) {
+              return
+            }
+            setActiveTab(tab)
+          }}
+          className="flex-1 flex flex-col min-h-0"
+        >
           <div className="px-6 py-2.5 border-b bg-muted/20 shrink-0">
             <TabsList className="grid w-full sm:w-[480px] grid-cols-2">
               <TabsTrigger value="info" className="gap-2 text-xs sm:text-sm font-medium">
@@ -657,7 +710,7 @@ export function PaketFormDialog({
                 {/* Lokasi Kegiatan */}
                 <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
                   <Label htmlFor="lokasiKegiatan" className="text-xs font-medium">
-                    Lokasi Pekerjaan
+                    Lokasi Pekerjaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                   </Label>
                   <Input
                     id="lokasiKegiatan"
@@ -723,7 +776,7 @@ export function PaketFormDialog({
                 {/* Nomor Kontrak */}
                 <div className="space-y-1.5">
                   <Label htmlFor="nomorKontrak" className="text-xs font-medium">
-                    Nomor Kontrak / SPK
+                    Nomor Kontrak / SPK {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                   </Label>
                   <Input
                     id="nomorKontrak"
@@ -807,7 +860,7 @@ export function PaketFormDialog({
                 {/* Rekanan / Pelaksana Pemenang */}
                 <div className="sm:col-span-2 space-y-1.5">
                   <Label htmlFor="pemenangRekanan" className="text-xs font-medium">
-                    Penyedia Jasa / Rekanan Pemenang
+                    Penyedia Jasa / Rekanan Pemenang {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                   </Label>
                   <Input
                     id="pemenangRekanan"
@@ -852,7 +905,7 @@ export function PaketFormDialog({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="nilaiKontrak" className="text-xs font-medium">
-                      Nilai Kontrak Terikat (Rp) <span className="text-red-500">*</span>
+                      Nilai Kontrak Terikat (Rp)
                     </Label>
                   </div>
                   <Input
@@ -885,6 +938,28 @@ export function PaketFormDialog({
               </div>
             </div>
 
+            {/* Warning Banner: Jika Nilai Kontrak Terisi, Form Kontrak Wajib Lengkap */}
+            {isKontrakActive && !isKontrakComplete && (
+              <div className="flex items-start gap-3 p-4 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs shadow-xs animate-in fade-in">
+                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1.5">
+                  <div className="font-bold text-amber-900 dark:text-amber-100 text-sm">
+                    Nilai Kontrak Terisi — Data Pengadaan Wajib Dilengkapi:
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Karena nilai kontrak telah ditentukan (<strong>{formatRupiah(kontrakNum)}</strong>), Anda <strong>wajib mengisi Lokasi Pekerjaan, Nomor Kontrak, Penyedia Jasa/Rekanan, dan Tanggal Pelaksanaan</strong> (Keterangan bersifat opsional). Anda tidak dapat lanjut mengisi Target Fisik atau Realisasi sebelum data ini lengkap.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {kontrakMissingFields.map((f) => (
+                      <Badge key={f} variant="outline" className="border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-[11px] font-semibold">
+                        Wajib Diisi: {f}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* SECTION 4: Jadwal & Keterangan */}
             <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
@@ -896,7 +971,7 @@ export function PaketFormDialog({
                 {/* Tanggal Mulai */}
                 <div className="lg:col-span-3 space-y-1.5">
                   <Label htmlFor="tanggalMulai" className="text-xs font-medium">
-                    Tanggal Mulai Pelaksanaan
+                    Tanggal Mulai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                   </Label>
                   <Input
                     id="tanggalMulai"
@@ -910,7 +985,7 @@ export function PaketFormDialog({
                 {/* Tanggal Selesai */}
                 <div className="lg:col-span-3 space-y-1.5">
                   <Label htmlFor="tanggalSelesai" className="text-xs font-medium">
-                    Tanggal Selesai Pelaksanaan
+                    Tanggal Selesai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                   </Label>
                   <Input
                     id="tanggalSelesai"
@@ -1141,7 +1216,11 @@ export function PaketFormDialog({
                 <Button
                   type="button"
                   variant={isSirup ? "outline" : "default"}
-                  onClick={() => setActiveTab("targets")}
+                  onClick={() => {
+                    if (validateKontrakBeforeNext()) {
+                      setActiveTab("targets")
+                    }
+                  }}
                   className="gap-1.5"
                 >
                   <span>{isSirup ? "Pratinjau Target Fisik" : "Target Fisik (12 Bulan)"}</span>

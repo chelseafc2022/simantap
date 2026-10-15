@@ -54,10 +54,27 @@ model User {
   realisasiInput     RealisasiBulanan[] @relation("UserRealisasiInput")
   realisasiVerifikasi RealisasiBulanan[] @relation("UserRealisasiVerifikasi")
   buktiFisikUpload   BuktiFisik[]       @relation("UserBuktiFisikUpload")
+  accessScopes       UserAccessScope[]
 
   @@index([opdId])
   @@index([subUnitId])
   @@map("users")
+}
+
+model UserAccessScope {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  role        RoleEnum
+  opdId       String    @map("opd_id")
+  subUnitId   String?   @map("sub_unit_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, role])
+  @@index([opdId])
+  @@map("user_access_scopes")
 }
 
 model Role {

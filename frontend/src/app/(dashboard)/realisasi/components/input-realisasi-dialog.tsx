@@ -81,6 +81,8 @@ const formatBytes = (bytes?: number) => {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+const API_STORAGE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/api\/v1\/?$/, "")
+
 export function InputRealisasiDialog({
   open, onOpenChange, paketId, activeBulan,
 }: InputRealisasiDialogProps) {
@@ -349,6 +351,29 @@ export function InputRealisasiDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!paketId) throw new Error("Paket ID tidak valid")
+
+      const curFisik = parseFloat(currentMonthData.realisasiFisik) || 0
+      const existingBukti = currentMonthData.buktiFisik?.length || 0
+      const hasBukti = existingBukti > 0 || pendingFiles.length > 0
+
+      if (curFisik > 0 && !hasBukti) {
+        throw new Error(
+          `Realisasi fisik Bulan ${BULAN_LIST[selectedBulan - 1]?.nama || selectedBulan} diisi ${curFisik}%. Wajib mengunggah minimal 1 foto bukti fisik lapangan sebelum menyimpan.`
+        )
+      }
+
+      // Jika ada file foto yang sudah dipilih namun belum di-upload manual, upload otomatis saat simpan
+      if (pendingFiles.length > 0) {
+        const formData = new FormData()
+        pendingFiles.forEach((f) => formData.append("files", f))
+        if (deskripsiFile) formData.append("deskripsi", deskripsiFile)
+        await apiClient.post(`/pembangunan/${paketId}/realisasi/${selectedBulan}/bukti`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        })
+        setPendingFiles([])
+        setDeskripsiFile("")
+      }
+
       const payload = {
         items: timelineState
           .filter((item) => {
@@ -387,6 +412,15 @@ export function InputRealisasiDialog({
   const ajukanMutation = useMutation({
     mutationFn: async () => {
       if (!paketId) throw new Error("Paket ID tidak valid")
+
+      const curFisik = parseFloat(currentMonthData.realisasiFisik) || 0
+      const existingBukti = currentMonthData.buktiFisik?.length || 0
+      if (curFisik > 0 && existingBukti === 0) {
+        throw new Error(
+          `Realisasi fisik Bulan ${BULAN_LIST[selectedBulan - 1]?.nama || selectedBulan} diisi ${curFisik}%. Wajib mengunggah minimal 1 foto bukti fisik lapangan sebelum diajukan ke MONEV.`
+        )
+      }
+
       return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/ajukan`)
     },
     onSuccess: (res) => {
@@ -395,7 +429,7 @@ export function InputRealisasiDialog({
       queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Gagal mengajukan realisasi")
+      toast.error(err.response?.data?.message || err.message || "Gagal mengajukan realisasi")
     },
   })
 
@@ -746,9 +780,34 @@ export function InputRealisasiDialog({
                     <div className="flex items-center gap-2">
                       <Image className="h-4 w-4 text-purple-600" />
                       <span className="font-semibold text-sm">Bukti Fisik Lapangan</span>
+                      {currentFisikNum > 0 && (
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-semibold ${
+                            totalBukti > 0
+                              ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10"
+                              : "border-red-500/50 text-red-600 bg-red-500/10 animate-pulse"
+                          }`}
+                        >
+                          {totalBukti > 0 ? "✓ Terlampir" : "* Wajib Minimal 1 Foto"}
+                        </Badge>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground">{totalBukti}/5 foto</span>
                   </div>
+
+                  {/* Warning: Realisasi fisik terisi namun belum ada foto */}
+                  {currentFisikNum > 0 && totalBukti === 0 && (
+                    <div className="flex items-start gap-2.5 p-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs animate-in fade-in">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-red-800 dark:text-red-200">Wajib Lampirkan Bukti Fisik Lapangan:</span>
+                        <p className="mt-0.5 text-muted-foreground">
+                          Realisasi fisik Bulan {BULAN_LIST[selectedBulan - 1]?.nama} diisi <strong>{currentFisikNum}%</strong>. Anda <strong>wajib mengunggah minimal 1 foto bukti fisik lapangan</strong> (tidak harus 5) agar data dapat disimpan dan diajukan ke MONEV.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Foto yang sudah disimpan */}
                   {buktiFisikList.length > 0 && (
@@ -757,7 +816,7 @@ export function InputRealisasiDialog({
                         <div key={b.id} className="relative group rounded-lg border bg-muted/30 overflow-hidden aspect-square flex flex-col items-center justify-center p-2">
                           {b.mimeType?.startsWith("image/") ? (
                             <img
-                              src={`http://localhost:4000${b.pathFile}`}
+                              src={`${API_STORAGE_URL}${b.pathFile}`}
                               alt={b.deskripsi || b.namaFile}
                               className="w-full h-full object-cover rounded-md"
                               onError={(e) => { (e.target as HTMLImageElement).src = "" }}

@@ -151,6 +151,14 @@
 /* Smooth scrolling for the entire page */
 html {
   scroll-behavior: smooth;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 /* Logo carousel animation */
