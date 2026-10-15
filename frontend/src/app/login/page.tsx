@@ -69,8 +69,8 @@ export default function LoginPage() {
             <Image
               src="/logo_konsel.png"
               alt="Logo Konawe Selatan"
-              width={52}
-              height={60}
+              width={38}
+              height={46}
               style={{ objectFit: "contain" }}
             />
             <div className="login-left-header-divider" />
@@ -436,7 +436,7 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 28px 40px 56px;
+          padding: 22px 24px 56px;
           min-height: 100vh;
           overflow: hidden;
         }
@@ -468,20 +468,21 @@ export default function LoginPage() {
         /* Left Top Header */
         .login-left-header {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
-          gap: 20px;
+          gap: 10px;
         }
 
         .login-left-header-logo {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 10px;
+          flex-shrink: 0;
         }
 
         .login-left-header-divider {
-          width: 2px;
-          height: 52px;
+          width: 1.5px;
+          height: 38px;
           background: rgba(255, 255, 255, 0.35);
           border-radius: 1px;
         }
@@ -494,40 +495,43 @@ export default function LoginPage() {
 
         .login-left-header-title {
           color: #ffffff;
-          font-size: 14px;
+          font-size: 11.5px;
           font-weight: 700;
-          letter-spacing: 0.6px;
-          line-height: 1.3;
+          letter-spacing: 0.3px;
+          line-height: 1.25;
         }
 
         .login-left-header-subtitle {
           color: rgba(255, 255, 255, 0.75);
-          font-size: 11px;
+          font-size: 9px;
           font-weight: 600;
-          letter-spacing: 0.3px;
-          line-height: 1.35;
+          letter-spacing: 0.2px;
+          line-height: 1.25;
         }
 
         /* Officials Header Cards */
         .login-left-officials-header {
           display: flex;
           align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
+          gap: 6px;
+          flex-wrap: nowrap;
+          flex-shrink: 0;
         }
 
         .official-card {
           display: flex;
           align-items: center;
-          gap: 9px;
+          gap: 6px;
           background: rgba(7, 25, 48, 0.88);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 12px;
-          padding: 6px 12px 6px 6px;
+          border-radius: 9px;
+          padding: 4px 8px 4px 4px;
           box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
           transition: transform 0.2s ease, border-color 0.2s ease;
+          flex-shrink: 0;
+          box-sizing: border-box;
         }
 
         .official-card:hover {
@@ -536,9 +540,9 @@ export default function LoginPage() {
         }
 
         .official-photo {
-          width: 48px;
-          height: 58px;
-          border-radius: 8px;
+          width: 36px;
+          height: 46px;
+          border-radius: 6px;
           overflow: hidden;
           flex-shrink: 0;
           background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.25) 0%, rgba(10, 30, 58, 0.9) 100%);
@@ -550,23 +554,24 @@ export default function LoginPage() {
         .official-info {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
+          min-width: 0;
         }
 
         .official-name {
           color: #ffffff;
-          font-size: 11.5px;
+          font-size: 9.5px;
           font-weight: 700;
-          line-height: 1.3;
+          line-height: 1.2;
           white-space: nowrap;
           text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
         }
 
         .official-title {
           color: #ffd54f;
-          font-size: 10px;
+          font-size: 8.5px;
           font-weight: 600;
-          letter-spacing: 0.3px;
+          letter-spacing: 0.2px;
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
         }
 
@@ -667,13 +672,13 @@ export default function LoginPage() {
            RIGHT PANEL (FORM)
         ============================ */
         .login-right {
-          flex: 0 0 460px;
-          width: 460px;
+          flex: 0 0 420px;
+          width: 420px;
           display: flex;
           flex-direction: column;
           justify-content: center;
           align-items: center;
-          padding: 40px 36px 64px;
+          padding: 36px 28px 56px;
           background: #ffffff;
           position: relative;
           z-index: 3;
@@ -684,7 +689,7 @@ export default function LoginPage() {
 
         .login-right-content {
           width: 100%;
-          max-width: 380px;
+          max-width: 360px;
           display: flex;
           flex-direction: column;
           gap: 18px;
