@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/com
 import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EgovService } from '../../core/egov/egov.service';
+import { EgovService, EGOV_AUTH_SENTINEL } from '../../core/egov/egov.service';
 import { QueryPegawaiDirectoryDto } from './dto/query-pegawai.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import { SetRoleDto } from './dto/set-role.dto';
@@ -1144,7 +1144,8 @@ export class UsersService implements OnModuleInit {
         ? String(egovProfile.unitKerjaId)
         : null;
 
-      const defaultPassword = await bcrypt.hash('Password123!', 10);
+      // Keamanan: Akun bersumber EGOV/SIMPEG tidak boleh memiliki password default lokal.
+      // Autentikasi mutlak dilakukan langsung ke database eGov/SIMPEG secara realtime.
       const email = `${cleanNip}@konaweselatankab.go.id`;
 
       user = await this.prisma.user.create({
@@ -1153,7 +1154,7 @@ export class UsersService implements OnModuleInit {
           namaLengkap: egovProfile.namaLengkap,
           jabatan: egovProfile.jabatan,
           email,
-          password: defaultPassword,
+          password: EGOV_AUTH_SENTINEL,
           role: primaryRole,
           roles: assignedRoles,
           opdId: assignedOpdId,

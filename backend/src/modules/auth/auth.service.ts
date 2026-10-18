@@ -11,7 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 import { PrismaService } from '../../core/database/prisma.service';
-import { EgovService } from '../../core/egov/egov.service';
+import { EgovService, EGOV_AUTH_SENTINEL } from '../../core/egov/egov.service';
 import { RedisService } from '../../core/redis/redis.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -101,41 +101,16 @@ export class AuthService {
       },
     });
 
-    let isAuthenticated = false;
+    // 2. Evaluasi apakah ini akun bersumber E-Gov / SIMPEG
+    const isEgovAccount =
+      /^\d+$/.test(cleanInput) ||
+      /^\d+$/.test(targetNip) ||
+      Boolean(user?.nip && /^\d+$/.test(user.nip));
 
-    if (user) {
-      const isMatch = await bcrypt.compare(dto.password, user.password);
-      if (isMatch) {
-        isAuthenticated = true;
-
-        // Sinkronkan otomatis OPD & Sub Unit dari SIMPEG jika terhubung
-        try {
-          const egovInfo = await this.egovService.getPegawaiByNip(user.nip);
-          if (egovInfo?.instansiId || egovInfo?.unitKerjaId) {
-            const nextOpdId = egovInfo.instansiId ? String(egovInfo.instansiId) : user.opdId;
-            const nextSubUnitId = egovInfo.unitKerjaId ? String(egovInfo.unitKerjaId) : user.subUnitId;
-            if (user.opdId !== nextOpdId || user.subUnitId !== nextSubUnitId) {
-              user = await this.prisma.user.update({
-                where: { id: user.id },
-                data: {
-                  opdId: nextOpdId,
-                  subUnitId: nextSubUnitId,
-                  jabatan: egovInfo.jabatan || user.jabatan,
-                },
-              });
-            }
-          }
-        } catch (err: any) {
-          this.logger.warn(
-            `Auto-sync SIMPEG untuk user '${user.nip}' gagal: ${err.message}`,
-          );
-        }
-      }
-    }
-
-    // 2. Jika tidak cocok di lokal, coba autentikasi ke Server Database E-Gov & SIMPEG
-    if (!isAuthenticated) {
-      // Prioritaskan NIP pegawai jika user ditemukan di lokal atau username ter-resolve
+    if (isEgovAccount) {
+      // KEAMANAN KRITIS (F01 & F02):
+      // Akun E-Gov/SIMPEG WAJIB diverifikasi langsung secara realtime ke server E-Gov.
+      // DILARANG mengecek hash lokal atau menggunakan password default lokal!
       const egovAuthIdentifier = user?.nip || targetNip || cleanInput;
       const egovProfile = await this.egovService.authenticate(
         egovAuthIdentifier,
@@ -148,7 +123,7 @@ export class AuthService {
         );
       }
 
-      // Cari user berdasarkan NIP hasil dari E-Gov jika sebelumnya belum ketemu di lokal
+      // Cari record pengguna di MONALISA jika sebelumnya belum terambil
       if (!user) {
         user = await this.prisma.user.findFirst({
           where: { nip: egovProfile.nip },
@@ -156,21 +131,19 @@ export class AuthService {
       }
 
       if (!user) {
-        // Akun E-Gov valid, tetapi belum diberikan hak akses role di MONALISA KONSEL oleh Administrator
+        // Akun E-Gov valid, tetapi belum diberikan hak akses role oleh Administrator
         throw new ForbiddenException(
           `Akun E-Gov/SIMPEG atas nama '${egovProfile.namaLengkap}' valid, namun belum diberikan hak akses role pada sistem MONALISA KONSEL. Silakan hubungi Administrator.`,
         );
       }
 
-      // Update data nama & jabatan pegawai dari SIMPEG, serta sinkronkan hash kata sandi terbaru ke PostgreSQL lokal
+      // Sinkronkan metadata pegawai dari SIMPEG, dan pastikan password lokal TIDAK menyimpan hash password eGov
       const updatedOpdId = egovProfile.instansiId
         ? String(egovProfile.instansiId)
         : user.opdId;
       const updatedSubUnitId = egovProfile.unitKerjaId
         ? String(egovProfile.unitKerjaId)
         : user.subUnitId;
-
-      const hashedPassword = await bcrypt.hash(dto.password, 10);
 
       user = await this.prisma.user.update({
         where: { id: user.id },
@@ -179,11 +152,18 @@ export class AuthService {
           jabatan: egovProfile.jabatan || user.jabatan,
           opdId: updatedOpdId,
           subUnitId: updatedSubUnitId,
-          password: hashedPassword,
+          // Mencegah credential leakage: password lokal diset ke flag non-password, bukan hash password
+          password: EGOV_AUTH_SENTINEL,
         },
       });
 
       isAuthenticated = true;
+    } else if (user && user.password && !user.password.startsWith('!EGOV')) {
+      // 3. Fallback akun lokal khusus non-EGOV (misal akun break-glass lokal jika ada)
+      const isMatch = await bcrypt.compare(dto.password, user.password);
+      if (isMatch) {
+        isAuthenticated = true;
+      }
     }
 
     if (!user) {

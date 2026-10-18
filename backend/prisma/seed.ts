@@ -6,8 +6,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Memulai proses seeding data master MONALISA KONSEL...');
 
-  // 1. Default Password: Password123!
-  const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
+  // 1. Akun administrator bersumber EGOV/SIMPEG tidak menggunakan kata sandi lokal default
+  // Autentikasi dilakukan realtime ke server E-Gov menggunakan kredensial resmi
+  const defaultPasswordHash = '!EGOV_AUTH_ONLY!';
 
   // 2. Master Roles MONALISA KONSEL
   const MASTER_ROLES = [

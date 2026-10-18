@@ -33,7 +33,7 @@ export class RegisterUserDto {
   @IsEmail({}, { message: 'Format email tidak valid' })
   email: string;
 
-  @ApiProperty({ example: 'Password123!' })
+  @ApiProperty({ example: '********' })
   @IsNotEmpty({ message: 'Kata sandi wajib diisi' })
   @IsString()
   @MinLength(6, { message: 'Kata sandi minimal 6 karakter' })

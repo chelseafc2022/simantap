@@ -19,7 +19,7 @@ export class LoginDto {
   identifier?: string;
 
   @ApiProperty({
-    example: 'Password123!',
+    example: '********',
     description: 'Kata sandi akun',
   })
   @IsNotEmpty({ message: 'Kata sandi wajib diisi' })

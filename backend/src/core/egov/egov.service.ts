@@ -37,6 +37,8 @@ export interface SimpegSubUnitInfo {
   opdId: string;
 }
 
+export const EGOV_AUTH_SENTINEL = '!EGOV_AUTH_ONLY!';
+
 export const EXCLUDED_OPD_PATTERNS = [
   'KEPALA DAERAH DAN WAKIL KEPALA DAERAH',
   'PEMERINTAH DAERAH KABUPATEN KONAWE SELATAN',
