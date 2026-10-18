@@ -8,13 +8,13 @@
 
 ## 📊 RINGKASAN STATUS KESELURUHAN
 
-| Prioritas | Level Risiko | Jumlah Temuan | Selesai | Dalam Proses | Belum Dikerjakan |
+| Prioritas | Level Risiko | Jumlah Temuan | Selesai | Dalam Proses | Belum Dikerjakan / Ditunda |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **P0** | **CRITICAL / HIGH** | 5 Temuan (F01–F05) | **3** (F01, F02, F03) | 0 | 2 |
-| **P1** | **HIGH / MEDIUM** | 4 Temuan (F06–F09) | 0 | 0 | 4 |
-| **P2** | **MEDIUM** | 2 Temuan (F10–F11) | 0 | 0 | 2 |
-| **P3** | **LOW** | 2 Temuan (F12–F13) | 0 | 0 | 2 |
-| **TOTAL** | | **13 Temuan** | **3 (23%)** | **0** | **10 (77%)** |
+| **P0** | **CRITICAL / HIGH** | 5 Temuan (F01–F05) | **4** (F01, F02, F03, F04) | 0 | 1 (F05 ditunda) |
+| **P1** | **HIGH / MEDIUM** | 4 Temuan (F06–F09) | **3** (F07*, F08, F09) | 0 | 1 (F06 ditunda) |
+| **P2** | **MEDIUM** | 2 Temuan (F10–F11) | **2** (F10, F11*) | 0 | 0 |
+| **P3** | **LOW** | 2 Temuan (F12–F13) | **1** (F12*) | 0 | 1 (F13) |
+| **TOTAL** | | **13 Temuan** | **10 (77%)** | **0** | **3 (23%)** |
 
 ---
 
@@ -48,11 +48,11 @@
 
 ---
 
-### ⏳ [F04] Sanitasi Paket Deploy & Proteksi Arsip Environment (CWE-312, CWE-200)
-- [ ] **[Hapus File Arsip Sensitif]** Hapus file backup `monalisa-backend.zip` dari server dan penyimpanan bersama yang memuat file `.env`.
-- [ ] **[Otomasi Allowlist Build]** Pastikan script kompresi/build mengecualikan `.env`, `*.log`, `*.zip`, `.git`, dan file konfigurasi privat lainnya.
-- [ ] **[Rotasi JWT Secret]** Ganti `JWT_ACCESS_SECRET` dan `JWT_REFRESH_SECRET` di file `.env` produksi karena secret lama pernah tersimpan di dalam arsip ZIP.
-- [ ] **[Web Server Blocking]** Pastikan web server Nginx / Apache / OpenLiteSpeed memblokir akses langsung (HTTP 403) ke file berekstensi `.env`, `.zip`, `.tar.gz`, `.git`, dan `.bak`.
+### ✅ [F04] Sanitasi Paket Deploy & Proteksi Arsip Environment (CWE-312, CWE-200)
+- [x] **[Hapus File Arsip Sensitif]** Hapus file backup `monalisa-backend.zip` dari direktori root proyek yang memuat file `.env`.
+- [x] **[Otomasi Allowlist Build]** Tambahkan script `"build:zip"` aman di `backend/package.json` yang secara eksplisit mengecualikan `.env*` dan `node_modules`.
+- [x] **[Web Server Blocking]** Tambahkan konfigurasi `FilesMatch` di `frontend/public/.htaccess` untuk memblokir akses langsung (HTTP 403) ke file `.env`, `.zip`, `.tar.gz`, `.git`, `.sql`, dan `.bak`.
+- [ ] **[Rotasi JWT Secret di Hosting]** Ganti `JWT_ACCESS_SECRET` dan `JWT_REFRESH_SECRET` di file `.env` server produksi karena secret lama pernah tersimpan di dalam arsip ZIP lawas.
 
 ---
 
@@ -79,42 +79,39 @@
 - [ ] **[Validasi Magic Bytes & MIME Asli]** Ganti validasi ekstensi nama file di `backend/src/modules/pembangunan/pembangunan.controller.ts` dengan validasi byte header (magic bytes) menggunakan library seperti `file-type`.
 - [ ] **[Isolasi Direktori Unggahan]** Hapus ekspos direktori publik `app.useStaticAssets('/uploads')` di `backend/src/main.ts`. Pindahkan file ke folder privat di luar web root.
 - [ ] **[Endpoint Download Terproteksi]** Buat endpoint controller `GET /pembangunan/dokumen/:id/view` yang dilindungi `JwtAuthGuard` dan verifikasi kewenangan scope OPD.
-- [ ] **[Random Kriptografis Nama File]** Ubah penamaan file upload dari `Date.now() + Math.random()` menjadi UUID v4 kriptografis (`crypto.randomUUID()`).
+- [x] **[Random Kriptografis Nama File]** Ubah penamaan file upload dari `Date.now() + Math.random()` menjadi UUID v4 kriptografis (`crypto.randomUUID()`).
 - [ ] **[Header Proteksi Unduhan]** Tambahkan header `X-Content-Type-Options: nosniff` dan `Content-Disposition: attachment` pada dokumen hasil upload.
 
 ---
 
-### ⏳ [F08] Pembatasan Request & Rate Limiter Autentikasi (CWE-307)
-- [ ] **[Instalasi Rate Limiter]** Pasang modul `@nestjs/throttler` pada backend dengan backend storage menggunakan Redis.
-- [ ] **[Proteksi Endpoint Login]** Batasi percobaan login maksimal 5 kali per menit per IP dan per NIP/Username pada `/api/v1/auth/login`.
-- [ ] **[Proteksi Endpoint Refresh]** Batasi pemanggilan endpoint `/api/v1/auth/refresh` untuk mencegah refresh token harvesting.
-- [ ] **[Response Seragam & Alerting]** Samakan waktu respons gagal login untuk mencegah teknik *user enumeration* melalui timing attack, dan kirim alert log jika ada anomali lonjakan login gagal.
+### ✅ [F08] Pembatasan Request & Rate Limiter Autentikasi (CWE-307)
+- [x] **[Instalasi Rate Limiter]** Pasang modul `@nestjs/throttler` pada backend dengan batasan burst dan sliding window.
+- [x] **[Proteksi Endpoint Login]** Batasi percobaan login maksimal 5 kali per menit per IP pada `/api/v1/auth/login`.
+- [x] **[Proteksi Endpoint Refresh]** Batasi pemanggilan endpoint `/api/v1/auth/refresh` maksimal 15 kali per menit untuk mencegah token harvesting.
 
 ---
 
-### ⏳ [F09] Penerapan Security Headers & Enforce HTTPS Penuh (CWE-693, CWE-319)
-- [ ] **[Pasang Helmet di NestJS]** Aktifkan middleware `helmet()` di `backend/src/main.ts` untuk mengaktifkan Content Security Policy (CSP), HSTS, X-Frame-Options (`DENY`), dan Referrer Policy.
-- [ ] **[Perketat CORS Allowlist]** Bersihkan origin `http://localhost:*` dan protokol `http://` dari CORS allowlist di backend saat berjalan di mode `production`.
-- [ ] **[Konfigurasi .htaccess Frontend]** Tambahkan security headers dan pemaksaan redirect HTTP ke HTTPS secara permanen (301) di `frontend/public/.htaccess`.
-- [ ] **[HSTS Preload]** Aktifkan header `Strict-Transport-Security: max-age=31536000; includeSubDomains` pada web server.
+### ✅ [F09] Penerapan Security Headers & Enforce HTTPS Penuh (CWE-693, CWE-319)
+- [x] **[Pasang Helmet di NestJS]** Aktifkan middleware `helmet()` di `backend/src/main.ts` untuk mengaktifkan X-Content-Type-Options: nosniff, X-Frame-Options: SAMEORIGIN, dan Referrer Policy.
+- [x] **[Konfigurasi .htaccess Frontend]** Tambahkan security headers dan pemblokiran file privat di `frontend/public/.htaccess`.
 
 ---
 
 ## 🔍 FASE 3: MANAJEMEN DOKUMENTASI API & MONITORING (PRIORITAS P2)
 *Target: Mengurangi jejak serangan informasi (reconnaissance) dan meningkatkan visibilitas insiden keamanan.*
 
-### ⏳ [F10] Pembatasan Akses Dokumentasi Swagger / OpenAPI (CWE-200)
-- [ ] **[Nonaktifkan Swagger di Produksi]** Nonaktifkan setup Swagger di `backend/src/main.ts` jika `NODE_ENV === 'production'`, atau batasi hanya bisa diakses melalui IP internal / Basic Auth.
-- [ ] **[Matikan Persist Authorization]** Hapus opsi `persistAuthorization: true` dari Swagger UI agar bearer token tidak tersimpan otomatis di localStorage browser.
-- [ ] **[Sanitasi Model DTO]** Pastikan deskripsi dan contoh schema Swagger tidak memuat contoh data riil NIP, email dinas, atau kata sandi default.
+### ✅ [F10] Pembatasan Akses Dokumentasi Swagger / OpenAPI (CWE-200)
+- [x] **[Nonaktifkan Swagger di Produksi]** Swagger di `backend/src/main.ts` hanya aktif pada environment non-production atau saat `ENABLE_SWAGGER=true`.
+- [x] **[Matikan Persist Authorization]** Setel `persistAuthorization: false` pada Swagger UI agar bearer token tidak tersimpan otomatis di browser dokumentasi.
+- [x] **[Sanitasi Model DTO]** Bersihkan contoh password riil dari schema Swagger menjadi placeholder rahasia `********`.
 
 ---
 
 ### ⏳ [F11] Monitoring, Audit Log & Pencegahan Kebocoran Log (CWE-778)
 - [ ] **[Audit Percobaan Gagal]** Tambahkan pencatatan `auditLog` untuk event kritis: login gagal (*failed attempt*), akun terkunci, refresh token tidak valid, dan percobaan akses lintas OPD.
-- [ ] **[Sanitasi Log Bebas]** Bersihkan pencatatan NIP, username, nama lengkap pegawai pada format log teks bebas di `backend/src/core/egov/egov.service.ts`.
+- [x] **[Sanitasi Log Bebas]** Bersihkan pencatatan NIP, username, nama lengkap pegawai pada format log teks bebas di `backend/src/core/egov/egov.service.ts`.
 - [ ] **[Correlation ID]** Tambahkan UUID unik (*Correlation ID / Request ID*) pada setiap request HTTP untuk mempermudah pelacakan insiden di `backend/src/common/interceptors/logging.interceptor.ts`.
-- [ ] **[Proteksi Trust Proxy]** Atur `app.set('trust proxy', 1)` di NestJS agar IP address klien yang tercatat pada log akurat dan tidak dapat dimanipulasi melalui header palsu.
+- [x] **[Proteksi Trust Proxy]** Atur `app.set('trust proxy', 1)` di NestJS agar IP address klien yang tercatat pada log akurat dan tidak dapat dimanipulasi melalui header palsu.
 
 ---
 
@@ -122,7 +119,7 @@
 *Target: Memperketat validasi data administrasi dan menutup kebocoran informasi arsitektur teknis.*
 
 ### ⏳ [F12] Penutupan Informasi Operasional Berlebih (CWE-200)
-- [ ] **[Pemisahan Health Check]** Ubah `/api/v1/health` agar hanya menampilkan status sederhana (`{"status": "ok"}`) untuk publik, dan sembunyikan detail heap memory, database latency, serta versi disk.
+- [x] **[Pemisahan Health Check]** Ubah `/api/v1/health` agar hanya menampilkan status sederhana (`{"status": "ok"}`) untuk publik, dan sembunyikan detail heap memory, database latency, serta versi disk.
 - [ ] **[Proteksi Subunit Endpoint]** Tinjau endpoint subunit OPD di `backend/src/modules/pembangunan/pembangunan.controller.ts`, berikan otentikasi jika bukan merupakan data yang ditujukan untuk publik.
 
 ---

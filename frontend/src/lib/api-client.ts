@@ -57,10 +57,11 @@ apiClient.interceptors.response.use(
 
     // If error is 401 and request hasn't been retried yet
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-      // Do not try to refresh if the failed request was login or refresh itself
+      // Do not try to refresh if the failed request was login, refresh, or logout itself
       if (
         originalRequest.url?.includes('/auth/login') ||
-        originalRequest.url?.includes('/auth/refresh')
+        originalRequest.url?.includes('/auth/refresh') ||
+        originalRequest.url?.includes('/auth/logout')
       ) {
         return Promise.reject(error);
       }

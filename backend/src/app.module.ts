@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -53,6 +54,20 @@ import { UsersModule } from './modules/users/users.module';
     HealthModule,
     EgovModule,
 
+    // Rate Limiting & Brute Force Protection (CWE-307)
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,
+        limit: 20, // 20 req/dtk burst limit
+      },
+      {
+        name: 'medium',
+        ttl: 60000,
+        limit: 100, // 100 req/menit normal limit
+      },
+    ]),
+
     // Feature Modules
     AuthModule,
     UsersModule,
@@ -60,6 +75,12 @@ import { UsersModule } from './modules/users/users.module';
     SirupModule,
   ],
   providers: [
+    // Rate Limiting Guard
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+
     // Global Guards (JWT by default, check @Public and @Roles)
     {
       provide: APP_GUARD,

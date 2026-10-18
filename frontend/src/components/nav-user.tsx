@@ -84,12 +84,13 @@ export function NavUser({
   )
 
   const handleLogout = async () => {
+    if (isLoggingOut) return
     try {
       setIsLoggingOut(true)
       toast.info("Mengeluarkan akun...")
       await logout()
     } catch {
-      router.replace("/login")
+      window.location.replace("/login")
     }
   }
 
@@ -197,7 +198,14 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
             <DropdownMenuItem
-              onClick={handleLogout}
+              onSelect={(e) => {
+                e.preventDefault()
+                handleLogout()
+              }}
+              onClick={(e) => {
+                e.preventDefault()
+                handleLogout()
+              }}
               disabled={isLoggingOut}
               className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive font-medium rounded-lg py-2 transition-colors"
             >

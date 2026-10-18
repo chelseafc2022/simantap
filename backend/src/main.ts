@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import {
@@ -14,6 +15,17 @@ import {
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Trust proxy for reverse proxy (Nginx / HestiaCP) - CWE-778
+  app.set('trust proxy', 1);
+
+  // Security Headers via Helmet (CWE-693)
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: false,
+    }),
+  );
 
   // Sajikan folder uploads/ sebagai file statis (foto bukti fisik PPK)
   const uploadDir = join(process.cwd(), 'uploads');
@@ -64,41 +76,46 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger Documentation Setup
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle(APP_NAME)
-    .setDescription(APP_DESCRIPTION)
-    .setVersion(APP_VERSION)
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        description: 'Masukkan JWT Token (tanpa kata Bearer di depannya)',
-        in: 'header',
-      },
-      'bearer',
-    )
-    .addTag(
-      'Authentication',
-      'Endpoint otentikasi, login NIP/Email, refresh token, profil',
-    )
-    .addTag(
-      'Health',
-      'Endpoint pemantauan kesehatan server, basis data, dan memori',
-    )
-    .build();
+  // Swagger Documentation Setup (CWE-200)
+  const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
+  const enableSwagger = configService.get<string>('ENABLE_SWAGGER', 'true');
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      docExpansion: 'list',
-      filter: true,
-    },
-    customSiteTitle: 'MONALISA KONSEL API Documentation',
-  });
+  if (nodeEnv !== 'production' || enableSwagger === 'true') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle(APP_NAME)
+      .setDescription(APP_DESCRIPTION)
+      .setVersion(APP_VERSION)
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          name: 'Authorization',
+          description: 'Masukkan JWT Token (tanpa kata Bearer di depannya)',
+          in: 'header',
+        },
+        'bearer',
+      )
+      .addTag(
+        'Authentication',
+        'Endpoint otentikasi, login NIP/Email, refresh token, profil',
+      )
+      .addTag(
+        'Health',
+        'Endpoint pemantauan kesehatan server, basis data, dan memori',
+      )
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: false, // Mencegah penyimpanan token permanen di browser dokumentasi
+        docExpansion: 'list',
+        filter: true,
+      },
+      customSiteTitle: 'MONALISA KONSEL API Documentation',
+    });
+  }
 
   await app.listen(port, '0.0.0.0');
 

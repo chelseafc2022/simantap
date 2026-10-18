@@ -1,3 +1,18 @@
+# 1. Blokir akses HTTP langsung ke file sensitif (.env, .git, .zip, .tar, .sql, .bak, .log)
+<FilesMatch "(\.(env|git|zip|tar|gz|sql|bak|log|old)|(^#.*#$)|(~$))">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 2. Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 3. Routing Static Single Page Application Next.js
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
@@ -6,3 +21,4 @@
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
 </IfModule>
+

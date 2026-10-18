@@ -51,3 +51,9 @@ coverage/
 *.zip
 *.tar.gz
 *.tar
+
+# Python cache & Office lock files
+__pycache__/
+*.py[cod]
+~$*.docx
+~$*.xlsx

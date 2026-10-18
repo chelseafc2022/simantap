@@ -17,6 +17,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { randomUUID } from 'crypto';
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -370,9 +371,9 @@ export class PembangunanController {
           cb(null, uploadDir);
         },
         filename: (_req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `bukti-${uniqueSuffix}${extname(file.originalname)}`);
+          const ext = extname(file.originalname).toLowerCase();
+          const uniqueId = randomUUID();
+          cb(null, `bukti-${uniqueId}${ext}`);
         },
       }),
       fileFilter: (_req, file, cb) => {

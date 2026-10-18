@@ -265,7 +265,7 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       ]);
       if (!rows || rows.length === 0) {
         this.logger.warn(
-          `Autentikasi E-Gov: Akun '${cleanInput}' tidak ditemukan di database egov.users maupun simpeg.biodata`,
+          `Autentikasi E-Gov: Akun tidak ditemukan di database egov.users maupun simpeg.biodata`,
         );
         return null;
       }
@@ -277,13 +277,13 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       );
       if (!isMatch) {
         this.logger.warn(
-          `Autentikasi E-Gov: Kata sandi untuk '${cleanInput}' (username: ${egovUser.egov_username}, nip: ${egovUser.bio_nip || egovUser.egov_username}) tidak cocok`,
+          `Autentikasi E-Gov: Kata sandi tidak cocok untuk akun '${egovUser.egov_username}'`,
         );
         return null;
       }
 
       this.logger.log(
-        `Autentikasi E-Gov BERHASIL untuk '${cleanInput}' (nama: ${egovUser.bio_nama || egovUser.egov_username})`,
+        `Autentikasi E-Gov BERHASIL untuk akun '${egovUser.egov_username}'`,
       );
 
       const namaLengkap = this.formatNamaLengkap({

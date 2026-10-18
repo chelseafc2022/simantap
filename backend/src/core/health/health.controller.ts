@@ -25,10 +25,17 @@ export class HealthController {
   @ApiOperation({
     summary: 'Periksa status kesehatan sistem (DB, Memori, Server)',
   })
-  check() {
-    return this.health.check([
+  async check() {
+    const result = await this.health.check([
       () => this.prismaHealth.pingCheck('database', this.prisma),
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024), // 300MB
     ]);
+
+    return {
+      status: result.status,
+      timestamp: new Date().toISOString(),
+      service: 'MONALISA KONSEL API',
+      database: result.info?.database?.status === 'up' ? 'connected' : 'degraded',
+    };
   }
 }

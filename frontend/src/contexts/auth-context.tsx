@@ -28,18 +28,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = useCallback(async () => {
-    try {
-      if (tokenStorage.getAccessToken()) {
-        await apiClient.post('/auth/logout');
+    const token = tokenStorage.getAccessToken();
+
+    // 1. Bersihkan token & session lokal secara instan (optimistic logout)
+    tokenStorage.clear();
+    setUser(null);
+
+    // 2. Beritahu backend di latar belakang (timeout singkat agar tidak pernah blocking)
+    if (token) {
+      try {
+        await apiClient.post('/auth/logout', {}, { timeout: 2500 });
+      } catch {
+        // Abaikan error koneksi/backend saat logout
       }
-    } catch {
-      // Ignore error on logout
-    } finally {
-      tokenStorage.clear();
-      setUser(null);
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
+    }
+
+    // 3. Arahkan browser ke halaman login
+    if (typeof window !== 'undefined') {
+      window.location.replace('/login');
     }
   }, []);
 
