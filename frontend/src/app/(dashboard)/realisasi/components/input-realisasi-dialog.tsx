@@ -195,6 +195,7 @@ export function InputRealisasiDialog({
   const paket = detailData?.paket
   const nilaiKontrak = paket?.nilaiKontrak || 0
   const nilaiPagu = paket?.nilaiPagu || 0
+  const isBelumBerkontrak = Number(nilaiKontrak) <= 0
 
   const formatRupiah = (val: number | string | undefined | null) => {
     const num = typeof val === "string" ? parseFloat(val) : val || 0
@@ -666,6 +667,25 @@ export function InputRealisasiDialog({
                     {currentMonthData.catatanVerifikasi && (
                       <p className="text-red-600/80 dark:text-red-500 mt-0.5">Alasan: <span className="font-medium">{currentMonthData.catatanVerifikasi}</span></p>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Banner Peringatan Paket Belum Berkontrak (Standar Pengadaan Barang & Jasa) */}
+              {isBelumBerkontrak && (
+                <div className="rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/90 dark:bg-amber-950/30 p-4 flex items-start gap-3 shadow-xs">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div className="text-xs space-y-1">
+                    <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                      Perhatian: Paket Pekerjaan Belum Berkontrak
+                    </p>
+                    <p className="text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                      Paket ini belum memiliki <strong>Nilai Kontrak</strong> atau nomor SPK yang sah. 
+                      Sesuai tata kelola pengadaan barang dan jasa, persentase serapan anggaran (SP2D) dan progres fisik lapangan baru dapat dihitung secara akurat setelah data kontrak dan penyedia dilengkapi pada menu <strong>Paket Pembangunan</strong>.
+                    </p>
+                    <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 italic pt-0.5">
+                      Catatan: Pengisian realisasi tetap dapat disimpan sebagai draf, namun persentase serapan anggaran akan berstatus 0% hingga nilai kontrak ditetapkan.
+                    </p>
                   </div>
                 </div>
               )}
