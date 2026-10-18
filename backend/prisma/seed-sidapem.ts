@@ -7,11 +7,22 @@ async function main() {
   console.log('🚀 Memulai Seeder Data Riil SIDAPEM ke PostgreSQL Lokal MONALISA KONSEL (2024–2026)...');
 
   // 1. Koneksi READ-ONLY ke MySQL SIDAPEM & SIMPEG
+  const host = process.env.EGOV_MYSQL_HOST || 'mysql.konaweselatankab.go.id';
+  const user = process.env.EGOV_MYSQL_USER;
+  const password = process.env.EGOV_MYSQL_PASSWORD;
+  const port = parseInt(process.env.EGOV_MYSQL_PORT || '3306', 10);
+
+  if (!user || !password) {
+    throw new Error(
+      'Kredensial database MySQL E-Gov/SIDAPEM belum diatur di .env (EGOV_MYSQL_USER atau EGOV_MYSQL_PASSWORD kosong)!',
+    );
+  }
+
   const mysqlConn = await mysql.createConnection({
-    host: process.env.EGOV_MYSQL_HOST || 'mysql.konaweselatankab.go.id',
-    user: process.env.EGOV_MYSQL_USER || 'diskominfosandi',
-    password: process.env.EGOV_MYSQL_PASSWORD || 'NewKominfo2018',
-    port: 3306,
+    host,
+    user,
+    password,
+    port,
     connectTimeout: 10000,
   });
 

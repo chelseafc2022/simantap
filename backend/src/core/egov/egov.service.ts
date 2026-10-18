@@ -140,16 +140,20 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
       'egov.host',
       'mysql.konaweselatankab.go.id',
     );
-    const user = this.configService.get<string>('egov.user', 'diskominfosandi');
-    const password = this.configService.get<string>(
-      'egov.password',
-      'NewKominfo2018',
-    );
+    const user = this.configService.get<string>('egov.user');
+    const password = this.configService.get<string>('egov.password');
     const port = this.configService.get<number>('egov.port', 3306);
     const connectionLimit = this.configService.get<number>(
       'egov.connectionLimit',
       20,
     );
+
+    if (!user || !password) {
+      this.logger.error(
+        'Kredensial database E-Gov & SIMPEG belum diatur di file .env (EGOV_MYSQL_USER atau EGOV_MYSQL_PASSWORD kosong)! Koneksi dibatalkan demi keamanan.',
+      );
+      return null;
+    }
 
     try {
       this.pool = mysql.createPool({

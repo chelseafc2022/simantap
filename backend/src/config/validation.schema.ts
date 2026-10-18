@@ -25,4 +25,10 @@ export const validationSchema = Joi.object({
   MAIL_USER: Joi.string().allow('', null).optional(),
   MAIL_PASSWORD: Joi.string().allow('', null).optional(),
   MAIL_FROM: Joi.string().optional(),
+
+  EGOV_MYSQL_HOST: Joi.string().default('mysql.konaweselatankab.go.id'),
+  EGOV_MYSQL_USER: Joi.string().allow('', null).optional(),
+  EGOV_MYSQL_PASSWORD: Joi.string().allow('', null).optional(),
+  EGOV_MYSQL_PORT: Joi.number().default(3306),
+  EGOV_MYSQL_LIMIT: Joi.number().default(20),
 });
