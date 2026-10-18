@@ -101,6 +101,8 @@ export class AuthService {
       },
     });
 
+    let isAuthenticated = false;
+
     // 2. Evaluasi apakah ini akun bersumber E-Gov / SIMPEG
     const isEgovAccount =
       /^\d+$/.test(cleanInput) ||
@@ -166,8 +168,10 @@ export class AuthService {
       }
     }
 
-    if (!user) {
-      throw new UnauthorizedException('Pengguna tidak ditemukan');
+    if (!isAuthenticated || !user) {
+      throw new UnauthorizedException(
+        'Kredensial tidak valid: NIP/Username atau Kata Sandi salah',
+      );
     }
 
     if (user.status !== 'AKTIF') {
