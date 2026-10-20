@@ -1,9 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as https from 'https';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService } from '../../core/egov/egov.service';
 import { RedisService } from '../../core/redis/redis.service';
+import {
+  RupSourcePaketRow,
+  RupSourceService,
+} from './rup-source.service';
 
 export interface SirupPaketItem {
   kodeRup: string;
@@ -77,80 +80,42 @@ export const SIRUP_SATKER_MAP: Record<string, string> = {
 @Injectable()
 export class SirupService {
   private readonly logger = new Logger(SirupService.name);
-  private readonly inaprocHost = 'data.inaproc.id';
-  private readonly instansiKonsel: string;
-  private readonly jenisKlpd: string;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly redisService: RedisService,
     private readonly prisma: PrismaService,
     private readonly egovService: EgovService,
-  ) {
-    this.instansiKonsel =
-      this.configService.get<string>('INAPROC_INSTANSI') || 'D438';
-    this.jenisKlpd =
-      this.configService.get<string>('INAPROC_JENIS_KLPD') || '4';
-  }
-
-  /**
-   * Request data langsung ke internal API Next.js data.inaproc.id
-   */
-  private fetchInaproc(endpoint: string, queryParams: Record<string, string>): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const now = Date.now().toString();
-      const secret = Buffer.from(now.split('').reverse().join('')).toString('base64');
-      const qs = new URLSearchParams(queryParams).toString();
-
-      const options: https.RequestOptions = {
-        hostname: this.inaprocHost,
-        path: `/dashboard-api/rup/${endpoint}?${qs}`,
-        method: 'GET',
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-          'x-request-time': now,
-          'x-secret': secret,
-          Accept: 'application/json, text/plain, */*',
-          Referer: 'https://data.inaproc.id/rup',
-        },
-        timeout: 12000,
-      };
-
-      const req = https.request(options, (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(body);
-            resolve({ status: res.statusCode, data: parsed });
-          } catch (err: any) {
-            resolve({
-              status: res.statusCode,
-              error: err.message,
-              raw: body.substring(0, 200),
-            });
-          }
-        });
-      });
-
-      req.on('error', (err) => reject(err));
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Koneksi timeout ke server data.inaproc.id'));
-      });
-      req.end();
-    });
-  }
+    private readonly rupSource: RupSourceService,
+  ) {}
 
   /**
    * Cari kode rekening satker SiRUP berdasarkan nama OPD/Satker
    */
-  resolveSatkerCode(namaOpdOrSatker?: string): string | null {
+  private normalizeUnitName(value?: string): string {
+    return (value || '')
+      .toUpperCase()
+      .replace(/\bPROTOKOLER\b/g, 'PROTOKOL')
+      .replace(/[^A-Z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async resolveSatkerCode(namaOpdOrSatker?: string): Promise<string | null> {
     if (!namaOpdOrSatker) return null;
-    const clean = namaOpdOrSatker.trim().toUpperCase();
+    const raw = namaOpdOrSatker.trim();
+    const clean = this.normalizeUnitName(raw);
+
+    const sourceSatkers = await this.rupSource.getSatkerOptions();
+    const sourceMatch = sourceSatkers.find((satker) => {
+      if (satker.kode === raw) return true;
+      const sourceName = this.normalizeUnitName(satker.nama);
+      return (
+        sourceName === clean ||
+        sourceName.includes(clean) ||
+        clean.includes(sourceName)
+      );
+    });
+    if (sourceMatch) return sourceMatch.kode;
 
     // 1. Cek kecocokan langsung
     if (SIRUP_SATKER_MAP[clean]) {
@@ -175,6 +140,31 @@ export class SirupService {
     }
 
     return null;
+  }
+
+  private mapSourcePaket(item: RupSourcePaketRow): SirupPaketItem {
+    const classificationInput = {
+      nama_paket: item.namaPaket,
+      jenis_pengadaan: item.jenisPengadaan || '',
+      total_nilai: Number(item.pagu || 0),
+    };
+
+    return {
+      kodeRup: String(item.kodeRup || ''),
+      namaPaket: item.namaPaket || '',
+      satker: item.namaSatker || '',
+      metode: this.normalizeMetode(item.metode || item.caraPengadaan || ''),
+      pagu: Number(item.pagu || 0),
+      sumberDana: this.normalizeSumberDana(
+        item.sumberDana || '',
+        item.namaPaket,
+      ),
+      tahun: String(item.tahun || ''),
+      jenisPengadaan: this.normalizeJenis(item.jenisPengadaan || ''),
+      caraPengadaan: item.caraPengadaan || '',
+      pdn: item.pdn || 'Ya',
+      isPembangunan: this.isPaketPembangunan(classificationInput),
+    };
   }
 
   /**
@@ -301,25 +291,25 @@ export class SirupService {
    */
   private async matchSatkerToSimpeg(satkerStr: string) {
     const raw = (satkerStr || '').split(' - ')[0].trim();
-    const rawLower = raw.toLowerCase();
+    const normalizedRaw = this.normalizeUnitName(raw);
 
     const opdOptions = await this.egovService.getOpdOptions();
     const subUnitOptions = await this.egovService.getSubUnitOptions('ALL');
 
     // 1. Cek kecocokan langsung ke instansi
     let matchedOpd = opdOptions.find(
-      (o) => o.namaOpd.toLowerCase() === rawLower,
+      (o) => this.normalizeUnitName(o.namaOpd) === normalizedRaw,
     );
 
     let matchedSubUnit: any = null;
     if (!matchedOpd) {
       // 2. Cek apakah satker adalah sub-unit (seperti PUSKESMAS atau BAGIAN)
       matchedSubUnit = subUnitOptions.find((u) => {
-        const uLower = u.namaSubUnit.toLowerCase();
+        const normalizedUnit = this.normalizeUnitName(u.namaSubUnit);
         return (
-          uLower === rawLower ||
-          uLower.includes(rawLower) ||
-          rawLower.includes(uLower)
+          normalizedUnit === normalizedRaw ||
+          normalizedUnit.includes(normalizedRaw) ||
+          normalizedRaw.includes(normalizedUnit)
         );
       });
       if (matchedSubUnit && matchedSubUnit.opdId) {
@@ -330,7 +320,8 @@ export class SirupService {
       matchedSubUnit = subUnitOptions.find(
         (u) =>
           u.opdId === matchedOpd!.id &&
-          u.namaSubUnit.toLowerCase() === matchedOpd!.namaOpd.toLowerCase(),
+          this.normalizeUnitName(u.namaSubUnit) ===
+            this.normalizeUnitName(matchedOpd!.namaOpd),
       );
     }
 
@@ -345,7 +336,7 @@ export class SirupService {
    */
   async getSummary(tahun?: string) {
     const targetTahun = tahun || new Date().getFullYear().toString();
-    const cacheKey = `sirup:summary:${targetTahun}`;
+    const cacheKey = `sirup:summary:konsel-setara:${targetTahun}`;
 
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
@@ -353,31 +344,17 @@ export class SirupService {
     }
 
     try {
-      const result = await this.fetchInaproc('summary', {
+      const summary = await this.rupSource.getSummary(targetTahun);
+      const payload = {
         tahun: targetTahun,
-        jenis_klpd: this.jenisKlpd,
-        instansi: this.instansiKonsel,
-      });
-
-      if (result.status === 200 && result.data?.summary) {
-        const payload = {
-          tahun: targetTahun,
-          totalRup: result.data.summary.jumlah_rup || 0,
-          totalPagu: result.data.summary.total_pagu || 0,
-        };
-        await this.redisService.set(cacheKey, payload, 1800);
-        return { source: 'inaproc-live', ...payload };
-      }
-
-      return {
-        tahun: targetTahun,
-        totalRup: 0,
-        totalPagu: 0,
-        error: 'Gagal mengambil ringkasan dari LKPP',
+        ...summary,
       };
+      await this.redisService.set(cacheKey, payload, 1800);
+      return { source: 'konsel-setara-rup', ...payload };
     } catch (err: any) {
-      this.logger.warn(`Gagal getSummary SiRUP: ${err.message}`);
+      this.logger.warn(`Gagal membaca ringkasan tabel RUP: ${err.message}`);
       return {
+        source: 'error',
         tahun: targetTahun,
         totalRup: 0,
         totalPagu: 0,
@@ -402,105 +379,36 @@ export class SirupService {
     const query = (params.q || '').trim();
     const satker = (params.satker || '').trim();
 
-    const cacheKey = `sirup:search:v3:${tahun}:${page}:${limit}:${query}:${satker}`;
+    const cacheKey = `sirup:search:konsel-setara:v1:${tahun}:${page}:${limit}:${query}:${satker}`;
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
       return { source: 'cache', ...cached };
     }
 
-    const queryParams: Record<string, string> = {
-      tahun,
-      jenis_klpd: this.jenisKlpd,
-      instansi: this.instansiKonsel,
-      page: String(page),
-      limit: String(limit),
-    };
-
-    const isNumeric = /^\d+$/.test(query);
-    if (query) {
-      if (isNumeric) {
-        queryParams.search_rup = query;
-      } else {
-        queryParams.search_paket = query;
-      }
-    }
-
-    if (satker && satker !== 'Semua OPD' && satker !== 'ALL') {
-      const resolvedCode = this.resolveSatkerCode(satker);
-      queryParams.satker = resolvedCode || satker;
-    }
-
     try {
-      let result = await this.fetchInaproc('table', queryParams);
-
-      if (
-        isNumeric &&
-        query &&
-        (!result.data?.tableRows || result.data.tableRows.length === 0)
-      ) {
-        const fallbackParams = { ...queryParams };
-        delete fallbackParams.search_rup;
-        fallbackParams.search_paket = query;
-        try {
-          const fallback = await this.fetchInaproc('table', fallbackParams);
-          if (fallback.status === 200 && fallback.data?.tableRows?.length > 0) {
-            result = fallback;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      if (
-        result.status === 200 &&
-        result.data &&
-        Array.isArray(result.data.tableRows)
-      ) {
-        const rows = result.data.tableRows;
-        const total = result.data.tableTotalRows || rows.length;
-
-        const data: SirupPaketItem[] = rows.map((item: any) => ({
-          kodeRup: String(item.kode_rup || ''),
-          namaPaket: item.nama_paket || '',
-          satker: item.nama_satker || item.nama_instansi || '',
-          metode: this.normalizeMetode(
-            item.metode_pengadaan || item.cara_pengadaan_label,
-          ),
-          pagu: parseFloat(item.total_nilai || 0),
-          sumberDana: this.normalizeSumberDana(
-            item.sumber_dana,
-            item.nama_paket,
-          ),
-          tahun: String(item.tahun_anggaran || tahun),
-          jenisPengadaan: this.normalizeJenis(item.jenis_pengadaan),
-          caraPengadaan: item.cara_pengadaan || '',
-          pdn: item.produk_dalam_negeri || 'Ya',
-          lokasi: item.lokasi || '',
-          isPembangunan: this.isPaketPembangunan(item),
-        }));
-
-        const responsePayload = {
-          tahun,
-          page,
-          limit,
-          total,
-          data,
-        };
-
-        await this.redisService.set(cacheKey, responsePayload, 900);
-        return { source: 'inaproc-live', ...responsePayload };
-      }
-
-      return {
-        source: 'inaproc-live',
+      const resolvedSatker =
+        satker && satker !== 'ALL' && satker !== 'Semua OPD'
+          ? (await this.resolveSatkerCode(satker)) || satker
+          : undefined;
+      const result = await this.rupSource.searchPaket({
         tahun,
         page,
         limit,
-        total: 0,
-        data: [],
+        query,
+        satker: resolvedSatker,
+      });
+      const responsePayload = {
+        tahun,
+        page,
+        limit,
+        total: result.total,
+        data: result.rows.map((item) => this.mapSourcePaket(item)),
       };
+
+      await this.redisService.set(cacheKey, responsePayload, 900);
+      return { source: 'konsel-setara-rup', ...responsePayload };
     } catch (err: any) {
-      this.logger.warn(`Gagal searchPaket SiRUP: ${err.message}`);
+      this.logger.warn(`Gagal mencari paket di tabel RUP: ${err.message}`);
       return {
         source: 'error',
         tahun,
@@ -516,13 +424,13 @@ export class SirupService {
   /**
    * Mengambil semua paket (dengan paginasi otomatis) untuk satker tertentu atau seluruh kabupaten
    */
-  async fetchAllPaketFromInaproc(params: {
+  async fetchAllPaketFromSource(params: {
     tahun: string;
     satkerCode?: string;
     maxPages?: number;
   }): Promise<SirupPaketItem[]> {
     const allItems: SirupPaketItem[] = [];
-    const maxPages = params.maxPages || 35; // cukup untuk 3.500 baris
+    const maxPages = params.maxPages || 500;
 
     for (let page = 1; page <= maxPages; page++) {
       const searchRes = await this.searchPaket({
@@ -554,7 +462,7 @@ export class SirupService {
 
     const currentYear = new Date().getFullYear();
     const tahunTarget = tahun || String(currentYear);
-    const cacheKey = `sirup:paket:v3:${cleanKode}`;
+    const cacheKey = `sirup:paket:konsel-setara:v1:${cleanKode}:${tahunTarget}`;
 
     const cached = await this.redisService.get(cacheKey);
     if (cached) {
@@ -568,26 +476,15 @@ export class SirupService {
 
     for (const yr of yearsToTry) {
       try {
-        const searchResult = await this.searchPaket({
-          q: cleanKode,
-          tahun: yr,
-          limit: 10,
-        });
-
-        if (searchResult.data && searchResult.data.length > 0) {
-          const match =
-            searchResult.data.find(
-              (p: SirupPaketItem) => p.kodeRup === cleanKode,
-            ) || searchResult.data[0];
-
-          if (match) {
-            await this.redisService.set(cacheKey, match, 3600);
-            return { source: 'inaproc-live', data: match };
-          }
+        const row = await this.rupSource.getPaketByKodeRup(cleanKode, yr);
+        if (row) {
+          const match = this.mapSourcePaket(row);
+          await this.redisService.set(cacheKey, match, 3600);
+          return { source: 'konsel-setara-rup', data: match };
         }
       } catch (err: any) {
         this.logger.warn(
-          `Gagal mencari kode RUP ${cleanKode} di tahun ${yr}: ${err.message}`,
+          `Gagal mencari kode RUP ${cleanKode} pada tabel RUP tahun ${yr}: ${err.message}`,
         );
       }
     }
@@ -624,26 +521,21 @@ export class SirupService {
       };
     }
 
-    // 2. Cek apakah ini kode satker SiRUP (misal 4.01.0.00.0.00.01.0005)
-    for (const [namaSatker, code] of Object.entries(SIRUP_SATKER_MAP)) {
-      if (code === clean) {
-        const subUnits = await this.egovService.getSubUnitOptions('ALL');
-        const matchedSu = subUnits.find(
-          (s) =>
-            s.namaSubUnit.toUpperCase() === namaSatker.toUpperCase() ||
-            s.namaSubUnit.toUpperCase().includes(namaSatker.toUpperCase()),
-        );
-        const parentOpd = matchedSu?.opdId
-          ? this.egovService.getOpdById(matchedSu.opdId)
-          : null;
-        return {
-          isAll: false,
-          opdId: matchedSu?.opdId || '',
-          subUnitId: matchedSu?.id || null,
-          nama: namaSatker,
-          parentOpdNama: parentOpd?.namaOpd,
-        };
-      }
+    // 2. Cek apakah ini kode satker dari konsel_setara.rup_satker.
+    const sourceSatkers = await this.rupSource.getSatkerOptions();
+    const sourceSatker = sourceSatkers.find((satker) => satker.kode === clean);
+    if (sourceSatker) {
+      const matched = await this.matchSatkerToSimpeg(sourceSatker.nama);
+      const parentOpd = matched.opdId
+        ? this.egovService.getOpdById(matched.opdId)
+        : null;
+      return {
+        isAll: false,
+        opdId: matched.opdId || '',
+        subUnitId: matched.subUnitId,
+        nama: sourceSatker.nama,
+        parentOpdNama: parentOpd?.namaOpd,
+      };
     }
 
     // 3. Cek apakah ini OPD SIMPEG (simpeg.instansi)
@@ -668,12 +560,14 @@ export class SirupService {
   }
 
   /**
-   * Daftar Sub Unit / Satker SiRUP Konawe Selatan (51 Satker resmi)
+   * Daftar satker dari konsel_setara.rup_satker.
    */
   async getSatkerOptions() {
+    const sourceSatkers = await this.rupSource.getSatkerOptions();
+    const opdOptions = await this.egovService.getOpdOptions();
     const subUnits = await this.egovService.getSubUnitOptions('ALL');
     const result: Array<{
-      id: string; // subUnitId SIMPEG jika cocok, atau satkerCode
+      id: string; // kode satker sumber; selalu unik untuk kebutuhan dropdown
       subUnitId: string | null;
       nama: string;
       satkerCode: string;
@@ -681,24 +575,30 @@ export class SirupService {
       parentOpdNama?: string;
     }> = [];
 
-    for (const [satkerName, satkerCode] of Object.entries(SIRUP_SATKER_MAP)) {
+    for (const sourceSatker of sourceSatkers) {
+      const satkerName = sourceSatker.nama;
+      const satkerCode = sourceSatker.kode;
+      const normalizedSatker = this.normalizeUnitName(satkerName);
       const matched = subUnits.find(
         (su) =>
-          su.namaSubUnit.toUpperCase() === satkerName.toUpperCase() ||
-          su.namaSubUnit.toUpperCase().includes(satkerName.toUpperCase()) ||
-          satkerName.toUpperCase().includes(su.namaSubUnit.toUpperCase()),
+          this.normalizeUnitName(su.namaSubUnit) === normalizedSatker ||
+          this.normalizeUnitName(su.namaSubUnit).includes(normalizedSatker) ||
+          normalizedSatker.includes(this.normalizeUnitName(su.namaSubUnit)),
       );
 
-      const parentOpd = matched?.opdId
-        ? this.egovService.getOpdById(matched.opdId)
-        : null;
+      const matchedOpd = opdOptions.find(
+        (opd) => this.normalizeUnitName(opd.namaOpd) === normalizedSatker,
+      );
+
+      const opdId = matched?.opdId || matchedOpd?.id || '';
+      const parentOpd = opdId ? this.egovService.getOpdById(opdId) : null;
 
       result.push({
-        id: matched ? matched.id : satkerCode,
+        id: satkerCode,
         subUnitId: matched?.id || null,
         nama: satkerName,
         satkerCode,
-        opdId: matched?.opdId || '',
+        opdId,
         parentOpdNama: parentOpd?.namaOpd,
       });
     }
@@ -707,52 +607,38 @@ export class SirupService {
   }
 
   /**
-   * Ambil pratinjau daftar paket SiRUP untuk OPD tertentu atau SELURUH KABUPATEN
+   * Ambil pratinjau daftar paket sumber RUP untuk OPD atau seluruh kabupaten.
    */
   async getPreviewPaketOpd(params: { tahun: number; opdId: string }) {
     const tahunStr = String(params.tahun);
 
     // KASUS 1: Seluruh OPD se-Kabupaten Konawe Selatan (Pengecualian Administrator)
     if (params.opdId === 'ALL') {
-      const summary = await this.getSummary(tahunStr);
-      const sample = await this.searchPaket({
+      const packages = await this.fetchAllPaketFromSource({
         tahun: tahunStr,
-        page: 1,
-        limit: 100,
       });
-
-      const totalPaket = summary.totalRup || sample.total || 0;
-      const sampleRows = sample.data || [];
-      const samplePembangunan = sampleRows.filter(
-        (p: SirupPaketItem) => p.isPembangunan,
-      ).length;
-      const pembangunanRatio =
-        sampleRows.length > 0 ? samplePembangunan / sampleRows.length : 0.45;
-      const estimatedPembangunan = Math.round(
-        totalPaket * (pembangunanRatio > 0 ? pembangunanRatio : 0.45),
-      );
 
       return {
         tahun: params.tahun,
         opdId: 'ALL',
         namaOpd: 'SEMUA OPD SE-KABUPATEN KONAWE SELATAN',
         satkerCode: 'ALL',
-        total: totalPaket,
-        pembangunanCount: estimatedPembangunan,
-        packages: sampleRows,
+        total: packages.length,
+        pembangunanCount: packages.filter((paket) => paket.isPembangunan)
+          .length,
+        packages: packages.slice(0, 100),
       };
     }
 
     // KASUS 2: Sub Unit / OPD Spesifik
     const target = await this.resolveTargetUnit(params.opdId);
-    const satkerCode = this.resolveSatkerCode(target.nama);
+    const satkerCode = await this.resolveSatkerCode(target.nama);
     let packages: SirupPaketItem[] = [];
 
     if (satkerCode) {
-      packages = await this.fetchAllPaketFromInaproc({
+      packages = await this.fetchAllPaketFromSource({
         tahun: tahunStr,
         satkerCode,
-        maxPages: 5,
       });
     } else {
       const searchRes = await this.searchPaket({
@@ -779,9 +665,7 @@ export class SirupService {
     };
   }
 
-  /**
-   * SINKRONISASI MASAL (Bulk Upsert) Paket SiRUP ke Database MONALISA
-   */
+  /** Sinkronisasi massal sumber RUP read-only ke PostgreSQL MONALISA. */
   async syncPaketByOpd(options: {
     tahun: number;
     opdId: string;
@@ -800,12 +684,12 @@ export class SirupService {
     if (!isAll) {
       const target = await this.resolveTargetUnit(options.opdId);
       targetNamaOpd = target.nama;
-      satkerCode = this.resolveSatkerCode(target.nama);
+      satkerCode = await this.resolveSatkerCode(target.nama);
       resolvedOpdId = target.opdId;
       resolvedSubUnitId = target.subUnitId;
     }
 
-    // 1. Ambil seluruh paket dari SiRUP
+    // 1. Ambil paket hanya dengan SELECT dari konsel_setara.rup_paket.
     let allRawPackages: SirupPaketItem[] = [];
 
     if (options.kodeRupList && options.kodeRupList.length > 0) {
@@ -816,17 +700,12 @@ export class SirupService {
         }
       }
     } else if (isAll) {
-      // Administrator: Tarik seluruh paket se-kabupaten (loop paginasi hingga selesai)
-      allRawPackages = await this.fetchAllPaketFromInaproc({
-        tahun: tahunStr,
-        maxPages: 35,
-      });
+      allRawPackages = await this.fetchAllPaketFromSource({ tahun: tahunStr });
     } else {
       if (satkerCode) {
-        allRawPackages = await this.fetchAllPaketFromInaproc({
+        allRawPackages = await this.fetchAllPaketFromSource({
           tahun: tahunStr,
           satkerCode,
-          maxPages: 5,
         });
       } else {
         const searchRes = await this.searchPaket({
@@ -845,79 +724,146 @@ export class SirupService {
         ? allRawPackages.filter((p) => p.isPembangunan !== false)
         : allRawPackages;
 
-    let createdCount = 0;
-    let updatedCount = 0;
+    const satkerNames = [
+      ...new Set(candidatePackages.map((item) => item.satker)),
+    ];
+    const satkerMappings = new Map<
+      string,
+      { opdId: string | null; subUnitId: string | null }
+    >();
+    for (const satkerName of satkerNames) {
+      satkerMappings.set(
+        satkerName,
+        await this.matchSatkerToSimpeg(satkerName),
+      );
+    }
 
-    for (const item of candidatePackages) {
-      const match = await this.matchSatkerToSimpeg(item.satker);
+    const skippedSatkers = new Set<string>();
+    const preparedPackages = candidatePackages.flatMap((item) => {
+      const match = satkerMappings.get(item.satker) || {
+        opdId: null,
+        subUnitId: null,
+      };
       const targetOpdId =
         match.opdId || resolvedOpdId || (isAll ? null : options.opdId);
       const targetSubUnitId = match.subUnitId || resolvedSubUnitId || null;
 
       if (!targetOpdId) {
-        // Jika mode ALL dan satker tidak terpetakan ke instansi SIMPEG apapun, lewati
-        continue;
+        skippedSatkers.add(item.satker);
+        return [];
       }
 
-      const normalizedMetode = this.normalizeMetode(item.metode);
-      const normalizedJenis = this.normalizeJenis(item.jenisPengadaan);
-      const paguDecimal = item.pagu || 0;
+      return [{ item, targetOpdId, targetSubUnitId }];
+    });
 
-      // Cek apakah paket sudah ada di PostgreSQL
-      const existing = await this.prisma.paketPembangunan.findFirst({
-        where: {
-          tahunAnggaran: options.tahun,
-          kodeRupKontrak: item.kodeRup,
+    const existingPakets = await this.prisma.paketPembangunan.findMany({
+      where: {
+        tahunAnggaran: options.tahun,
+        kodeRupKontrak: {
+          in: preparedPackages.map(({ item }) => item.kodeRup),
         },
-      });
+      },
+      select: {
+        id: true,
+        kodeRupKontrak: true,
+        subUnitId: true,
+      },
+    });
+    const existingByKode = new Map(
+      existingPakets.map((paket) => [paket.kodeRupKontrak, paket]),
+    );
+
+    const toCreate: Array<{
+      id: string;
+      tahunAnggaran: number;
+      opdId: string;
+      subUnitId: string | null;
+      kodeRupKontrak: string;
+      namaPaket: string;
+      nilaiPagu: number;
+      nilaiKontrak: number;
+      metodePemilihan: string;
+      jenisPengadaan: string;
+      sumberDana: string;
+      createdById: string | null;
+    }> = [];
+    const toUpdate: Array<{
+      id: string;
+      data: {
+        namaPaket: string;
+        nilaiPagu: number;
+        metodePemilihan: string;
+        jenisPengadaan: string;
+        sumberDana: string;
+        opdId: string;
+        subUnitId: string | null;
+      };
+    }> = [];
+
+    for (const { item, targetOpdId, targetSubUnitId } of preparedPackages) {
+      const existing = existingByKode.get(item.kodeRup);
+      const commonData = {
+        namaPaket: item.namaPaket,
+        nilaiPagu: item.pagu || 0,
+        metodePemilihan: this.normalizeMetode(item.metode),
+        jenisPengadaan: this.normalizeJenis(item.jenisPengadaan),
+        sumberDana: this.normalizeSumberDana(
+          item.sumberDana,
+          item.namaPaket,
+        ),
+        opdId: targetOpdId,
+        subUnitId: targetSubUnitId || existing?.subUnitId || null,
+      };
 
       if (existing) {
-        // Update data jika sudah ada (pertahankan nomor kontrak & realisasi yang sudah diinput)
-        await this.prisma.paketPembangunan.update({
-          where: { id: existing.id },
-          data: {
-            namaPaket: item.namaPaket,
-            nilaiPagu: paguDecimal,
-            metodePemilihan: normalizedMetode,
-            jenisPengadaan: normalizedJenis,
-            sumberDana: this.normalizeSumberDana(item.sumberDana),
-            opdId: targetOpdId,
-            subUnitId: targetSubUnitId || existing.subUnitId,
-          },
-        });
-        updatedCount++;
+        toUpdate.push({ id: existing.id, data: commonData });
       } else {
-        // Buat baru jika belum ada
-        const newPaket = await this.prisma.paketPembangunan.create({
-          data: {
-            tahunAnggaran: options.tahun,
-            opdId: targetOpdId,
-            subUnitId: targetSubUnitId,
-            kodeRupKontrak: item.kodeRup,
-            namaPaket: item.namaPaket,
-            nilaiPagu: paguDecimal,
-            nilaiKontrak: 0,
-            metodePemilihan: normalizedMetode,
-            jenisPengadaan: normalizedJenis,
-            sumberDana: this.normalizeSumberDana(item.sumberDana),
-            createdById: options.userId || null,
-          },
+        toCreate.push({
+          id: randomUUID(),
+          tahunAnggaran: options.tahun,
+          kodeRupKontrak: item.kodeRup,
+          nilaiKontrak: 0,
+          createdById: options.userId || null,
+          ...commonData,
         });
-
-        // Inisialisasi 12 bulan target fisik default 0
-        const targetsData = Array.from({ length: 12 }, (_, i) => ({
-          paketId: newPaket.id,
-          bulan: i + 1,
-          targetFisik: 0,
-        }));
-        await this.prisma.targetBulanan.createMany({
-          data: targetsData,
-          skipDuplicates: true,
-        });
-
-        createdCount++;
       }
     }
+
+    for (let index = 0; index < toCreate.length; index += 500) {
+      await this.prisma.paketPembangunan.createMany({
+        data: toCreate.slice(index, index + 500),
+      });
+    }
+
+    const targetsData = toCreate.flatMap((paket) =>
+      Array.from({ length: 12 }, (_, index) => ({
+        paketId: paket.id,
+        bulan: index + 1,
+        targetFisik: 0,
+      })),
+    );
+    for (let index = 0; index < targetsData.length; index += 2000) {
+      await this.prisma.targetBulanan.createMany({
+        data: targetsData.slice(index, index + 2000),
+        skipDuplicates: true,
+      });
+    }
+
+    for (let index = 0; index < toUpdate.length; index += 50) {
+      const batch = toUpdate.slice(index, index + 50);
+      await this.prisma.$transaction(
+        batch.map((paket) =>
+          this.prisma.paketPembangunan.update({
+            where: { id: paket.id },
+            data: paket.data,
+          }),
+        ),
+      );
+    }
+
+    const createdCount = toCreate.length;
+    const updatedCount = toUpdate.length;
+    const skippedCount = candidatePackages.length - preparedPackages.length;
 
     // Bersihkan cache Redis terkait paket agar query frontend langsung segar
     await this.redisService.delByPattern('*paket*');
@@ -930,10 +876,12 @@ export class SirupService {
       totalCandidate: candidatePackages.length,
       createdCount,
       updatedCount,
+      skippedCount,
+      unmatchedSatkers: [...skippedSatkers].sort(),
       totalSynced: createdCount + updatedCount,
       message: isAll
-        ? `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari SiRUP LKPP untuk seluruh OPD se-Kabupaten Konawe Selatan.`
-        : `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari SiRUP LKPP untuk ${targetNamaOpd}.`,
+        ? `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP Konsel Setara untuk seluruh OPD se-Kabupaten Konawe Selatan.${skippedCount ? ` ${skippedCount} paket dilewati karena satker belum terpetakan.` : ''}`
+        : `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP Konsel Setara untuk ${targetNamaOpd}.`,
     };
   }
 
@@ -961,27 +909,10 @@ export class SirupService {
       }
     }
 
-    // Ambil daftar paket yang akan direset
-    const targetPakets = await this.prisma.paketPembangunan.findMany({
+    // Seluruh target/realisasi bulanan dan mingguan terhapus lewat FK CASCADE.
+    const deleted = await this.prisma.paketPembangunan.deleteMany({
       where: whereClause,
-      select: { id: true },
     });
-
-    const paketIds = targetPakets.map((p) => p.id);
-
-    if (paketIds.length > 0) {
-      // Hapus target bulanan & realisasi bulanan terlebih dahulu
-      await this.prisma.targetBulanan.deleteMany({
-        where: { paketId: { in: paketIds } },
-      });
-      await this.prisma.realisasiBulanan.deleteMany({
-        where: { paketId: { in: paketIds } },
-      });
-      // Hapus paket pembangunan
-      await this.prisma.paketPembangunan.deleteMany({
-        where: { id: { in: paketIds } },
-      });
-    }
 
     // Bersihkan seluruh cache redis
     await this.redisService.delByPattern('*paket*');
@@ -993,10 +924,10 @@ export class SirupService {
       tahun: options.tahun,
       opdId: options.opdId || 'ALL',
       namaOpd: targetNamaOpd,
-      deletedCount: paketIds.length,
+      deletedCount: deleted.count,
       message: isAll
         ? `Berhasil mereset seluruh data paket tahun ${options.tahun}. Database MONALISA kini kembali bersih menjadi 0 paket.`
-        : `Berhasil mereset ${paketIds.length} paket milik ${targetNamaOpd} pada tahun ${options.tahun} kembali menjadi 0.`,
+        : `Berhasil mereset ${deleted.count} paket milik ${targetNamaOpd} pada tahun ${options.tahun} kembali menjadi 0.`,
     };
   }
 }

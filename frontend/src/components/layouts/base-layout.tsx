@@ -50,11 +50,11 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
             collapsible={config.collapsible} 
             side={config.side} 
           />
-          <SidebarInset className="min-w-0 overflow-x-hidden">
+          <SidebarInset className="min-w-0 w-full overflow-x-hidden">
             <SiteHeader />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="@container/main flex min-w-0 flex-1 flex-col gap-2">
-                <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="flex min-w-0 w-full flex-1 flex-col">
+              <div className="@container/main flex min-w-0 w-full flex-1 flex-col">
+                <div className="flex min-w-0 w-full flex-col gap-3 py-2.5 md:gap-4 md:py-3.5">
                   {title && (
                     <div className="px-4 lg:px-6">
                       <div className="flex flex-col gap-2">
@@ -74,11 +74,11 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
         </>
       ) : (
         <>
-          <SidebarInset className="min-w-0 overflow-x-hidden">
+          <SidebarInset className="min-w-0 w-full overflow-x-hidden">
             <SiteHeader />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="@container/main flex min-w-0 flex-1 flex-col gap-2">
-                <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+            <div className="flex min-w-0 w-full flex-1 flex-col">
+              <div className="@container/main flex min-w-0 w-full flex-1 flex-col">
+                <div className="flex min-w-0 w-full flex-col gap-3 py-2.5 md:gap-4 md:py-3.5">
                   {title && (
                     <div className="px-4 lg:px-6">
                       <div className="flex flex-col gap-2">

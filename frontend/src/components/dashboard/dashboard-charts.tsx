@@ -95,9 +95,9 @@ export function DashboardCharts({
   }, [macroStats])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4 min-w-0 w-full">
       {/* ─── DIAGRAM BATANG (BAR CHART) ─── */}
-      <Card className="lg:col-span-2 border-border/60 shadow-sm flex flex-col justify-between">
+      <Card className="lg:col-span-2 border-border/60 shadow-sm flex flex-col justify-between min-w-0 w-full overflow-hidden">
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -135,7 +135,7 @@ export function DashboardCharts({
               Belum ada data paket untuk direkap dalam grafik pada tahun {tahun}.
             </div>
           ) : (
-            <div className="h-72 w-full">
+            <div className="h-64 sm:h-72 w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={opdBarData}
@@ -271,7 +271,7 @@ export function DashboardCharts({
       </Card>
 
       {/* ─── DIAGRAM PIE / DONUT ─── */}
-      <Card className="border-border/60 shadow-sm flex flex-col justify-between">
+      <Card className="border-border/60 shadow-sm flex flex-col justify-between min-w-0 w-full overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
             <PieChartIcon className="h-4 w-4 text-emerald-500" />
@@ -289,7 +289,7 @@ export function DashboardCharts({
               </Badge>
             </div>
 
-            <div className="h-40 w-full relative">
+            <div className="h-36 sm:h-40 w-full relative min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

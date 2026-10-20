@@ -32,29 +32,29 @@ enum StatusAkun {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  nip         String       @unique
-  namaLengkap String       @map("nama_lengkap")
+  id          String     @id @default(uuid())
+  nip         String     @unique
+  namaLengkap String     @map("nama_lengkap")
   jabatan     String
-  email       String       @unique
+  email       String     @unique
   password    String
   role        RoleEnum?
-  roles       RoleEnum[]   @default([])
-  status      StatusAkun   @default(AKTIF)
-  opdId       String?      @map("opd_id")
-  subUnitId   String?      @map("sub_unit_id")
-  lastLoginAt DateTime?    @map("last_login_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  roles       RoleEnum[] @default([])
+  status      StatusAkun @default(AKTIF)
+  opdId       String?    @map("opd_id")
+  subUnitId   String?    @map("sub_unit_id")
+  lastLoginAt DateTime?  @map("last_login_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
-  userRoles         UserRole[]
-  refreshTokens     RefreshToken[]
-  auditLogs        AuditLog[]
-  paketCreated       PaketPembangunan[] @relation("UserPaketCreated")
-  realisasiInput     RealisasiBulanan[] @relation("UserRealisasiInput")
+  userRoles           UserRole[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  paketCreated        PaketPembangunan[] @relation("UserPaketCreated")
+  realisasiInput      RealisasiBulanan[] @relation("UserRealisasiInput")
   realisasiVerifikasi RealisasiBulanan[] @relation("UserRealisasiVerifikasi")
-  buktiFisikUpload   BuktiFisik[]       @relation("UserBuktiFisikUpload")
-  accessScopes       UserAccessScope[]
+  buktiFisikUpload    BuktiFisik[]       @relation("UserBuktiFisikUpload")
+  accessScopes        UserAccessScope[]
 
   @@index([opdId])
   @@index([subUnitId])
@@ -62,15 +62,15 @@ model User {
 }
 
 model UserAccessScope {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
-  role        RoleEnum
-  opdId       String    @map("opd_id")
-  subUnitId   String?   @map("sub_unit_id")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  role      RoleEnum
+  opdId     String   @map("opd_id")
+  subUnitId String?  @map("sub_unit_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, role])
   @@index([opdId])
@@ -78,15 +78,15 @@ model UserAccessScope {
 }
 
 model Role {
-  id          String     @id @default(uuid())
-  kode        RoleEnum   @unique
-  nama        String
-  deskripsi   String?
-  urutan      Int        @default(0)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  kode      RoleEnum @unique
+  nama      String
+  deskripsi String?
+  urutan    Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  userRoles   UserRole[]
+  userRoles UserRole[]
 
   @@map("roles")
 }
@@ -97,8 +97,8 @@ model UserRole {
   roleId    String   @map("role_id")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
   @@index([userId])
@@ -107,14 +107,14 @@ model UserRole {
 }
 
 model RefreshToken {
-  id         String   @id @default(uuid())
-  userId     String   @map("user_id")
-  tokenHash  String   @map("token_hash")
-  isRevoked  Boolean  @default(false) @map("is_revoked")
-  expiresAt  DateTime @map("expires_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("refresh_tokens")
@@ -131,7 +131,7 @@ model AuditLog {
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([resource, resourceId])
@@ -167,30 +167,32 @@ model LockingPeriod {
 }
 
 model PaketPembangunan {
-  id              String             @id @default(uuid())
-  tahunAnggaran   Int                @default(2026) @map("tahun_anggaran")
-  opdId           String             @map("opd_id")
-  subUnitId       String?            @map("sub_unit_id")
-  kodeRupKontrak  String?            @map("kode_rup_kontrak")
-  namaPaket       String             @map("nama_paket")
-  lokasiKegiatan  String?            @map("lokasi_kegiatan")
-  metodePemilihan String?            @map("metode_pemilihan")
-  jenisPengadaan  String?            @map("jenis_pengadaan")
-  nilaiPagu       Decimal            @default(0) @db.Decimal(18, 2) @map("nilai_pagu")
-  nilaiKontrak    Decimal            @default(0) @db.Decimal(18, 2) @map("nilai_kontrak")
-  sumberDana      String?            @map("sumber_dana")
-  nomorKontrak    String?            @map("nomor_kontrak")
-  tanggalMulai    DateTime?          @map("tanggal_mulai")
-  tanggalSelesai  DateTime?          @map("tanggal_selesai")
-  pemenangRekanan String?            @map("pemenang_rekanan")
+  id              String    @id @default(uuid())
+  tahunAnggaran   Int       @default(2026) @map("tahun_anggaran")
+  opdId           String    @map("opd_id")
+  subUnitId       String?   @map("sub_unit_id")
+  kodeRupKontrak  String?   @map("kode_rup_kontrak")
+  namaPaket       String    @map("nama_paket")
+  lokasiKegiatan  String?   @map("lokasi_kegiatan")
+  metodePemilihan String?   @map("metode_pemilihan")
+  jenisPengadaan  String?   @map("jenis_pengadaan")
+  nilaiPagu       Decimal   @default(0) @map("nilai_pagu") @db.Decimal(18, 2)
+  nilaiKontrak    Decimal   @default(0) @map("nilai_kontrak") @db.Decimal(18, 2)
+  sumberDana      String?   @map("sumber_dana")
+  nomorKontrak    String?   @map("nomor_kontrak")
+  tanggalMulai    DateTime? @map("tanggal_mulai")
+  tanggalSelesai  DateTime? @map("tanggal_selesai")
+  pemenangRekanan String?   @map("pemenang_rekanan")
   keterangan      String?
-  createdById     String?            @map("created_by_id")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  createdBy       User?              @relation("UserPaketCreated", fields: [createdById], references: [id], onDelete: SetNull)
-  targetBulanan   TargetBulanan[]
-  realisasiBulanan RealisasiBulanan[]
+  createdBy         User?               @relation("UserPaketCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  targetBulanan     TargetBulanan[]
+  targetMingguan    TargetMingguan[]
+  realisasiBulanan  RealisasiBulanan[]
+  realisasiMingguan RealisasiMingguan[]
 
   @@index([tahunAnggaran, opdId])
   @@index([subUnitId])
@@ -198,42 +200,61 @@ model PaketPembangunan {
 }
 
 model TargetBulanan {
-  id          String           @id @default(uuid())
-  paketId     String           @map("paket_id")
+  id          String   @id @default(uuid())
+  paketId     String   @map("paket_id")
   bulan       Int
-  targetFisik Float            @default(0) @map("target_fisik")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  targetFisik Float    @default(0) @map("target_fisik")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  paket       PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
 
   @@unique([paketId, bulan])
   @@index([paketId])
   @@map("target_bulanan")
 }
 
-model RealisasiBulanan {
-  id                   String            @id @default(uuid())
-  paketId              String            @map("paket_id")
-  bulan                Int
-  realisasiFisik       Float             @default(0) @map("realisasi_fisik")
-  realisasiKeuangan    Decimal           @default(0) @db.Decimal(18, 2) @map("realisasi_keuangan")
-  catatanOperator      String?           @map("catatan_operator")
-  inputById            String?           @map("input_by_id")
-  // Kolom verifikasi oleh MONEV/Administrator
-  statusVerifikasi     StatusVerifikasi  @default(DRAFT) @map("status_verifikasi")
-  catatanVerifikasi    String?           @map("catatan_verifikasi")
-  verifikasiOlehId     String?           @map("verifikasi_oleh_id")
-  verifikasiAt         DateTime?         @map("verifikasi_at")
-  // Timestamp pengajuan oleh PPK/Bendahara
-  diajukanAt           DateTime?         @map("diajukan_at")
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
+model TargetMingguan {
+  id             String   @id @default(uuid())
+  paketId        String   @map("paket_id")
+  bulan          Int
+  mingguKe       Int      @map("minggu_ke")
+  tanggalMulai   DateTime @map("tanggal_mulai")
+  tanggalSelesai DateTime @map("tanggal_selesai")
+  uraianKegiatan String?  @map("uraian_kegiatan")
+  targetFisik    Float    @default(0) @map("target_fisik")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  paket                PaketPembangunan  @relation(fields: [paketId], references: [id], onDelete: Cascade)
-  inputBy              User?             @relation("UserRealisasiInput", fields: [inputById], references: [id], onDelete: SetNull)
-  verifikasiOleh       User?             @relation("UserRealisasiVerifikasi", fields: [verifikasiOlehId], references: [id], onDelete: SetNull)
-  buktiFisik           BuktiFisik[]
+  paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+
+  @@unique([paketId, bulan, mingguKe])
+  @@index([paketId, bulan])
+  @@map("target_mingguan")
+}
+
+model RealisasiBulanan {
+  id                String           @id @default(uuid())
+  paketId           String           @map("paket_id")
+  bulan             Int
+  realisasiFisik    Float            @default(0) @map("realisasi_fisik")
+  realisasiKeuangan Decimal          @default(0) @map("realisasi_keuangan") @db.Decimal(18, 2)
+  catatanOperator   String?          @map("catatan_operator")
+  inputById         String?          @map("input_by_id")
+  // Kolom verifikasi oleh MONEV/Administrator
+  statusVerifikasi  StatusVerifikasi @default(DRAFT) @map("status_verifikasi")
+  catatanVerifikasi String?          @map("catatan_verifikasi")
+  verifikasiOlehId  String?          @map("verifikasi_oleh_id")
+  verifikasiAt      DateTime?        @map("verifikasi_at")
+  // Timestamp pengajuan oleh PPK/Bendahara
+  diajukanAt        DateTime?        @map("diajukan_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  paket          PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  inputBy        User?            @relation("UserRealisasiInput", fields: [inputById], references: [id], onDelete: SetNull)
+  verifikasiOleh User?            @relation("UserRealisasiVerifikasi", fields: [verifikasiOlehId], references: [id], onDelete: SetNull)
+  buktiFisik     BuktiFisik[]
 
   @@unique([paketId, bulan])
   @@index([paketId])
@@ -241,19 +262,39 @@ model RealisasiBulanan {
   @@map("realisasi_bulanan")
 }
 
-model BuktiFisik {
-  id              String           @id @default(uuid())
-  realisasiId     String           @map("realisasi_id")
-  namaFile        String           @map("nama_file")
-  pathFile        String           @map("path_file")
-  mimeType        String?          @map("mime_type")
-  ukuranBytes     Int?             @map("ukuran_bytes")
-  deskripsi       String?
-  uploadOlehId    String?          @map("upload_oleh_id")
-  createdAt       DateTime         @default(now()) @map("created_at")
+model RealisasiMingguan {
+  id                String   @id @default(uuid())
+  paketId           String   @map("paket_id")
+  bulan             Int
+  mingguKe          Int      @map("minggu_ke")
+  realisasiFisik    Float    @default(0) @map("realisasi_fisik")
+  realisasiKeuangan Decimal  @default(0) @map("realisasi_keuangan") @db.Decimal(18, 2)
+  catatanOperator   String?  @map("catatan_operator")
+  inputById         String?  @map("input_by_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  realisasi       RealisasiBulanan @relation(fields: [realisasiId], references: [id], onDelete: Cascade)
-  uploadOleh      User?            @relation("UserBuktiFisikUpload", fields: [uploadOlehId], references: [id], onDelete: SetNull)
+  paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+
+  @@unique([paketId, bulan, mingguKe])
+  @@index([paketId, bulan])
+  @@map("realisasi_mingguan")
+}
+
+model BuktiFisik {
+  id           String   @id @default(uuid())
+  realisasiId  String   @map("realisasi_id")
+  namaFile     String   @map("nama_file")
+  pathFile     String   @map("path_file")
+  mimeType     String?  @map("mime_type")
+  ukuranBytes  Int?     @map("ukuran_bytes")
+  deskripsi    String?
+  mingguKe     Int?     @map("minggu_ke")
+  uploadOlehId String?  @map("upload_oleh_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  realisasi  RealisasiBulanan @relation(fields: [realisasiId], references: [id], onDelete: Cascade)
+  uploadOleh User?            @relation("UserBuktiFisikUpload", fields: [uploadOlehId], references: [id], onDelete: SetNull)
 
   @@index([realisasiId])
   @@map("bukti_fisik")

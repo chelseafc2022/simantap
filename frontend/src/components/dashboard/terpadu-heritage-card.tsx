@@ -53,7 +53,7 @@ export function TerpaduHeritageCard() {
               {/* Preview Gambar Card MONEV */}
               <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-emerald-500/20 bg-slate-950/40 shadow-inner group-hover:shadow-md transition-all">
                 <Image
-                  src="/img/monev_card.png"
+                  src="/img/monev_card.webp"
                   alt="Card MONEV - Monitoring & Evaluasi Pembangunan"
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -114,7 +114,7 @@ export function TerpaduHeritageCard() {
               {/* Preview Gambar Card SIDAPEM */}
               <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-blue-500/20 bg-slate-950/40 shadow-inner group-hover:shadow-md transition-all">
                 <Image
-                  src="/img/sidapem_card.png"
+                  src="/img/sidapem_card.webp"
                   alt="Card SIDAPEM - Sistem Informasi Data Pembangunan"
                   fill
                   sizes="(max-width: 768px) 100vw, 50vw"

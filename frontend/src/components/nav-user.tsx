@@ -118,7 +118,7 @@ export function NavUser({
             >
               <div
                 suppressHydrationWarning
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-blue-700 via-emerald-600 to-teal-500 text-white font-bold text-xs shadow-sm ring-1 ring-emerald-500/30"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-xs shadow-xs ring-1 ring-blue-500/20"
               >
                 {initials}
               </div>
@@ -149,7 +149,7 @@ export function NavUser({
               <div className="flex items-start gap-3 text-left">
                 <div
                   suppressHydrationWarning
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white font-bold text-sm shadow-md"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-sm shadow-xs"
                 >
                   {initials}
                 </div>

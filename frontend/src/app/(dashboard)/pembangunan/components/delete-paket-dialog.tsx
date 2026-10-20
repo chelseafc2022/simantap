@@ -79,7 +79,7 @@ export function DeletePaketDialog({
             )}
           </div>
           <p className="text-xs text-red-600 dark:text-red-400">
-            ⚠️ Perhatian: Seluruh target fisik bulanan (B01–B12) dan riwayat realisasi fisik serta keuangan yang telah diinput untuk paket ini akan ikut terhapus permanen.
+            ⚠️ Perhatian: Seluruh target dan realisasi mingguan, rekap bulanan, serta bukti fisik yang telah diinput untuk paket ini akan ikut terhapus permanen.
           </p>
         </div>
 

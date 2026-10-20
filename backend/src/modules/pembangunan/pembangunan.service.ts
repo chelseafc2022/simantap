@@ -21,6 +21,7 @@ import {
   UpsertRealisasiDto,
 } from './dto/upsert-realisasi.dto';
 import { VerifikasiRealisasiDto } from './dto/verifikasi-realisasi.dto';
+import { UpsertRealisasiMingguanDto } from './dto/upsert-realisasi-mingguan.dto';
 
 @Injectable()
 export class PembangunanService {
@@ -30,6 +31,119 @@ export class PembangunanService {
     private readonly prisma: PrismaService,
     private readonly egovService: EgovService,
   ) {}
+
+  private buildMonthlyTargetsFromWeekly(
+    targets: Array<{ bulan: number; mingguKe: number; targetFisik: number }>,
+  ) {
+    const lastTargetByMonth = new Map<number, number>();
+    for (const item of [...targets].sort(
+      (a, b) => a.bulan - b.bulan || a.mingguKe - b.mingguKe,
+    )) {
+      lastTargetByMonth.set(item.bulan, Number(item.targetFisik) || 0);
+    }
+
+    let cumulative = 0;
+    let hasStarted = false;
+    return Array.from({ length: 12 }, (_, index) => {
+      const bulan = index + 1;
+      if (lastTargetByMonth.has(bulan)) {
+        cumulative = lastTargetByMonth.get(bulan) || 0;
+        hasStarted = true;
+      }
+      return {
+        bulan,
+        targetFisik: hasStarted ? cumulative : 0,
+      };
+    });
+  }
+
+  private validateWeeklyTargets(
+    targets: Array<{
+      bulan: number;
+      mingguKe: number;
+      tanggalMulai: string;
+      tanggalSelesai: string;
+      targetFisik: number;
+    }>,
+    contractStart?: string | Date | null,
+    contractEnd?: string | Date | null,
+  ) {
+    if (targets.length === 0) return;
+    if (!contractStart || !contractEnd) {
+      throw new BadRequestException(
+        'Tanggal mulai dan selesai kontrak wajib diisi sebelum menetapkan target mingguan',
+      );
+    }
+
+    const start = new Date(contractStart);
+    const end = new Date(contractEnd);
+    let previousTarget = 0;
+    const keys = new Set<string>();
+    for (const item of [...targets].sort(
+      (a, b) =>
+        new Date(a.tanggalMulai).getTime() -
+        new Date(b.tanggalMulai).getTime(),
+    )) {
+      const weekStart = new Date(item.tanggalMulai);
+      const weekEnd = new Date(item.tanggalSelesai);
+      const key = `${item.bulan}-${item.mingguKe}`;
+      if (keys.has(key)) {
+        throw new BadRequestException(`Target ${key} tercatat lebih dari satu kali`);
+      }
+      keys.add(key);
+      if (weekEnd < weekStart || weekStart < start || weekEnd > end) {
+        throw new BadRequestException(
+          `Rentang target Bulan ${item.bulan} Minggu ${item.mingguKe} berada di luar masa kontrak`,
+        );
+      }
+      if (Number(item.targetFisik) < previousTarget) {
+        throw new BadRequestException(
+          'Target fisik kumulatif mingguan tidak boleh turun dari minggu sebelumnya',
+        );
+      }
+      previousTarget = Number(item.targetFisik);
+    }
+  }
+
+  private async syncMonthlyRealisasiFromWeekly(
+    tx: Prisma.TransactionClient,
+    paketId: string,
+    bulan: number,
+    inputById?: string,
+  ) {
+    const weeklyRows = await tx.realisasiMingguan.findMany({
+      where: { paketId, bulan },
+      orderBy: { mingguKe: 'asc' },
+    });
+    const latest = weeklyRows.at(-1);
+    if (!latest) return;
+
+    const latestFisik = [...weeklyRows]
+      .reverse()
+      .find((row) => Number(row.realisasiFisik) > 0);
+    const latestKeuangan = [...weeklyRows]
+      .reverse()
+      .find((row) => Number(row.realisasiKeuangan) > 0);
+
+    await tx.realisasiBulanan.upsert({
+      where: { paketId_bulan: { paketId, bulan } },
+      create: {
+        paketId,
+        bulan,
+        realisasiFisik: Number(latestFisik?.realisasiFisik || 0),
+        realisasiKeuangan: Number(latestKeuangan?.realisasiKeuangan || 0),
+        catatanOperator: latest.catatanOperator,
+        inputById: inputById || latest.inputById,
+        statusVerifikasi: StatusVerifikasi.DRAFT,
+      },
+      update: {
+        realisasiFisik: Number(latestFisik?.realisasiFisik || 0),
+        realisasiKeuangan: Number(latestKeuangan?.realisasiKeuangan || 0),
+        catatanOperator: latest.catatanOperator,
+        inputById: inputById || latest.inputById,
+      },
+    });
+  }
 
   /**
    * Helper pengecekan hak akses scope OPD & Sub Unit Kerja
@@ -215,6 +329,9 @@ export class PembangunanService {
           targetBulanan: {
             orderBy: { bulan: 'asc' },
           },
+          targetMingguan: {
+            orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
+          },
           realisasiBulanan: {
             orderBy: { bulan: 'asc' },
           },
@@ -250,6 +367,9 @@ export class PembangunanService {
       include: {
         targetBulanan: {
           orderBy: { bulan: 'asc' },
+        },
+        targetMingguan: {
+          orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
         },
         realisasiBulanan: {
           orderBy: { bulan: 'asc' },
@@ -353,6 +473,14 @@ export class PembangunanService {
       }
     }
 
+    if (dto.targetMingguan?.length) {
+      this.validateWeeklyTargets(
+        dto.targetMingguan,
+        dto.tanggalMulai,
+        dto.tanggalSelesai,
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // 1. Simpan data paket pembangunan
       const paket = await tx.paketPembangunan.create({
@@ -388,11 +516,18 @@ export class PembangunanService {
           user.role,
         );
 
+      const weeklyTargets = canSetTargets ? dto.targetMingguan || [] : [];
+      const derivedMonthlyTargets =
+        weeklyTargets.length > 0
+          ? this.buildMonthlyTargetsFromWeekly(weeklyTargets)
+          : null;
       const targetItems = [];
       for (let bulan = 1; bulan <= 12; bulan++) {
-        const item = canSetTargets
-          ? dto.targetBulanan?.find((t) => t.bulan === bulan)
-          : null;
+        const item = derivedMonthlyTargets
+          ? derivedMonthlyTargets.find((t) => t.bulan === bulan)
+          : canSetTargets
+            ? dto.targetBulanan?.find((t) => t.bulan === bulan)
+            : null;
         targetItems.push({
           paketId: paket.id,
           bulan,
@@ -403,6 +538,20 @@ export class PembangunanService {
       await tx.targetBulanan.createMany({
         data: targetItems,
       });
+
+      if (weeklyTargets.length > 0) {
+        await tx.targetMingguan.createMany({
+          data: weeklyTargets.map((item) => ({
+            paketId: paket.id,
+            bulan: item.bulan,
+            mingguKe: item.mingguKe,
+            tanggalMulai: new Date(item.tanggalMulai),
+            tanggalSelesai: new Date(item.tanggalSelesai),
+            uraianKegiatan: item.uraianKegiatan?.trim() || null,
+            targetFisik: Number(item.targetFisik),
+          })),
+        });
+      }
 
       // 3. Catat audit trail
       if (user?.id) {
@@ -425,6 +574,9 @@ export class PembangunanService {
         where: { id: paket.id },
         include: {
           targetBulanan: { orderBy: { bulan: 'asc' } },
+          targetMingguan: {
+            orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
+          },
         },
       });
 
@@ -520,6 +672,14 @@ export class PembangunanService {
       }
     }
 
+    if (dto.targetMingguan !== undefined) {
+      this.validateWeeklyTargets(
+        dto.targetMingguan,
+        dto.tanggalMulai ?? existing.tanggalMulai,
+        dto.tanggalSelesai ?? existing.tanggalSelesai,
+      );
+    }
+
     return this.prisma.$transaction(async (tx) => {
       // 1. Update data pokok paket
       const updatedPaket = await tx.paketPembangunan.update({
@@ -607,6 +767,34 @@ export class PembangunanService {
         }
       }
 
+      if (canUpdateTargets && dto.targetMingguan !== undefined) {
+        await tx.targetMingguan.deleteMany({ where: { paketId: id } });
+        if (dto.targetMingguan.length > 0) {
+          await tx.targetMingguan.createMany({
+            data: dto.targetMingguan.map((item) => ({
+              paketId: id,
+              bulan: item.bulan,
+              mingguKe: item.mingguKe,
+              tanggalMulai: new Date(item.tanggalMulai),
+              tanggalSelesai: new Date(item.tanggalSelesai),
+              uraianKegiatan: item.uraianKegiatan?.trim() || null,
+              targetFisik: Number(item.targetFisik),
+            })),
+          });
+        }
+
+        const monthlyTargets = this.buildMonthlyTargetsFromWeekly(
+          dto.targetMingguan,
+        );
+        for (const item of monthlyTargets) {
+          await tx.targetBulanan.upsert({
+            where: { paketId_bulan: { paketId: id, bulan: item.bulan } },
+            create: { paketId: id, ...item },
+            update: { targetFisik: item.targetFisik },
+          });
+        }
+      }
+
       // 3. Catat audit trail
       if (user?.id) {
         await tx.auditLog.create({
@@ -627,6 +815,9 @@ export class PembangunanService {
         where: { id },
         include: {
           targetBulanan: { orderBy: { bulan: 'asc' } },
+          targetMingguan: {
+            orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
+          },
         },
       });
 
@@ -853,6 +1044,9 @@ export class PembangunanService {
         targetBulanan: {
           orderBy: { bulan: 'asc' },
         },
+        targetMingguan: {
+          select: { bulan: true },
+        },
         realisasiBulanan: {
           orderBy: { bulan: 'asc' },
           include: {
@@ -1071,6 +1265,27 @@ export class PembangunanService {
     const paginatedData = sorted.slice(skip, skip + Number(limit));
     const totalPages = Math.ceil(sorted.length / Number(limit)) || 1;
 
+    const availableMonths = Array.from(
+      new Set(
+        pakets.flatMap((paket) => {
+          if (paket.targetMingguan.length > 0) {
+            return paket.targetMingguan.map((item) => item.bulan);
+          }
+          if (!paket.tanggalMulai || !paket.tanggalSelesai) return [];
+          const start = new Date(paket.tanggalMulai);
+          const end = new Date(paket.tanggalSelesai);
+          const months: number[] = [];
+          const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+          const last = new Date(end.getFullYear(), end.getMonth(), 1);
+          while (cursor <= last) {
+            months.push(cursor.getMonth() + 1);
+            cursor.setMonth(cursor.getMonth() + 1);
+          }
+          return months;
+        }),
+      ),
+    ).sort((a, b) => a - b);
+
     return {
       data: paginatedData,
       summary: {
@@ -1085,6 +1300,7 @@ export class PembangunanService {
         avgRealisasiFisik,
         avgDeviasiFisik,
         countStatus,
+        availableMonths,
       },
       meta: {
         page: Number(page),
@@ -1103,6 +1319,12 @@ export class PembangunanService {
       where: { id: paketId },
       include: {
         targetBulanan: { orderBy: { bulan: 'asc' } },
+        targetMingguan: {
+          orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
+        },
+        realisasiMingguan: {
+          orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
+        },
         realisasiBulanan: {
           orderBy: { bulan: 'asc' },
           include: {
@@ -1222,6 +1444,50 @@ export class PembangunanService {
       };
     });
 
+    const weeklyTimeline = paket.targetMingguan.map((target) => {
+      const realisasi = paket.realisasiMingguan.find(
+        (item) =>
+          item.bulan === target.bulan && item.mingguKe === target.mingguKe,
+      );
+      const monthlyStatus = paket.realisasiBulanan.find(
+        (item) => item.bulan === target.bulan,
+      );
+      const buktiFisik =
+        monthlyStatus?.buktiFisik
+          ?.filter((item) => item.mingguKe === target.mingguKe)
+          .map((item) => ({
+            id: item.id,
+            namaFile: item.namaFile,
+            pathFile: `/uploads/bukti-fisik/${item.namaFile.split('/').pop()}`,
+            mimeType: item.mimeType,
+            ukuranBytes: item.ukuranBytes,
+            deskripsi: item.deskripsi,
+            uploadOleh: item.uploadOleh,
+            createdAt: item.createdAt,
+          })) || [];
+
+      const realisasiFisik = Number(realisasi?.realisasiFisik || 0);
+      const targetFisik = Number(target.targetFisik || 0);
+      return {
+        id: target.id,
+        bulan: target.bulan,
+        mingguKe: target.mingguKe,
+        tanggalMulai: target.tanggalMulai,
+        tanggalSelesai: target.tanggalSelesai,
+        uraianKegiatan: target.uraianKegiatan || '',
+        targetFisik,
+        realisasiFisik,
+        realisasiKeuangan: Number(realisasi?.realisasiKeuangan || 0),
+        catatanOperator: realisasi?.catatanOperator || '',
+        inputById: realisasi?.inputById || null,
+        updatedAt: realisasi?.updatedAt || null,
+        deviasiFisik: parseFloat((realisasiFisik - targetFisik).toFixed(2)),
+        statusVerifikasi: monthlyStatus?.statusVerifikasi || 'DRAFT',
+        catatanVerifikasi: monthlyStatus?.catatanVerifikasi || null,
+        buktiFisik,
+      };
+    });
+
     return {
       paket: {
         id: paket.id,
@@ -1242,7 +1508,142 @@ export class PembangunanService {
         tanggalSelesai: paket.tanggalSelesai,
       },
       timeline,
+      weeklyTimeline,
+      availableMonths: Array.from(
+        new Set(paket.targetMingguan.map((item) => item.bulan)),
+      ),
     };
+  }
+
+  async upsertRealisasiMingguan(
+    paketId: string,
+    dto: UpsertRealisasiMingguanDto,
+    user?: any,
+  ) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket) {
+      throw new NotFoundException(
+        `Paket pembangunan '${paketId}' tidak ditemukan`,
+      );
+    }
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    const bulan = Math.min(12, Math.max(1, Number(dto.bulan)));
+    const mingguKe = Math.min(6, Math.max(1, Number(dto.mingguKe)));
+    const target = await this.prisma.targetMingguan.findUnique({
+      where: { paketId_bulan_mingguKe: { paketId, bulan, mingguKe } },
+    });
+    if (!target) {
+      throw new BadRequestException(
+        'Minggu yang dipilih tidak termasuk dalam target masa kontrak paket',
+      );
+    }
+
+    const roles = this.getUserRoles(user);
+    const isAdmin = roles.includes(RoleEnum.ADMINISTRATOR);
+    const isPPK = roles.includes(RoleEnum.ADMIN_PPK);
+    const isBendahara = roles.includes(RoleEnum.BENDAHARA);
+    if (!isAdmin && !isPPK && !isBendahara) {
+      throw new ForbiddenException(
+        'Akun Anda tidak memiliki hak input realisasi paket',
+      );
+    }
+    if (dto.uraianKegiatan !== undefined && !isAdmin && !isPPK) {
+      throw new ForbiddenException(
+        'Hanya Administrator atau PPK yang dapat mengubah uraian kegiatan mingguan',
+      );
+    }
+
+    const monthly = await this.prisma.realisasiBulanan.findUnique({
+      where: { paketId_bulan: { paketId, bulan } },
+    });
+    if (monthly?.statusVerifikasi === StatusVerifikasi.TERVERIFIKASI && !isAdmin) {
+      throw new ForbiddenException(
+        'Realisasi bulan ini sudah terverifikasi dan terkunci',
+      );
+    }
+    if (!isAdmin) {
+      const lockPeriod = await this.prisma.lockingPeriod.findUnique({
+        where: { tahun_bulan: { tahun: paket.tahunAnggaran, bulan } },
+      });
+      if (
+        lockPeriod &&
+        (lockPeriod.isLocked || new Date() > new Date(lockPeriod.batasInput))
+      ) {
+        throw new ForbiddenException(
+          `Periode input Bulan ${bulan} sudah ditutup`,
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.uraianKegiatan !== undefined) {
+        await tx.targetMingguan.update({
+          where: { paketId_bulan_mingguKe: { paketId, bulan, mingguKe } },
+          data: {
+            uraianKegiatan: dto.uraianKegiatan.trim() || null,
+          },
+        });
+      }
+
+      const existing = await tx.realisasiMingguan.findUnique({
+        where: { paketId_bulan_mingguKe: { paketId, bulan, mingguKe } },
+      });
+      const previous = await tx.realisasiMingguan.findFirst({
+        where: {
+          paketId,
+          OR: [
+            { bulan: { lt: bulan } },
+            { bulan, mingguKe: { lt: mingguKe } },
+          ],
+        },
+        orderBy: [{ bulan: 'desc' }, { mingguKe: 'desc' }],
+      });
+
+      const canEditBoth = isAdmin || (isPPK && isBendahara);
+      const realisasiFisik =
+        canEditBoth || isPPK
+          ? Math.min(100, Math.max(0, Number(dto.realisasiFisik) || 0))
+          : Number(existing?.realisasiFisik || previous?.realisasiFisik || 0);
+      const realisasiKeuangan =
+        canEditBoth || isBendahara
+          ? Math.max(0, Number(dto.realisasiKeuangan) || 0)
+          : Number(
+              existing?.realisasiKeuangan || previous?.realisasiKeuangan || 0,
+            );
+
+      const record = await tx.realisasiMingguan.upsert({
+        where: { paketId_bulan_mingguKe: { paketId, bulan, mingguKe } },
+        create: {
+          paketId,
+          bulan,
+          mingguKe,
+          realisasiFisik,
+          realisasiKeuangan,
+          catatanOperator: dto.catatanOperator?.trim() || null,
+          inputById: user?.id || null,
+        },
+        update: {
+          realisasiFisik,
+          realisasiKeuangan,
+          catatanOperator:
+            dto.catatanOperator !== undefined
+              ? dto.catatanOperator.trim() || null
+              : undefined,
+          inputById: user?.id || null,
+        },
+      });
+
+      await this.syncMonthlyRealisasiFromWeekly(
+        tx,
+        paketId,
+        bulan,
+        user?.id,
+      );
+      return record;
+    });
   }
 
   /**
@@ -1923,6 +2324,29 @@ export class PembangunanService {
           `Realisasi fisik Bulan ${bulan} sebesar ${realisasi.realisasiFisik}% wajib menyertakan minimal 1 foto bukti fisik lapangan sebelum diajukan ke MONEV.`,
         );
       }
+
+      const weeklyRealisasi = await this.prisma.realisasiMingguan.findMany({
+        where: { paketId, bulan, realisasiFisik: { gt: 0 } },
+        orderBy: { mingguKe: 'asc' },
+      });
+      if (weeklyRealisasi.length > 0) {
+        const weeklyProofs = await this.prisma.buktiFisik.findMany({
+          where: {
+            realisasiId: realisasi.id,
+            mingguKe: { not: null },
+          },
+          select: { mingguKe: true },
+        });
+        const provenWeeks = new Set(weeklyProofs.map((item) => item.mingguKe));
+        const missingWeeks = weeklyRealisasi
+          .filter((item) => !provenWeeks.has(item.mingguKe))
+          .map((item) => item.mingguKe);
+        if (missingWeeks.length > 0) {
+          throw new BadRequestException(
+            `Foto bukti fisik belum tersedia untuk Minggu ${missingWeeks.join(', ')} pada Bulan ${bulan}.`,
+          );
+        }
+      }
     }
 
     const userRoles: RoleEnum[] =
@@ -2093,6 +2517,7 @@ export class PembangunanService {
     files: Express.Multer.File[],
     deskripsi: string,
     user?: any,
+    mingguKe?: number,
   ) {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id: paketId },
@@ -2135,7 +2560,10 @@ export class PembangunanService {
 
     // Hitung jumlah bukti yang sudah ada
     const existingCount = await this.prisma.buktiFisik.count({
-      where: { realisasiId: realisasi.id },
+      where: {
+        realisasiId: realisasi.id,
+        ...(mingguKe ? { mingguKe } : {}),
+      },
     });
     if (existingCount + files.length > 5) {
       // Hapus file yang baru diupload karena melebihi batas
@@ -2143,7 +2571,7 @@ export class PembangunanService {
         if (existsSync(file.path)) await unlink(file.path).catch(() => {});
       }
       throw new BadRequestException(
-        `Batas maksimal 5 foto per bulan sudah tercapai (saat ini: ${existingCount}).`,
+        `Batas maksimal 5 foto ${mingguKe ? `pada Minggu ${mingguKe}` : 'per bulan'} sudah tercapai (saat ini: ${existingCount}).`,
       );
     }
 
@@ -2157,6 +2585,7 @@ export class PembangunanService {
             mimeType: file.mimetype,
             ukuranBytes: file.size,
             deskripsi: deskripsi?.trim() || null,
+            mingguKe: mingguKe || null,
             uploadOlehId: user?.id || null,
           },
         }),
@@ -2164,7 +2593,7 @@ export class PembangunanService {
     );
 
     return {
-      message: `${files.length} file bukti fisik berhasil diupload untuk Bulan ${bulan}.`,
+      message: `${files.length} file bukti fisik berhasil diupload untuk Bulan ${bulan}${mingguKe ? ` Minggu ${mingguKe}` : ''}.`,
       data: saved.map((b) => ({
         id: b.id,
         namaFile: b.namaFile,

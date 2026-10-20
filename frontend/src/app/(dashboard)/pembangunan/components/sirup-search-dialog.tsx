@@ -100,7 +100,7 @@ export function SirupSearchDialog({
             </div>
             <div>
               <DialogTitle className="text-base font-semibold">
-                Pencarian Data SiRUP / INAPROC LKPP
+                Pencarian Data RUP Konsel Setara
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Tarik data paket pengadaan resmi Pemerintah Kabupaten Konawe Selatan
@@ -148,7 +148,7 @@ export function SirupSearchDialog({
           {isFetching ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
               <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
-              <p className="text-xs">Menghubungkan ke data terbuka LKPP...</p>
+              <p className="text-xs">Membaca tabel RUP Konsel Setara...</p>
             </div>
           ) : !activeSearch ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
@@ -177,7 +177,7 @@ export function SirupSearchDialog({
                   Ditemukan <strong>{results.length}</strong> paket pengadaan:
                 </span>
                 <span className="text-[11px] text-emerald-600 font-medium">
-                  Sumber: data.inaproc.id
+                  Sumber: konsel_setara.rup_paket
                 </span>
               </div>
 

@@ -295,9 +295,9 @@ export function OpdUserDashboard({
   }, [processedPaketList])
 
   return (
-    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1">
+    <div className="min-w-0 w-full px-3 sm:px-4 lg:px-6 space-y-3.5 sm:space-y-4 pb-6 pt-0.5">
       {/* ─── 1. BANNER HEADER KHUSUS OPD ─── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-blue-700/10 via-indigo-600/10 to-sky-500/10 border border-blue-200/60 dark:border-blue-900/40 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700/10 via-indigo-600/10 to-sky-500/10 border border-blue-200/60 dark:border-blue-900/40 shadow-xs">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
@@ -435,16 +435,16 @@ export function OpdUserDashboard({
       )}
 
       {/* ─── 3. CORE METRICS CARDS KHUSUS OPD (6 CARDS) ─── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 min-w-0 w-full">
         {/* Pagu Anggaran OPD */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Pagu OPD</CardTitle>
-            <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
-              <Wallet className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Pagu OPD</CardTitle>
+            <div className="p-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 shrink-0">
+              <Wallet className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-24 mb-1" />
             ) : (
@@ -459,14 +459,14 @@ export function OpdUserDashboard({
         </Card>
 
         {/* Realisasi Keuangan OPD */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Realisasi Keu</CardTitle>
-            <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-              <Banknote className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Realisasi Keu</CardTitle>
+            <div className="p-1 rounded-md bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <Banknote className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-24 mb-1" />
             ) : (
@@ -483,14 +483,14 @@ export function OpdUserDashboard({
         </Card>
 
         {/* Sisa Anggaran OPD */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Sisa Anggaran</CardTitle>
-            <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-              <Clock className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Sisa Anggaran</CardTitle>
+            <div className="p-1 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 shrink-0">
+              <Clock className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-24 mb-1" />
             ) : (
@@ -505,14 +505,14 @@ export function OpdUserDashboard({
         </Card>
 
         {/* Target Fisik OPD */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Target Fisik</CardTitle>
-            <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400">
-              <Calendar className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Target Fisik</CardTitle>
+            <div className="p-1 rounded-md bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 shrink-0">
+              <Calendar className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-16 mb-1" />
             ) : (
@@ -527,14 +527,14 @@ export function OpdUserDashboard({
         </Card>
 
         {/* Realisasi Fisik OPD & Deviasi */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Realisasi Fisik</CardTitle>
-            <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-              <HardHat className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Realisasi Fisik</CardTitle>
+            <div className="p-1 rounded-md bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 shrink-0">
+              <HardHat className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-16 mb-1" />
             ) : (
@@ -551,14 +551,14 @@ export function OpdUserDashboard({
         </Card>
 
         {/* Total Paket OPD */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground">Total Paket</CardTitle>
-            <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-              <Layers className="h-4 w-4" />
+        <Card className="border-border/60 shadow-xs min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+            <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">Total Paket</CardTitle>
+            <div className="p-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
+              <Layers className="h-3.5 w-3.5" />
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-3.5 pt-0">
+          <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
             {realisasiLoading ? (
               <Skeleton className="h-7 w-12 mb-1" />
             ) : (

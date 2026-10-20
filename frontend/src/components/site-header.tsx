@@ -47,10 +47,13 @@ function DynamicBreadcrumb() {
                 href="/dashboard"
                 className="text-xs sm:text-sm font-semibold text-foreground hover:text-primary transition-colors flex items-center gap-1.5 min-w-0"
               >
-                <span className="hidden shrink-0 font-bold text-foreground tracking-tight lg:inline">
+                <span className="hidden font-bold text-foreground tracking-tight 2xl:inline truncate">
                   MONALISA KONSEL (Monitoring Realisasi Anggaran & Fisik Data Pembangunan Konawe Selatan)
                 </span>
-                <span className="truncate font-bold text-foreground tracking-tight lg:hidden">
+                <span className="hidden font-bold text-foreground tracking-tight md:inline 2xl:hidden truncate">
+                  MONALISA KONSEL — Pemkab Konawe Selatan
+                </span>
+                <span className="truncate font-bold text-foreground tracking-tight md:hidden">
                   MONALISA KONSEL
                 </span>
               </Link>

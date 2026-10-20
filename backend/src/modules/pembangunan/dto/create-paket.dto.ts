@@ -12,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { TargetBulananItemDto } from './target-bulanan.dto';
+import { TargetMingguanItemDto } from './target-mingguan.dto';
 
 export class CreatePaketDto {
   @ApiPropertyOptional({
@@ -132,4 +133,14 @@ export class CreatePaketDto {
   @ValidateNested({ each: true })
   @Type(() => TargetBulananItemDto)
   targetBulanan?: TargetBulananItemDto[];
+
+  @ApiPropertyOptional({
+    description: 'Daftar target fisik mingguan sesuai masa kontrak',
+    type: [TargetMingguanItemDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TargetMingguanItemDto)
+  targetMingguan?: TargetMingguanItemDto[];
 }

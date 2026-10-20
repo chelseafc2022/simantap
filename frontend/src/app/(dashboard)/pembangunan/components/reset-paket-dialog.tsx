@@ -256,7 +256,7 @@ export function ResetPaketDialog({
                 </>
               )}
               <span className="block mt-1 text-[11px] text-amber-800/90">
-                Anda dapat melakukan sinkronisasi ulang kapan saja dari SiRUP LKPP.
+                Anda dapat melakukan sinkronisasi ulang kapan saja dari tabel RUP Konsel Setara.
               </span>
             </div>
           </div>

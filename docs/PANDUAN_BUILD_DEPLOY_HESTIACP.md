@@ -73,9 +73,9 @@ Untuk kemudahan dan kecepatan, yang Anda upload adalah:
   ├── realisasi/            <-- Halaman realisasi fisik & keuangan
   ├── laporan/              <-- Cetak laporan RFK
   ├── _next/                <-- Bundle JS & CSS statis
-  ├── sekda.jpg             <-- Foto Sekda Konsel
-  ├── bupati.png            <-- Foto Bupati
-  ├── wakil_bupati.png      <-- Foto Wakil Bupati
+  ├── sekda.webp            <-- Foto Sekda Konsel (WebP ringan)
+  ├── bupati.webp           <-- Foto Bupati (WebP ringan)
+  ├── wakil_bupati.webp     <-- Foto Wakil Bupati (WebP ringan)
   └── ...
   ```
 

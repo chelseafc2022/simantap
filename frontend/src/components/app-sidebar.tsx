@@ -50,15 +50,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/dashboard",
           icon: LayoutDashboard,
           isActive: pathname === "/dashboard",
-          colorTheme: {
-            iconBgActive:
-              "bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 text-white shadow-md shadow-blue-500/30",
-            iconBgInactive:
-              "bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover/menu-button:bg-blue-500/20 group-hover/menu-button:scale-105",
-            borderActive: "border-l-blue-600",
-            activeGlow:
-              "bg-gradient-to-r from-blue-500/15 via-blue-500/5 to-transparent",
-          },
         },
       ],
     },
@@ -70,45 +61,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           url: "/pembangunan",
           icon: Briefcase,
           isActive: pathname.startsWith("/pembangunan"),
-          colorTheme: {
-            iconBgActive:
-              "bg-gradient-to-br from-blue-700 via-blue-600 to-sky-400 text-white shadow-md shadow-sky-500/30",
-            iconBgInactive:
-              "bg-sky-500/10 text-sky-600 dark:text-sky-400 group-hover/menu-button:bg-sky-500/20 group-hover/menu-button:scale-105",
-            borderActive: "border-l-sky-500",
-            activeGlow:
-              "bg-gradient-to-r from-sky-500/15 via-sky-500/5 to-transparent",
-          },
         },
         {
           title: "Realisasi Fisik dan Keuangan",
           url: "/realisasi",
           icon: TrendingUp,
           isActive: pathname.startsWith("/realisasi"),
-          colorTheme: {
-            iconBgActive:
-              "bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-400 text-white shadow-md shadow-emerald-500/30",
-            iconBgInactive:
-              "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover/menu-button:bg-emerald-500/20 group-hover/menu-button:scale-105",
-            borderActive: "border-l-emerald-500",
-            activeGlow:
-              "bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent",
-          },
         },
         {
           title: "Laporan & Evaluasi",
           url: "/laporan",
           icon: FileBarChart,
           isActive: pathname.startsWith("/laporan"),
-          colorTheme: {
-            iconBgActive:
-              "bg-gradient-to-br from-amber-600 via-amber-500 to-orange-400 text-white shadow-md shadow-amber-500/30",
-            iconBgInactive:
-              "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover/menu-button:bg-amber-500/20 group-hover/menu-button:scale-105",
-            borderActive: "border-l-amber-500",
-            activeGlow:
-              "bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent",
-          },
         },
       ],
     },
@@ -122,45 +86,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 url: "/users",
                 icon: Users,
                 isActive: pathname.startsWith("/users"),
-                colorTheme: {
-                  iconBgActive:
-                    "bg-gradient-to-br from-purple-700 via-purple-600 to-indigo-400 text-white shadow-md shadow-purple-500/30",
-                  iconBgInactive:
-                    "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover/menu-button:bg-purple-500/20 group-hover/menu-button:scale-105",
-                  borderActive: "border-l-purple-500",
-                  activeGlow:
-                    "bg-gradient-to-r from-purple-500/15 via-purple-500/5 to-transparent",
-                },
               },
               {
                 title: "Kelompok Pengguna",
                 url: "/roles",
                 icon: ShieldCheck,
                 isActive: pathname.startsWith("/roles"),
-                colorTheme: {
-                  iconBgActive:
-                    "bg-gradient-to-br from-indigo-700 via-indigo-600 to-blue-500 text-white shadow-md shadow-indigo-500/30",
-                  iconBgInactive:
-                    "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover/menu-button:bg-indigo-500/20 group-hover/menu-button:scale-105",
-                  borderActive: "border-l-indigo-500",
-                  activeGlow:
-                    "bg-gradient-to-r from-indigo-500/15 via-indigo-500/5 to-transparent",
-                },
               },
               {
                 title: "Jadwal & Batas Waktu",
                 url: "/periode",
                 icon: CalendarClock,
                 isActive: pathname.startsWith("/periode"),
-                colorTheme: {
-                  iconBgActive:
-                    "bg-gradient-to-br from-amber-600 via-orange-600 to-red-500 text-white shadow-md shadow-orange-500/30",
-                  iconBgInactive:
-                    "bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover/menu-button:bg-orange-500/20 group-hover/menu-button:scale-105",
-                  borderActive: "border-l-orange-500",
-                  activeGlow:
-                    "bg-gradient-to-r from-orange-500/15 via-orange-500/5 to-transparent",
-                },
               },
             ],
           },
@@ -194,7 +131,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                className="flex flex-col w-full items-center justify-center gap-1.5 p-1 pr-10 md:pr-1"
              >
                 <Image
-                  src="/monalisa_sidebar.png"
+                  src="/monalisa_sidebar.webp"
                   alt="MONALISA KONSEL"
                   width={768}
                   height={384}
@@ -213,7 +150,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                 <div className="hidden size-8 items-center justify-center rounded-lg bg-white p-0.5 shadow-sm ring-1 ring-black/5 dark:bg-zinc-900 dark:ring-white/10 group-data-[collapsible=icon]:flex">
                   <Image
-                    src="/monalisa_m.png"
+                    src="/monalisa_m.webp"
                     alt="Logo MONALISA KONSEL"
                     width={30}
                     height={27}

@@ -202,7 +202,7 @@ export function RekapEmonevTable({
       totalOpd,
       totalKecamatan,
       grandTotal,
-      logoUrl: new URL("/logo_konsel.png", window.location.origin).href,
+      logoUrl: new URL("/logo_konsel.webp", window.location.origin).href,
     }, { template, scope: printScope })
   }
 

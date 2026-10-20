@@ -9,10 +9,10 @@ export const metadata: Metadata = {
   description: siteConfig.description,
   icons: {
     icon: [
-      { url: '/monalisa_m.png', sizes: 'any', type: 'image/png' },
+      { url: '/monalisa_m.webp', sizes: 'any', type: 'image/webp' },
       { url: '/favicon.ico' },
     ],
-    shortcut: '/monalisa_m.png',
+    shortcut: '/monalisa_m.webp',
     apple: '/apple-icon.png',
   },
 };

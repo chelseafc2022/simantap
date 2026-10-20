@@ -31,4 +31,10 @@ export const validationSchema = Joi.object({
   EGOV_MYSQL_PASSWORD: Joi.string().allow('', null).optional(),
   EGOV_MYSQL_PORT: Joi.number().default(3306),
   EGOV_MYSQL_LIMIT: Joi.number().default(20),
+
+  KONSEL_SETARA_MYSQL_DATABASE: Joi.string().default('konsel_setara'),
+  KONSEL_SETARA_MYSQL_HOST: Joi.string().allow('', null).optional(),
+  KONSEL_SETARA_MYSQL_USER: Joi.string().allow('', null).optional(),
+  KONSEL_SETARA_MYSQL_PASSWORD: Joi.string().allow('', null).optional(),
+  KONSEL_SETARA_MYSQL_PORT: Joi.number().allow('', null).optional(),
 });

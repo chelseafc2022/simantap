@@ -1,28 +1,32 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { apiClient } from "@/lib/api-client"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, FileCheck,
+  FileClock, FileX, Image as ImageIcon, Loader2, Save, Send,
+  TrendingUp, Upload, X,
+} from "lucide-react"
+import {
+  CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
+  Tooltip, XAxis, YAxis,
+} from "recharts"
+import { toast } from "sonner"
+
+import { apiClient } from "@/lib/api-client"
+import { formatContractDate } from "@/lib/contract-weeks"
+import { useAuth } from "@/hooks/use-auth"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import {
-  Loader2, Calendar, CheckCircle2, AlertTriangle, AlertCircle,
-  UserCheck, Save, Upload, X, Image, Send, Lock, RotateCcw,
-  FileCheck, FileClock, FileX,
-} from "lucide-react"
-import { toast } from "sonner"
-import { useAuth } from "@/hooks/use-auth"
 
 export const BULAN_LIST = [
   { no: 1, nama: "Januari", singkatan: "B01" },
@@ -53,1038 +57,739 @@ interface BuktiFisikItem {
   mimeType?: string
   ukuranBytes?: number
   deskripsi?: string
-  uploadOleh?: { namaLengkap: string; nip?: string } | null
-  createdAt?: string
 }
 
-interface MonthItemState {
+interface WeeklyItem {
+  id: string
   bulan: number
+  mingguKe: number
+  tanggalMulai: string
+  tanggalSelesai: string
+  uraianKegiatan: string
   targetFisik: number
   realisasiFisik: string
   realisasiKeuangan: string
   catatanOperator: string
-  inputBy?: { namaLengkap: string; nip?: string } | null
-  updatedAt?: string | null
-  statusVerifikasi?: "DRAFT" | "DIAJUKAN" | "TERVERIFIKASI" | "DITOLAK"
+  statusVerifikasi: "DRAFT" | "DIAJUKAN" | "TERVERIFIKASI" | "DITOLAK"
   catatanVerifikasi?: string | null
-  verifikasiOleh?: { namaLengkap: string } | null
-  verifikasiAt?: string | null
-  diajukanAt?: string | null
-  buktiFisik?: BuktiFisikItem[]
+  buktiFisik: BuktiFisikItem[]
 }
 
-// Format bytes
+type ServerWeeklyItem = Omit<WeeklyItem, "realisasiFisik" | "realisasiKeuangan"> & {
+  realisasiFisik: number
+  realisasiKeuangan: number
+}
+
+interface LockingPeriodItem {
+  bulan: number
+  isEffectiveLocked?: boolean
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  const value = error as {
+    message?: string
+    response?: { data?: { message?: string } }
+  }
+  return value.response?.data?.message || value.message || fallback
+}
+
+const API_STORAGE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1")
+  .replace(/\/api\/v1\/?$/, "")
+
+const formatRupiah = (value: number | string | undefined) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency", currency: "IDR", maximumFractionDigits: 0,
+  }).format(Number(value) || 0)
+
 const formatBytes = (bytes?: number) => {
   if (!bytes) return ""
-  if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-const API_STORAGE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/api\/v1\/?$/, "")
+const getContractDuration = (start?: string | null, end?: string | null) => {
+  if (!start || !end) return null
+  const startTime = new Date(start).getTime()
+  const endTime = new Date(end).getTime()
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime < startTime) {
+    return null
+  }
+  return Math.floor((endTime - startTime) / 86_400_000) + 1
+}
 
 export function InputRealisasiDialog({
   open, onOpenChange, paketId, activeBulan,
 }: InputRealisasiDialogProps) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const userRoles: string[] =
-    user?.roles && user.roles.length > 0
-      ? user.roles
-      : user?.role
-      ? [user.role]
-      : []
-
-  const isAdmin = userRoles.includes("ADMINISTRATOR")
-
-  // Field-level permission flags (mendukung multi-role)
-  const canEditFisik = userRoles.some((r) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(r))
-  const canEditKeuangan = userRoles.some((r) => ["ADMINISTRATOR", "BENDAHARA"].includes(r))
-  const canAjukan = userRoles.some((r) => ["ADMINISTRATOR", "ADMIN_PPK", "BENDAHARA"].includes(r))
-  const canUploadFoto = userRoles.some((r) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(r))
-  const canVerifikasi = userRoles.some((r) => ["ADMINISTRATOR", "MONEV"].includes(r))
+  const roles: string[] = user?.roles?.length ? user.roles : user?.role ? [user.role] : []
+  const isAdmin = roles.includes("ADMINISTRATOR")
+  const canEditFisik = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
+  const canEditKeuangan = roles.some((role) => ["ADMINISTRATOR", "BENDAHARA"].includes(role))
+  const canUploadFoto = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
+  const canAjukan = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK", "BENDAHARA"].includes(role))
+  const canVerifikasi = roles.some((role) => ["ADMINISTRATOR", "MONEV"].includes(role))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [selectedBulan, setSelectedBulan] = useState<number>(activeBulan || 1)
+  const [weeklyState, setWeeklyState] = useState<WeeklyItem[]>([])
+  const [selectedBulan, setSelectedBulan] = useState(activeBulan)
+  const [selectedMinggu, setSelectedMinggu] = useState(1)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [deskripsiFile, setDeskripsiFile] = useState("")
+  const [showTolakInput, setShowTolakInput] = useState(false)
+  const [alasanTolak, setAlasanTolak] = useState("")
 
-  const [timelineState, setTimelineState] = useState<MonthItemState[]>(
-    Array.from({ length: 12 }, (_, i) => ({
-      bulan: i + 1,
-      targetFisik: 0,
-      realisasiFisik: "0",
-      realisasiKeuangan: "0",
-      catatanOperator: "",
-      statusVerifikasi: "DRAFT" as const,
-      buktiFisik: [],
-    }))
-  )
-
-  // Fetch package details + 12 month realisasi
   const { data: detailData, isLoading } = useQuery({
     queryKey: ["paket-realisasi-detail", paketId],
     queryFn: async () => {
       if (!paketId) return null
-      const res = await apiClient.get(`/pembangunan/${paketId}/realisasi`)
-      return res.data?.data || null
+      const response = await apiClient.get(`/pembangunan/${paketId}/realisasi`)
+      return response.data?.data || null
     },
-    enabled: !!paketId && open,
+    enabled: open && !!paketId,
   })
 
-  // Fetch locking periods (cut-off deadline)
-  const { data: lockingPeriods = [] } = useQuery<any[]>({
+  const { data: lockingPeriods = [] } = useQuery<LockingPeriodItem[]>({
     queryKey: ["locking-periods", detailData?.paket?.tahunAnggaran || 2026],
     queryFn: async () => {
-      const yr = detailData?.paket?.tahunAnggaran || 2026
-      const res = await apiClient.get(`/pembangunan/periode?tahun=${yr}`)
-      return res.data?.data || []
+      const response = await apiClient.get("/pembangunan/periode", {
+        params: { tahun: detailData?.paket?.tahunAnggaran || 2026 },
+      })
+      return response.data?.data || []
     },
     enabled: open,
   })
 
-  // Sync server data to local form state with auto-carry forward (Skenario A)
   useEffect(() => {
-    if (detailData?.timeline) {
-      // Cari bulan pertama yang fisik sudah 100%
-      const first100Item = detailData.timeline.find(
-        (item: any) => Number(item.realisasiFisik) === 100
-      )
-      const first100Bulan = first100Item ? Number(first100Item.bulan) : null
-      const first100Keuangan = first100Item ? String(first100Item.realisasiKeuangan || "0") : "0"
+    const rows: ServerWeeklyItem[] = detailData?.weeklyTimeline || []
+    // Data formulir lokal perlu disegarkan saat paket/dialog yang dipilih berubah.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWeeklyState(rows.map((item) => ({
+      ...item,
+      realisasiFisik: String(item.realisasiFisik || 0),
+      realisasiKeuangan: String(item.realisasiKeuangan || 0),
+      catatanOperator: item.catatanOperator || "",
+      buktiFisik: item.buktiFisik || [],
+    })))
 
-      const updated = Array.from({ length: 12 }, (_, idx) => {
-        const b = idx + 1
-        const t = detailData.timeline.find((item: any) => item.bulan === b)
-
-        let rFisik = t?.realisasiFisik !== undefined ? String(t.realisasiFisik) : "0"
-        let rKeuangan = t?.realisasiKeuangan !== undefined ? String(t.realisasiKeuangan) : "0"
-
-        // Jika bulan sebelumnya sudah 100% dan bulan ini belum TERVERIFIKASI:
-        // Fisik otomatis 100%, dan keuangan hanya sebesar dana riil yang cair s/d bulan tersebut (bukan nilai kontrak)
-        if (
-          first100Bulan !== null &&
-          b > first100Bulan &&
-          t?.statusVerifikasi !== "TERVERIFIKASI"
-        ) {
-          rFisik = "100"
-          rKeuangan = first100Keuangan
-        }
-
-        return {
-          bulan: b,
-          targetFisik: t?.targetFisik ?? 0,
-          realisasiFisik: rFisik,
-          realisasiKeuangan: rKeuangan,
-          catatanOperator: t?.catatanOperator || "",
-          inputBy: t?.inputBy || null,
-          updatedAt: t?.updatedAt || null,
-          statusVerifikasi: t?.statusVerifikasi || "DRAFT",
-          catatanVerifikasi: t?.catatanVerifikasi || null,
-          verifikasiOleh: t?.verifikasiOleh || null,
-          verifikasiAt: t?.verifikasiAt || null,
-          diajukanAt: t?.diajukanAt || null,
-          buktiFisik: t?.buktiFisik || [],
-        }
-      })
-      setTimelineState(updated)
+    const months: number[] = detailData?.availableMonths || []
+    if (months.length > 0) {
+      const preferred = months.includes(activeBulan)
+        ? activeBulan
+        : months.find((month) => month >= activeBulan) || months.at(-1) || months[0]
+      setSelectedBulan(preferred)
+      setSelectedMinggu(rows.find((item) => item.bulan === preferred)?.mingguKe || 1)
     }
-    if (activeBulan >= 1 && activeBulan <= 12) setSelectedBulan(activeBulan)
   }, [detailData, activeBulan, open])
 
+  const availableMonths = useMemo(
+    () => Array.from(new Set(weeklyState.map((item) => item.bulan))).sort((a, b) => a - b),
+    [weeklyState]
+  )
+  const visibleWeeks = weeklyState.filter((item) => item.bulan === selectedBulan)
+  const current = weeklyState.find(
+    (item) => item.bulan === selectedBulan && item.mingguKe === selectedMinggu
+  )
   const paket = detailData?.paket
-  const nilaiKontrak = paket?.nilaiKontrak || 0
-  const nilaiPagu = paket?.nilaiPagu || 0
-  const isBelumBerkontrak = Number(nilaiKontrak) <= 0
-
-  const formatRupiah = (val: number | string | undefined | null) => {
-    const num = typeof val === "string" ? parseFloat(val) : val || 0
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(num)
-  }
-
-  const currentMonthData = timelineState[selectedBulan - 1] || {
-    bulan: selectedBulan, targetFisik: 0, realisasiFisik: "0", realisasiKeuangan: "0",
-    catatanOperator: "", statusVerifikasi: "DRAFT", buktiFisik: [],
-  }
-
-  const currentFisikNum = parseFloat(currentMonthData.realisasiFisik) || 0
-  const currentTargetNum = currentMonthData.targetFisik || 0
-  const currentDeviasiNum = parseFloat((currentFisikNum - currentTargetNum).toFixed(2))
-  const currentKeuanganNum = parseFloat(currentMonthData.realisasiKeuangan) || 0
-  const currentPersenKeuangan = nilaiKontrak > 0
-    ? parseFloat(((currentKeuanganNum / nilaiKontrak) * 100).toFixed(2)) : 0
-  const isLocked = currentMonthData.statusVerifikasi === "TERVERIFIKASI"
-  const isDiajukan = currentMonthData.statusVerifikasi === "DIAJUKAN"
-  const isDitolak = currentMonthData.statusVerifikasi === "DITOLAK"
-
-  const currentLockPeriod = lockingPeriods.find((p: any) => p.bulan === selectedBulan)
-  const isCutoffExpired = currentLockPeriod?.isExpired || false
-  const isCutoffLocked = currentLockPeriod?.isEffectiveLocked || false
-  const isPeriodLocked = !isAdmin && isCutoffLocked
+  const nilaiKontrak = Number(paket?.nilaiKontrak || 0)
+  const durasiPelaksanaan = getContractDuration(
+    paket?.tanggalMulai,
+    paket?.tanggalSelesai
+  )
+  const currentFisik = Number(current?.realisasiFisik || 0)
+  const currentTarget = Number(current?.targetFisik || 0)
+  const currentKeuangan = Number(current?.realisasiKeuangan || 0)
+  const currentDeviasi = Number((currentFisik - currentTarget).toFixed(2))
+  const currentSerapan = nilaiKontrak > 0
+    ? Number(((currentKeuangan / nilaiKontrak) * 100).toFixed(2)) : 0
+  const monthStatus = current?.statusVerifikasi || "DRAFT"
+  const isLocked = monthStatus === "TERVERIFIKASI"
+  const isDiajukan = monthStatus === "DIAJUKAN"
+  const lockPeriod = lockingPeriods.find((item) => item.bulan === selectedBulan)
+  const isPeriodLocked = !isAdmin && !!lockPeriod?.isEffectiveLocked
   const isFormDisabled = isLocked || isDiajukan || isPeriodLocked
 
-  const getStatusBadge = (deviasi: number, target: number, realisasi: number) => {
-    if (target === 0 && realisasi === 0) return (
-      <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">Belum Mulai</Badge>
+  const updateCurrent = (changes: Partial<WeeklyItem>) => {
+    setWeeklyState((rows) => rows.map((item) =>
+      item.bulan === selectedBulan && item.mingguKe === selectedMinggu
+        ? { ...item, ...changes } : item
+    ))
+  }
+
+  const invalidateData = () => {
+    queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
+    queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
+    queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
+    queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] })
+    queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
+    queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
+    queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
+    queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
+  }
+
+  const uploadFiles = async () => {
+    if (!paketId || !current || pendingFiles.length === 0) return
+    const formData = new FormData()
+    pendingFiles.forEach((file) => formData.append("files", file))
+    if (deskripsiFile.trim()) formData.append("deskripsi", deskripsiFile.trim())
+    await apiClient.post(
+      `/pembangunan/${paketId}/realisasi/${current.bulan}/${current.mingguKe}/bukti`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
     )
-    if (deviasi >= 0) return (
-      <Badge className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-        <CheckCircle2 className="h-3 w-3 mr-1" />Aman ({deviasi > 0 ? `+${deviasi}` : deviasi}%)
-      </Badge>
-    )
-    if (deviasi >= -10) return (
-      <Badge className="text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
-        <AlertTriangle className="h-3 w-3 mr-1" />Perhatian ({deviasi}%)
-      </Badge>
-    )
-    return (
-      <Badge className="text-xs bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30">
-        <AlertCircle className="h-3 w-3 mr-1" />Kontrak Kritis ({deviasi}%)
-      </Badge>
-    )
+    setPendingFiles([])
+    setDeskripsiFile("")
   }
 
-  const getVerifikasiBadge = (status?: string) => {
-    switch (status) {
-      case "TERVERIFIKASI": return (
-        <Badge className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-          <FileCheck className="h-3 w-3 mr-1" />Terverifikasi MONEV
-        </Badge>
-      )
-      case "DIAJUKAN": return (
-        <Badge className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30">
-          <FileClock className="h-3 w-3 mr-1" />Menunggu Verifikasi
-        </Badge>
-      )
-      case "DITOLAK": return (
-        <Badge className="text-xs bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30">
-          <FileX className="h-3 w-3 mr-1" />Ditolak MONEV
-        </Badge>
-      )
-      default: return (
-        <Badge variant="outline" className="text-xs text-muted-foreground">
-          Draft
-        </Badge>
-      )
-    }
-  }
-
-  // Handlers with auto-carry forward
-  const handleFisikChange = (val: string) => {
-    if (!canEditFisik || isFormDisabled) return
-    const num = Math.min(100, Math.max(0, parseFloat(val) || 0))
-    setTimelineState((prev) => {
-      const next = [...prev]
-      next[selectedBulan - 1] = { ...next[selectedBulan - 1], realisasiFisik: val === "" ? "" : String(num) }
-
-      // Otomatisasi HANYA AKTIF jika dan hanya jika fisik sudah mencapai 100% (num === 100)
-      if (num === 100) {
-        const curKeu = next[selectedBulan - 1].realisasiKeuangan || "0"
-        for (let i = selectedBulan; i < 12; i++) {
-          const item = next[i]
-          if (item.statusVerifikasi !== "TERVERIFIKASI") {
-            next[i] = {
-              ...item,
-              realisasiFisik: "100",
-              realisasiKeuangan: curKeu,
-            }
-          }
-        }
-      } else {
-        // Jika belum 100% (misal 40%), periksa apakah ada bulan sebelumnya yang 100%
-        const hasPrev100 = next.slice(0, selectedBulan - 1).some((item) => parseFloat(item.realisasiFisik) === 100)
-        if (!hasPrev100) {
-          // Jika tidak ada bulan sebelumnya yang 100%, bulan-bulan berikutnya tetap kosong / strip ("0")
-          for (let i = selectedBulan; i < 12; i++) {
-            const item = next[i]
-            if (item.statusVerifikasi !== "TERVERIFIKASI") {
-              // Jika sebelumnya terisi otomatis 100%, kembalikan ke "0"
-              if (item.realisasiFisik === "100") {
-                next[i] = {
-                  ...item,
-                  realisasiFisik: "0",
-                  realisasiKeuangan: "0",
-                }
-              }
-            }
-          }
-        }
-      }
-      return next
-    })
-  }
-
-  const handleKeuanganChange = (val: string) => {
-    if (!canEditKeuangan || isFormDisabled) return
-    const clean = val.replace(/\D/g, "")
-    const num = Math.max(0, parseInt(clean) || 0)
-    setTimelineState((prev) => {
-      const next = [...prev]
-      next[selectedBulan - 1] = { ...next[selectedBulan - 1], realisasiKeuangan: String(num) }
-
-      // Otomatisasi keuangan ke bulan berikutnya HANYA AKTIF jika fisik di bulan ini sudah 100%
-      const isFisik100 = parseFloat(next[selectedBulan - 1].realisasiFisik) === 100
-      if (isFisik100) {
-        for (let i = selectedBulan; i < 12; i++) {
-          const item = next[i]
-          if (item.statusVerifikasi !== "TERVERIFIKASI") {
-            next[i] = {
-              ...item,
-              realisasiKeuangan: String(num),
-            }
-          }
-        }
-      }
-      return next
-    })
-  }
-
-  const handleCatatanChange = (val: string) => {
-    if (isFormDisabled) return
-    setTimelineState((prev) => {
-      const next = [...prev]
-      next[selectedBulan - 1] = { ...next[selectedBulan - 1], catatanOperator: val }
-      return next
-    })
-  }
-
-  // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!paketId) throw new Error("Paket ID tidak valid")
-
-      const curFisik = parseFloat(currentMonthData.realisasiFisik) || 0
-      const existingBukti = currentMonthData.buktiFisik?.length || 0
-      const hasBukti = existingBukti > 0 || pendingFiles.length > 0
-
-      if (curFisik > 0 && !hasBukti) {
-        throw new Error(
-          `Realisasi fisik Bulan ${BULAN_LIST[selectedBulan - 1]?.nama || selectedBulan} diisi ${curFisik}%. Wajib mengunggah minimal 1 foto bukti fisik lapangan sebelum menyimpan.`
-        )
+      if (!paketId || !current) throw new Error("Periode minggu tidak valid")
+      if (currentFisik > 0 && current.buktiFisik.length === 0 && pendingFiles.length === 0) {
+        throw new Error("Realisasi fisik wajib disertai minimal satu foto bukti pada minggu ini")
       }
-
-      // Jika ada file foto yang sudah dipilih namun belum di-upload manual, upload otomatis saat simpan
-      if (pendingFiles.length > 0) {
-        const formData = new FormData()
-        pendingFiles.forEach((f) => formData.append("files", f))
-        if (deskripsiFile) formData.append("deskripsi", deskripsiFile)
-        await apiClient.post(`/pembangunan/${paketId}/realisasi/${selectedBulan}/bukti`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        })
-        setPendingFiles([])
-        setDeskripsiFile("")
-      }
-
-      const payload = {
-        items: timelineState
-          .filter((item) => {
-            const existing = detailData?.timeline?.find((t: any) => t.bulan === item.bulan)
-            const existingStatus = existing?.statusVerifikasi
-            return existingStatus !== "TERVERIFIKASI"
-          })
-          .map((item) => ({
-            bulan: item.bulan,
-            realisasiFisik: parseFloat(item.realisasiFisik) || 0,
-            realisasiKeuangan: parseFloat(item.realisasiKeuangan) || 0,
-            catatanOperator: item.catatanOperator.trim() || undefined,
-          })),
-      }
-      return apiClient.put(`/pembangunan/${paketId}/realisasi/bulk`, payload)
-    },
-    onSuccess: () => {
-      toast.success("Data realisasi fisik & keuangan bulanan berhasil disimpan")
-      queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-      queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
-      onOpenChange(false)
-    },
-    onError: (err: any) => {
-      const msg = err.response?.data?.message || err.message || "Gagal menyimpan realisasi"
-      toast.error(msg)
-    },
-  })
-
-  // Ajukan mutation
-  const ajukanMutation = useMutation({
-    mutationFn: async () => {
-      if (!paketId) throw new Error("Paket ID tidak valid")
-
-      const curFisik = parseFloat(currentMonthData.realisasiFisik) || 0
-      const existingBukti = currentMonthData.buktiFisik?.length || 0
-      if (curFisik > 0 && existingBukti === 0) {
-        throw new Error(
-          `Realisasi fisik Bulan ${BULAN_LIST[selectedBulan - 1]?.nama || selectedBulan} diisi ${curFisik}%. Wajib mengunggah minimal 1 foto bukti fisik lapangan sebelum diajukan ke MONEV.`
-        )
-      }
-
-      return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/ajukan`)
-    },
-    onSuccess: (res) => {
-      toast.success(res.data?.data?.message || `Realisasi Bulan ${selectedBulan} berhasil diajukan ke MONEV`)
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-      queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || err.message || "Gagal mengajukan realisasi")
-    },
-  })
-
-  // ACC mutation (MONEV)
-  const accMutation = useMutation({
-    mutationFn: async () => {
-      return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/acc`, {
-        catatanVerifikasi: "Terverifikasi sesuai kondisi lapangan",
+      if (pendingFiles.length > 0) await uploadFiles()
+      return apiClient.put(`/pembangunan/${paketId}/realisasi-mingguan`, {
+        bulan: current.bulan,
+        mingguKe: current.mingguKe,
+        ...(canEditFisik ? { uraianKegiatan: current.uraianKegiatan } : {}),
+        realisasiFisik: currentFisik,
+        realisasiKeuangan: currentKeuangan,
+        catatanOperator: current.catatanOperator.trim() || undefined,
       })
     },
     onSuccess: () => {
-      toast.success(`Realisasi Bulan ${selectedBulan} berhasil di-ACC. Data terkunci.`)
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-      queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
+      toast.success(`Realisasi B${String(selectedBulan).padStart(2, "0")} Minggu ${selectedMinggu} berhasil disimpan`)
+      invalidateData()
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Gagal ACC realisasi"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menyimpan realisasi")),
   })
 
-  // Tolak mutation (MONEV)
-  const [alasanTolak, setAlasanTolak] = useState("")
-  const [showTolakInput, setShowTolakInput] = useState(false)
-  const tolakMutation = useMutation({
+  const uploadMutation = useMutation({
+    mutationFn: uploadFiles,
+    onSuccess: () => {
+      toast.success("Bukti fisik mingguan berhasil diunggah")
+      invalidateData()
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal mengunggah bukti")),
+  })
+
+  const deleteBuktiMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/pembangunan/bukti/${id}`),
+    onSuccess: () => {
+      toast.success("Bukti fisik berhasil dihapus")
+      invalidateData()
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menghapus bukti")),
+  })
+
+  const ajukanMutation = useMutation({
     mutationFn: async () => {
+      if (!paketId) throw new Error("Paket tidak valid")
+      return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/ajukan`)
+    },
+    onSuccess: () => {
+      toast.success(`Rekap Bulan ${BULAN_LIST[selectedBulan - 1].nama} diajukan ke MONEV`)
+      invalidateData()
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal mengajukan realisasi")),
+  })
+
+  const accMutation = useMutation({
+    mutationFn: () => apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/acc`, {
+      catatanVerifikasi: "Terverifikasi sesuai laporan progres mingguan",
+    }),
+    onSuccess: () => {
+      toast.success("Rekap bulanan berhasil diverifikasi")
+      invalidateData()
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal memverifikasi")),
+  })
+
+  const tolakMutation = useMutation({
+    mutationFn: () => {
       if (!alasanTolak.trim()) throw new Error("Alasan penolakan wajib diisi")
       return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/tolak`, {
         catatanVerifikasi: alasanTolak.trim(),
       })
     },
     onSuccess: () => {
-      toast.success(`Realisasi Bulan ${selectedBulan} ditolak dan dikembalikan ke PPK`)
-      setAlasanTolak("")
+      toast.success("Rekap bulanan dikembalikan untuk diperbaiki")
       setShowTolakInput(false)
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-      queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
-      queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
-      queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
+      setAlasanTolak("")
+      invalidateData()
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Gagal menolak realisasi"),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menolak realisasi")),
   })
 
-  // Upload bukti fisik mutation
-  const uploadMutation = useMutation({
-    mutationFn: async () => {
-      if (!paketId || pendingFiles.length === 0) throw new Error("Tidak ada file")
-      const formData = new FormData()
-      pendingFiles.forEach((f) => formData.append("files", f))
-      if (deskripsiFile) formData.append("deskripsi", deskripsiFile)
-      return apiClient.post(`/pembangunan/${paketId}/realisasi/${selectedBulan}/bukti`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      })
-    },
-    onSuccess: (res) => {
-      toast.success(res.data?.data?.message || "Foto bukti fisik berhasil diupload")
-      setPendingFiles([])
-      setDeskripsiFile("")
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-    },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Gagal upload foto"),
-  })
-
-  // Delete bukti fisik
-  const deleteBuktiMutation = useMutation({
-    mutationFn: async (buktiFisikId: string) => {
-      return apiClient.delete(`/pembangunan/bukti/${buktiFisikId}`)
-    },
-    onSuccess: () => {
-      toast.success("Bukti fisik berhasil dihapus")
-      queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-    },
-    onError: (err: any) => toast.error(err.response?.data?.message || "Gagal menghapus bukti"),
-  })
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const existingCount = currentMonthData.buktiFisik?.length || 0
-    const total = existingCount + pendingFiles.length + files.length
-    if (total > 5) {
-      toast.error(`Batas maksimal 5 foto. Saat ini sudah ada ${existingCount} foto.`)
-      return
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(event.target.files || [])
+    const available = Math.max(
+      0, 5 - (current?.buktiFisik.length || 0) - pendingFiles.length
+    )
+    if (selected.length > available) {
+      toast.warning(`Maksimal 5 bukti per minggu. Hanya ${available} file yang dapat ditambahkan.`)
     }
-    setPendingFiles((prev) => [...prev, ...files])
-    if (fileInputRef.current) fileInputRef.current.value = ""
+    setPendingFiles((files) => [...files, ...selected.slice(0, available)])
+    event.target.value = ""
   }
 
-  const buktiFisikList = currentMonthData.buktiFisik || []
-  const totalBukti = buktiFisikList.length + pendingFiles.length
+  const chartData = weeklyState.map((item) => ({
+    label: `${BULAN_LIST[item.bulan - 1].singkatan}-M${item.mingguKe}`,
+    target: Number(item.targetFisik || 0),
+    realisasi: Number(item.realisasiFisik || 0),
+  }))
+
+  const performanceBadge = currentTarget === 0 && currentFisik === 0 ? (
+    <Badge variant="outline">Belum Mulai</Badge>
+  ) : currentDeviasi >= 0 ? (
+    <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">
+      <CheckCircle2 className="mr-1 h-3 w-3" />Aman (+{currentDeviasi}%)
+    </Badge>
+  ) : currentDeviasi >= -10 ? (
+    <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-700">
+      <AlertTriangle className="mr-1 h-3 w-3" />Perhatian ({currentDeviasi}%)
+    </Badge>
+  ) : (
+    <Badge className="border-red-500/30 bg-red-500/10 text-red-700">
+      <AlertCircle className="mr-1 h-3 w-3" />Kritis ({currentDeviasi}%)
+    </Badge>
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl lg:max-w-5xl xl:max-w-6xl w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden shadow-2xl border-border/80">
-        {/* Header */}
-        <DialogHeader className="p-6 pb-4 border-b bg-gradient-to-r from-card via-card to-muted/20 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="font-mono text-xs">TA {paket?.tahunAnggaran || 2026}</Badge>
-                {paket?.opd && (
-                  <Badge variant="secondary" className="text-xs">{paket.opd.singkatan || paket.opd.namaOpd}</Badge>
-                )}
-                {paket?.subUnit && (
-                  <Badge variant="outline" className="text-xs text-muted-foreground">{paket.subUnit.namaSubUnit}</Badge>
-                )}
-              </div>
-              <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight mt-1 text-foreground">
-                {paket?.namaPaket || "Memuat paket..."}
-              </DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm mt-0.5 text-muted-foreground flex items-center gap-2 flex-wrap">
-                <span>Pagu:</span>
-                <span className="font-mono font-semibold text-foreground">{formatRupiah(nilaiPagu)}</span>
-                <span className="text-muted-foreground/60">•</span>
-                <span>Nilai Kontrak:</span>
-                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{formatRupiah(nilaiKontrak)}</span>
-                <span className="text-muted-foreground/60">•</span>
-                <span>Rekanan: {paket?.pemenangRekanan || "-"}</span>
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
-              {getStatusBadge(currentDeviasiNum, currentTargetNum, currentFisikNum)}
-              {getVerifikasiBadge(currentMonthData.statusVerifikasi)}
-              {isLocked && <Lock className="h-4 w-4 text-amber-500" />}
-            </div>
-          </div>
+      <DialogContent className="flex max-h-[94vh] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] sm:max-w-[92vw] 2xl:w-[1400px] 2xl:max-w-[1400px]">
+        <DialogHeader className="border-b p-5">
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <CalendarDays className="h-5 w-5 text-emerald-600" />Realisasi Progres Mingguan
+          </DialogTitle>
+          <DialogDescription>
+            {paket?.namaPaket || "Memuat paket..."} · Rekap minggu terakhir tiap bulan otomatis masuk ke laporan TEPRA.
+          </DialogDescription>
         </DialogHeader>
 
-        {/* Month Selector Tabs */}
-        <div className="px-6 py-2.5 border-b bg-muted/20 shrink-0 overflow-x-auto">
-          <div className="flex items-center gap-1.5 min-w-max">
-            {BULAN_LIST.map((b) => {
-              const item = timelineState[b.no - 1]
-              const hasData = parseFloat(item?.realisasiFisik || "0") > 0 || parseFloat(item?.realisasiKeuangan || "0") > 0
-              const isActive = selectedBulan === b.no
-              const sv = item?.statusVerifikasi
-              const dotColor = sv === "TERVERIFIKASI" ? "bg-emerald-500" : sv === "DIAJUKAN" ? "bg-blue-500" : sv === "DITOLAK" ? "bg-red-500" : "bg-muted-foreground/50"
-              return (
-                <button
-                  key={b.no}
-                  type="button"
-                  onClick={() => { setSelectedBulan(b.no); setShowTolakInput(false) }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
-                    isActive
-                      ? "bg-primary text-primary-foreground shadow-xs font-semibold"
-                      : "bg-background/80 hover:bg-muted text-muted-foreground hover:text-foreground border"
-                  }`}
-                >
-                  <span>{b.singkatan}</span>
-                  <span className="text-[11px] opacity-80">({b.nama.slice(0, 3)})</span>
-                  {hasData && <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-white" : dotColor}`} />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-5">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-              <span className="text-xs text-muted-foreground">Memuat data realisasi bulanan...</span>
+            <div className="flex min-h-64 items-center justify-center">
+              <Loader2 className="h-7 w-7 animate-spin text-emerald-600" />
             </div>
-          ) : (
+          ) : weeklyState.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-10 text-center">
+              <AlertCircle className="mx-auto mb-3 h-8 w-8 text-amber-500" />
+              <p className="font-semibold">Target mingguan belum tersedia</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Admin Perencanaan perlu menetapkan target mingguan berdasarkan tanggal kontrak terlebih dahulu.
+              </p>
+            </div>
+          ) : current ? (
             <div className="space-y-5">
-              {/* Cut-off deadline alert */}
-              {isCutoffLocked && (
-                <div
-                  className={`rounded-lg border p-3 flex items-start gap-2.5 text-xs ${
-                    isPeriodLocked
-                      ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
-                      : "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400"
-                  }`}
-                >
-                  <Lock className="h-4 w-4 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">
-                      {isPeriodLocked
-                        ? `Periode Input Ditutup: Bulan ${selectedBulan} (${BULAN_LIST[selectedBulan - 1]?.nama})`
-                        : `Batas Waktu Ditutup untuk OPD (Mode Administrator)`}
+              <div className="grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 xl:grid-cols-4">
+                <div className="min-w-0 bg-background p-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Pemenang Tender/Rekanan
+                  </p>
+                  <p className="mt-1 truncate text-sm font-semibold" title={paket?.pemenangRekanan || "-"}>
+                    {paket?.pemenangRekanan || "Belum diisi"}
+                  </p>
+                </div>
+                <div className="min-w-0 bg-background p-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Nilai Kontrak
+                  </p>
+                  <p className="mt-1 truncate font-mono text-sm font-bold text-emerald-600">
+                    {formatRupiah(nilaiKontrak)}
+                  </p>
+                </div>
+                <div className="min-w-0 bg-background p-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Periode Pelaksanaan
+                  </p>
+                  <p className="mt-1 text-xs font-medium leading-5">
+                    {paket?.tanggalMulai && paket?.tanggalSelesai
+                      ? `${formatContractDate(paket.tanggalMulai)} – ${formatContractDate(paket.tanggalSelesai)}`
+                      : "Belum ditentukan"}
+                  </p>
+                </div>
+                <div className="min-w-0 bg-background p-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Total Waktu Pelaksanaan
+                  </p>
+                  <p className="mt-1 text-sm font-bold">
+                    {durasiPelaksanaan ? `${durasiPelaksanaan} hari kalender` : "Belum ditentukan"}
+                  </p>
+                  {paket?.nomorKontrak && (
+                    <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={paket.nomorKontrak}>
+                      Kontrak: {paket.nomorKontrak}
                     </p>
-                    <p className="mt-0.5 opacity-90">
-                      Batas akhir input realisasi:{" "}
-                      <span className="font-mono font-medium">
-                        {currentLockPeriod?.batasInput
-                          ? new Intl.DateTimeFormat("id-ID", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }).format(new Date(currentLockPeriod.batasInput))
-                          : "-"}
-                      </span>
-                      .{" "}
-                      {isPeriodLocked
-                        ? "Formulir saat ini terkunci bagi OPD. Hubungi Administrator untuk permohonan pembukaan kunci."
-                        : "Sebagai Administrator, Anda tetap diizinkan menginput data atau mengubah jadwal batas waktu pada menu Periode."}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Status lock / ditolak alert */}
-              {isLocked && (
-                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3 flex items-start gap-2.5">
-                  <FileCheck className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-semibold text-emerald-700 dark:text-emerald-400">Data Bulan ini Sudah Terverifikasi & Terkunci</p>
-                    <p className="text-emerald-600/80 dark:text-emerald-500 mt-0.5">
-                      Diverifikasi oleh {currentMonthData.verifikasiOleh?.namaLengkap || "MONEV"}.
-                      {currentMonthData.catatanVerifikasi && ` Catatan: ${currentMonthData.catatanVerifikasi}`}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {isDiajukan && (
-                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3 flex items-start gap-2.5">
-                  <FileClock className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-semibold text-blue-700 dark:text-blue-400">Menunggu Verifikasi MONEV</p>
-                    <p className="text-blue-600/80 dark:text-blue-500 mt-0.5">Data sudah diajukan ke tim MONEV. Tidak dapat diubah sampai diverifikasi.</p>
-                  </div>
-                </div>
-              )}
-              {isDitolak && (
-                <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 flex items-start gap-2.5">
-                  <FileX className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                  <div className="text-xs">
-                    <p className="font-semibold text-red-700 dark:text-red-400">Data Ditolak oleh MONEV — Harap Diperbaiki</p>
-                    {currentMonthData.catatanVerifikasi && (
-                      <p className="text-red-600/80 dark:text-red-500 mt-0.5">Alasan: <span className="font-medium">{currentMonthData.catatanVerifikasi}</span></p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Banner Peringatan Paket Belum Berkontrak (Standar Pengadaan Barang & Jasa) */}
-              {isBelumBerkontrak && (
-                <div className="rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50/90 dark:bg-amber-950/30 p-4 flex items-start gap-3 shadow-xs">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                  <div className="text-xs space-y-1">
-                    <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
-                      Perhatian: Paket Pekerjaan Belum Berkontrak
-                    </p>
-                    <p className="text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                      Paket ini belum memiliki <strong>Nilai Kontrak</strong> atau nomor SPK yang sah. 
-                      Sesuai tata kelola pengadaan barang dan jasa, persentase serapan anggaran (SP2D) dan progres fisik lapangan baru dapat dihitung secara akurat setelah data kontrak dan penyedia dilengkapi pada menu <strong>Paket Pembangunan</strong>.
-                    </p>
-                    <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 italic pt-0.5">
-                      Catatan: Pengisian realisasi tetap dapat disimpan sebagai draf, namun persentase serapan anggaran akan berstatus 0% hingga nilai kontrak ditetapkan.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Periode & Input Form */}
-              <div className="rounded-xl border bg-card/60 p-4 sm:p-5 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b pb-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-emerald-600" />
-                    <span className="font-semibold text-sm">
-                      Periode {BULAN_LIST[selectedBulan - 1]?.nama} (Bulan ke-{selectedBulan})
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Target Rencana Fisik: <span className="font-mono font-bold text-foreground">{currentTargetNum}%</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Realisasi Fisik */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold flex items-center justify-between">
-                      <span>
-                        Realisasi Fisik (%) <span className="text-red-500">*</span>
-                        {!canEditFisik && <span className="ml-1 text-amber-500 font-normal">(Hak PPK)</span>}
-                      </span>
-                      <span className="text-[11px] font-normal text-muted-foreground">Maks 100%</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        placeholder={canEditFisik ? "Contoh: 35.50" : "Hanya PPK yang dapat mengisi"}
-                        value={currentMonthData.realisasiFisik}
-                        onChange={(e) => handleFisikChange(e.target.value)}
-                        disabled={!canEditFisik || isFormDisabled}
-                        className={`font-mono text-sm pr-8 ${(!canEditFisik || isFormDisabled) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-muted-foreground">%</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
-                      <span>Deviasi:</span>
-                      <span className={`font-mono font-semibold ${currentDeviasiNum >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                        {currentDeviasiNum > 0 ? `+${currentDeviasiNum}` : currentDeviasiNum}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Realisasi Keuangan */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold flex items-center justify-between">
-                      <span>
-                        Realisasi Keuangan (Rp)
-                        {!canEditKeuangan && <span className="ml-1 text-amber-500 font-normal">(Hak Bendahara)</span>}
-                      </span>
-                      <span className="text-[11px] font-normal text-muted-foreground">SP2D/Kas</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        placeholder={canEditKeuangan ? "Contoh: 150000000" : "Hanya Bendahara yang dapat mengisi"}
-                        value={currentKeuanganNum > 0 ? currentKeuanganNum.toLocaleString("id-ID") : ""}
-                        onChange={(e) => handleKeuanganChange(e.target.value)}
-                        disabled={!canEditKeuangan || isFormDisabled}
-                        className={`font-mono text-sm ${(!canEditKeuangan || isFormDisabled) ? "opacity-60 cursor-not-allowed bg-muted/50" : ""}`}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
-                      <span>Serapan Kontrak:</span>
-                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">{currentPersenKeuangan}%</span>
-                    </div>
-                  </div>
-
-                  {/* Status Kinerja */}
-                  <div className="sm:col-span-2 lg:col-span-1 rounded-lg border bg-muted/40 p-3 flex flex-col justify-between">
-                    <div className="space-y-1">
-                      <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">Status Kinerja</div>
-                      <div className="pt-1 space-y-1">
-                        {getStatusBadge(currentDeviasiNum, currentTargetNum, currentFisikNum)}
-                        <div className="pt-1">{getVerifikasiBadge(currentMonthData.statusVerifikasi)}</div>
-                      </div>
-                    </div>
-                    {currentMonthData.updatedAt && (
-                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 pt-2 border-t mt-2">
-                        <UserCheck className="h-3 w-3" />
-                        <span>Diinput: {currentMonthData.inputBy?.namaLengkap || "Operator"}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Catatan Kendala */}
-                <div className="space-y-1.5 pt-2">
-                  <Label className="text-xs font-medium">Catatan Kendala Lapangan & Tindak Lanjut</Label>
-                  <Textarea
-                    placeholder={isFormDisabled ? "Data terkunci" : "Tuliskan kendala teknis, cuaca, keterlambatan material, atau solusi (opsional)..."}
-                    value={currentMonthData.catatanOperator}
-                    onChange={(e) => handleCatatanChange(e.target.value)}
-                    disabled={isFormDisabled}
-                    rows={2}
-                    className="text-xs"
-                  />
+                  )}
                 </div>
               </div>
 
-              {/* Upload Bukti Fisik (hanya PPK dan ADMINISTRATOR) */}
-              {canUploadFoto && (
-                <div className="rounded-xl border bg-card/60 p-4 sm:p-5 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <div className="flex items-center gap-2">
-                      <Image className="h-4 w-4 text-purple-600" />
-                      <span className="font-semibold text-sm">Bukti Fisik Lapangan</span>
-                      {currentFisikNum > 0 && (
-                        <Badge
-                          variant="outline"
-                          className={`text-[11px] font-semibold ${
-                            totalBukti > 0
-                              ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10"
-                              : "border-red-500/50 text-red-600 bg-red-500/10 animate-pulse"
-                          }`}
-                        >
-                          {totalBukti > 0 ? "✓ Terlampir" : "* Wajib Minimal 1 Foto"}
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{totalBukti}/5 foto</span>
-                  </div>
+              <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-[240px_1fr]">
+                <div className="space-y-1.5">
+                  <Label>Filter Bulan Kontrak</Label>
+                  <Select value={String(selectedBulan)} onValueChange={(value) => {
+                    const month = Number(value)
+                    setSelectedBulan(month)
+                    setSelectedMinggu(
+                      weeklyState.find((item) => item.bulan === month)?.mingguKe || 1
+                    )
+                    setPendingFiles([])
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {availableMonths.map((month) => (
+                        <SelectItem key={month} value={String(month)}>
+                          {BULAN_LIST[month - 1].singkatan} · {BULAN_LIST[month - 1].nama}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  {visibleWeeks.map((week) => (
+                    <Button
+                      key={week.mingguKe}
+                      type="button"
+                      size="sm"
+                      variant={selectedMinggu === week.mingguKe ? "default" : "outline"}
+                      onClick={() => {
+                        setSelectedMinggu(week.mingguKe)
+                        setPendingFiles([])
+                      }}
+                      className={selectedMinggu === week.mingguKe
+                        ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+                    >
+                      Minggu {week.mingguKe}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-                  {/* Warning: Realisasi fisik terisi namun belum ada foto */}
-                  {currentFisikNum > 0 && totalBukti === 0 && (
-                    <div className="flex items-start gap-2.5 p-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs animate-in fade-in">
-                      <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
-                      <div>
-                        <span className="font-semibold text-red-800 dark:text-red-200">Wajib Lampirkan Bukti Fisik Lapangan:</span>
-                        <p className="mt-0.5 text-muted-foreground">
-                          Realisasi fisik Bulan {BULAN_LIST[selectedBulan - 1]?.nama} diisi <strong>{currentFisikNum}%</strong>. Anda <strong>wajib mengunggah minimal 1 foto bukti fisik lapangan</strong> (tidak harus 5) agar data dapat disimpan dan diajukan ke MONEV.
+              <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+                <div>
+                  <Card>
+                    <CardHeader className="border-b pb-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <CardTitle className="text-base">MINGGU {current.mingguKe}</CardTitle>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatContractDate(current.tanggalMulai)} sampai {formatContractDate(current.tanggalSelesai)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {performanceBadge}
+                          {monthStatus === "TERVERIFIKASI" ? (
+                            <Badge className="bg-blue-600"><FileCheck className="mr-1 h-3 w-3" />ACC Bulanan</Badge>
+                          ) : monthStatus === "DIAJUKAN" ? (
+                            <Badge variant="outline"><FileClock className="mr-1 h-3 w-3" />Diajukan</Badge>
+                          ) : monthStatus === "DITOLAK" ? (
+                            <Badge variant="destructive"><FileX className="mr-1 h-3 w-3" />Ditolak</Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-4">
+                      <div className="space-y-1.5">
+                        <Label>Nama/Uraian Kegiatan Mingguan</Label>
+                        <Textarea
+                          value={current.uraianKegiatan}
+                          disabled={!canEditFisik || isFormDisabled}
+                          onChange={(event) => updateCurrent({
+                            uraianKegiatan: event.target.value,
+                          })}
+                          placeholder="Tuliskan atau sesuaikan uraian kegiatan aktual minggu ini..."
+                          rows={2}
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Diambil dari target mingguan dan dapat disesuaikan oleh Administrator atau PPK.
                         </p>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Foto yang sudah disimpan */}
-                  {buktiFisikList.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                      {buktiFisikList.map((b) => (
-                        <div key={b.id} className="relative group rounded-lg border bg-muted/30 overflow-hidden aspect-square flex flex-col items-center justify-center p-2">
-                          {b.mimeType?.startsWith("image/") ? (
-                            <img
-                              src={`${API_STORAGE_URL}${b.pathFile}`}
-                              alt={b.deskripsi || b.namaFile}
-                              className="w-full h-full object-cover rounded-md"
-                              onError={(e) => { (e.target as HTMLImageElement).src = "" }}
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-1 text-center">
-                              <Upload className="h-6 w-6 text-muted-foreground" />
-                              <span className="text-[9px] text-muted-foreground truncate w-full">{b.namaFile}</span>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                            <p className="text-white text-[9px] text-center leading-tight line-clamp-2">{b.deskripsi || b.namaFile}</p>
-                            <p className="text-white/70 text-[9px]">{formatBytes(b.ukuranBytes)}</p>
-                            {!isLocked && !isDiajukan && (
-                              <button
-                                onClick={() => deleteBuktiMutation.mutate(b.id)}
-                                className="mt-1 bg-red-500 hover:bg-red-600 text-white rounded px-2 py-0.5 text-[9px] flex items-center gap-1"
-                              >
-                                <X className="h-2.5 w-2.5" />Hapus
-                              </button>
-                            )}
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="space-y-1.5">
+                          <Label>Target Fisik</Label>
+                          <div className="flex h-10 items-center justify-end rounded-md border bg-muted/40 px-3 font-mono font-bold">
+                            {current.targetFisik}%
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="space-y-1.5">
+                          <Label>Realisasi Fisik (%)</Label>
+                          <Input
+                            type="number" min="0" max="100" step="0.1"
+                            value={current.realisasiFisik}
+                            disabled={!canEditFisik || isFormDisabled}
+                            onChange={(event) => updateCurrent({
+                              realisasiFisik: String(
+                                Math.min(100, Math.max(0, Number(event.target.value)))
+                              ),
+                            })}
+                            className="text-right font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Realisasi Keuangan (Rp)</Label>
+                          <Input
+                            value={currentKeuangan > 0
+                              ? currentKeuangan.toLocaleString("id-ID") : ""}
+                            disabled={!canEditKeuangan || isFormDisabled}
+                            onChange={(event) => updateCurrent({
+                              realisasiKeuangan: String(
+                                Number(event.target.value.replace(/\D/g, "")) || 0
+                              ),
+                            })}
+                            className="text-right font-mono"
+                          />
+                          <p className="text-right text-[11px] text-muted-foreground">Serapan {currentSerapan}%</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Catatan Kendala dan Tindak Lanjut</Label>
+                        <Textarea
+                          value={current.catatanOperator}
+                          disabled={isFormDisabled}
+                          onChange={(event) => updateCurrent({ catatanOperator: event.target.value })}
+                          placeholder="Tuliskan kendala lapangan atau tindak lanjut minggu ini..."
+                          rows={3}
+                        />
+                      </div>
+                      {isPeriodLocked && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+                          Periode input bulan ini sudah ditutup oleh Administrator.
+                        </div>
+                      )}
+                      {current.catatanVerifikasi && (
+                        <div className="rounded-lg border p-3 text-xs">
+                          <strong>Catatan MONEV:</strong> {current.catatanVerifikasi}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-                  {/* Preview pending files */}
-                  {pendingFiles.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Siap diupload:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {pendingFiles.map((f, i) => (
-                          <div key={i} className="flex items-center gap-1 bg-muted rounded px-2 py-1 text-xs">
-                            <span className="truncate max-w-[120px]">{f.name}</span>
-                            <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}>
-                              <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                            </button>
+                </div>
+
+                <Card className="h-fit xl:sticky xl:top-0">
+                  <CardHeader className="border-b pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <ImageIcon className="h-4 w-4 text-purple-600" />Foto Bukti Minggu {current.mingguKe}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-4">
+                    {current.buktiFisik.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {current.buktiFisik.map((item) => (
+                          <div key={item.id} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted">
+                            {item.mimeType?.startsWith("image/") ? (
+                              // Bukti berasal dari host API dinamis sehingga tidak memakai optimisasi next/image.
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`${API_STORAGE_URL}${item.pathFile}`}
+                                alt={item.deskripsi || item.namaFile}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center p-2 text-center text-xs">{item.namaFile}</div>
+                            )}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 p-2 text-center text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+                              <span>{item.deskripsi || item.namaFile}</span>
+                              <span>{formatBytes(item.ukuranBytes)}</span>
+                              {!isFormDisabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteBuktiMutation.mutate(item.id)}
+                                  className="mt-2 rounded bg-red-600 px-2 py-1"
+                                >
+                                  Hapus
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Upload controls */}
-                  {!isFormDisabled && totalBukti < 5 && (
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <div className="flex-1 space-y-1">
-                        <Input
-                          type="text"
-                          placeholder="Deskripsi foto (opsional)..."
-                          value={deskripsiFile}
-                          onChange={(e) => setDeskripsiFile(e.target.value)}
-                          className="text-xs h-8"
-                        />
+                    ) : (
+                      <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">
+                        Belum ada foto bukti untuk minggu ini.
                       </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        accept="image/*,video/mp4,application/pdf"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-xs gap-1.5 shrink-0"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        Pilih Foto
-                      </Button>
-                      {pendingFiles.length > 0 && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="text-xs gap-1.5 bg-purple-600 hover:bg-purple-700 text-white shrink-0"
-                          onClick={() => uploadMutation.mutate()}
-                          disabled={uploadMutation.isPending}
-                        >
-                          {uploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                          Upload ({pendingFiles.length})
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                    {currentFisik > 0 && current.buktiFisik.length === 0 && pendingFiles.length === 0 && (
+                      <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-xs text-red-700">
+                        Minimal satu foto bukti wajib dilampirkan untuk realisasi fisik minggu ini.
+                      </div>
+                    )}
+                    {canUploadFoto && !isFormDisabled && current.buktiFisik.length + pendingFiles.length < 5 && (
+                      <div className="space-y-2">
+                        <Input
+                          value={deskripsiFile}
+                          onChange={(event) => setDeskripsiFile(event.target.value)}
+                          placeholder="Deskripsi foto (opsional)"
+                        />
+                        <input
+                          ref={fileInputRef} type="file" multiple
+                          accept="image/*,video/mp4,application/pdf"
+                          className="hidden" onChange={handleFileSelect}
+                        />
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-1 h-4 w-4" />Pilih Bukti
+                          </Button>
+                          {pendingFiles.length > 0 && (
+                            <Button
+                              type="button" onClick={() => uploadMutation.mutate()}
+                              disabled={uploadMutation.isPending}
+                              className="bg-purple-600 hover:bg-purple-700"
+                            >
+                              <Upload className="mr-1 h-4 w-4" />Upload ({pendingFiles.length})
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {pendingFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {pendingFiles.map((file, index) => (
+                          <Badge key={`${file.name}-${index}`} variant="secondary" className="max-w-full">
+                            <span className="truncate">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setPendingFiles((files) => files.filter((_, i) => i !== index))}
+                            >
+                              <X className="ml-1 h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
 
-              {/* Panel Verifikasi MONEV */}
+              <Card className="w-full">
+                <CardHeader className="border-b pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="h-4 w-4 text-emerald-600" />Kurva S Paket
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="h-[380px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 5, right: 16, left: -10, bottom: 35 }}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                        <XAxis dataKey="label" angle={-45} textAnchor="end" height={55} tick={{ fontSize: 10 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                        <Tooltip formatter={(value) => `${value}%`} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="target" name="Target" stroke="#059669" strokeWidth={2.5} dot={{ r: 2 }} />
+                        <Line type="monotone" dataKey="realisasi" name="Realisasi" stroke="#2563eb" strokeWidth={2.5} dot={{ r: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
               {canVerifikasi && isDiajukan && (
-                <div className="rounded-xl border-2 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-sm text-blue-700 dark:text-blue-400">Panel Verifikasi MONEV</span>
+                <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-4">
+                  <div className="mb-3 flex items-center gap-2 font-semibold text-blue-700">
+                    <FileCheck className="h-4 w-4" />Verifikasi Rekap Bulanan MONEV
                   </div>
                   {!showTolakInput ? (
                     <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
-                        onClick={() => accMutation.mutate()}
-                        disabled={accMutation.isPending}
-                      >
-                        {accMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                        ACC — Setujui & Kunci Data
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-600 hover:bg-red-50 gap-1.5 text-xs"
-                        onClick={() => setShowTolakInput(true)}
-                      >
-                        <FileX className="h-3.5 w-3.5" />
-                        TOLAK — Kembalikan ke PPK
-                      </Button>
+                      <Button onClick={() => accMutation.mutate()} className="bg-emerald-600 hover:bg-emerald-700">ACC & Kunci Bulan</Button>
+                      <Button variant="outline" onClick={() => setShowTolakInput(true)} className="border-red-300 text-red-600">Tolak</Button>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Textarea
-                        placeholder="Tuliskan alasan penolakan (wajib diisi)..."
-                        value={alasanTolak}
-                        onChange={(e) => setAlasanTolak(e.target.value)}
-                        rows={2}
-                        className="text-xs border-red-300"
-                      />
+                      <Textarea value={alasanTolak} onChange={(event) => setAlasanTolak(event.target.value)} placeholder="Alasan penolakan..." />
                       <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-red-600 hover:bg-red-700 text-white gap-1.5 text-xs"
-                          onClick={() => tolakMutation.mutate()}
-                          disabled={tolakMutation.isPending || !alasanTolak.trim()}
-                        >
-                          {tolakMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileX className="h-3.5 w-3.5" />}
-                          Konfirmasi Tolak
-                        </Button>
-                        <Button type="button" size="sm" variant="ghost" className="text-xs" onClick={() => setShowTolakInput(false)}>
-                          Batal
-                        </Button>
+                        <Button variant="destructive" onClick={() => tolakMutation.mutate()}>Konfirmasi Tolak</Button>
+                        <Button variant="ghost" onClick={() => setShowTolakInput(false)}>Batal</Button>
                       </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Tabel Ringkasan 12 Bulan */}
-              <div className="rounded-xl border overflow-hidden shadow-xs">
-                <div className="p-3 bg-muted/60 border-b flex items-center justify-between">
-                  <span className="text-xs font-semibold">Ringkasan Kurva 12 Bulan (Januari – Desember)</span>
-                  <span className="text-[11px] text-muted-foreground">Klik baris bulan untuk beralih input</span>
+              <div className="overflow-hidden rounded-xl border">
+                <div className="border-b bg-muted/50 p-3">
+                  <span className="text-sm font-semibold">
+                    Ringkasan Progres Mingguan · {BULAN_LIST[selectedBulan - 1].nama}
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">Klik baris minggu untuk beralih input.</p>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="bg-muted/30 border-b text-muted-foreground text-[11px]">
-                        <th className="py-2 px-3 text-center w-12 font-medium">Bulan</th>
-                        <th className="py-2 px-3 text-right font-medium">Target Fisik</th>
-                        <th className="py-2 px-3 text-right font-medium">Realisasi Fisik</th>
-                        <th className="py-2 px-3 text-right font-medium">Deviasi</th>
-                        <th className="py-2 px-3 text-right font-medium">Realisasi Keuangan (Rp)</th>
-                        <th className="py-2 px-3 text-right font-medium">% Serap</th>
-                        <th className="py-2 px-3 text-center font-medium">Verifikasi</th>
+                  <table className="w-full min-w-[1100px] text-xs">
+                    <thead className="bg-muted/20 text-muted-foreground">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Minggu/Tanggal</th>
+                        <th className="px-3 py-2 text-left">Nama/Uraian Kegiatan</th>
+                        <th className="px-3 py-2 text-right">Target</th>
+                        <th className="px-3 py-2 text-right">Realisasi Fisik</th>
+                        <th className="px-3 py-2 text-right">Realisasi Keuangan</th>
+                        <th className="px-3 py-2 text-center">Foto Bukti</th>
+                        <th className="px-3 py-2 text-left">Catatan Kendala</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {timelineState.map((row) => {
-                        const rFisik = parseFloat(row.realisasiFisik) || 0
-                        const dev = parseFloat((rFisik - row.targetFisik).toFixed(2))
-                        const rKeu = parseFloat(row.realisasiKeuangan) || 0
-                        const pSerap = nilaiKontrak > 0 ? parseFloat(((rKeu / nilaiKontrak) * 100).toFixed(2)) : 0
-                        const isRowActive = row.bulan === selectedBulan
-                        return (
-                          <tr
-                            key={row.bulan}
-                            onClick={() => { setSelectedBulan(row.bulan); setShowTolakInput(false) }}
-                            className={`border-b transition-colors cursor-pointer hover:bg-muted/50 ${isRowActive ? "bg-primary/5 font-semibold" : ""}`}
-                          >
-                            <td className="py-2 px-3 text-center font-mono">{BULAN_LIST[row.bulan - 1]?.singkatan}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{row.targetFisik}%</td>
-                            <td className="py-2 px-3 text-right font-mono font-medium">{rFisik > 0 ? `${rFisik}%` : "-"}</td>
-                            <td className={`py-2 px-3 text-right font-mono ${rFisik === 0 && row.targetFisik === 0 ? "text-muted-foreground" : dev >= 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}`}>
-                              {rFisik === 0 && row.targetFisik === 0 ? "-" : `${dev > 0 ? `+${dev}` : dev}%`}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">{rKeu > 0 ? formatRupiah(rKeu) : "-"}</td>
-                            <td className="py-2 px-3 text-right font-mono text-muted-foreground">{pSerap > 0 ? `${pSerap}%` : "-"}</td>
-                            <td className="py-2 px-3 text-center">
-                              {row.statusVerifikasi === "TERVERIFIKASI" ? (
-                                <span className="text-[10px] text-emerald-600 font-medium">✓ ACC</span>
-                              ) : row.statusVerifikasi === "DIAJUKAN" ? (
-                                <span className="text-[10px] text-blue-600 font-medium">⏳</span>
-                              ) : row.statusVerifikasi === "DITOLAK" ? (
-                                <span className="text-[10px] text-red-600 font-medium">✗ Tolak</span>
-                              ) : (
-                                <span className="text-[10px] text-muted-foreground">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
+                      {visibleWeeks.map((week) => (
+                        <tr
+                          key={week.mingguKe}
+                          onClick={() => setSelectedMinggu(week.mingguKe)}
+                          className={`cursor-pointer border-t hover:bg-muted/40 ${week.mingguKe === selectedMinggu ? "bg-emerald-500/5" : ""}`}
+                        >
+                          <td className="px-3 py-3">
+                            <strong>MINGGU {week.mingguKe}</strong>
+                            <div className="mt-1 text-[10px] text-muted-foreground">
+                              {formatContractDate(week.tanggalMulai)} – {formatContractDate(week.tanggalSelesai)}
+                            </div>
+                          </td>
+                          <td className="max-w-64 px-3 py-3">{week.uraianKegiatan || "-"}</td>
+                          <td className="px-3 py-3 text-right font-mono">{week.targetFisik}%</td>
+                          <td className="px-3 py-3 text-right font-mono">
+                            {Number(week.realisasiFisik) > 0 ? `${week.realisasiFisik}%` : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-right font-mono">
+                            {Number(week.realisasiKeuangan) > 0 ? formatRupiah(week.realisasiKeuangan) : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {week.buktiFisik.length > 0 ? `${week.buktiFisik.length} file` : "-"}
+                          </td>
+                          <td className="max-w-64 px-3 py-3 text-muted-foreground">
+                            {week.catatanOperator || "-"}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Footer */}
-        <DialogFooter className="p-4 border-t bg-muted/10 shrink-0 flex items-center justify-between sm:justify-between">
-          <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saveMutation.isPending}>
-            Tutup
-          </Button>
-
-          <div className="flex items-center gap-2">
-            {/* Tombol Ajukan ke MONEV */}
-            {canAjukan && !isFormDisabled && (currentFisikNum > 0 || currentKeuanganNum > 0) && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="border-blue-300 text-blue-600 hover:bg-blue-50 gap-1.5 text-xs"
-                onClick={() => ajukanMutation.mutate()}
-                disabled={ajukanMutation.isPending}
-              >
-                {ajukanMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                Ajukan ke MONEV
-              </Button>
-            )}
-
-            {/* Tombol Simpan */}
-            {(canEditFisik || canEditKeuangan) && !isFormDisabled && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending || isLoading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 font-medium"
-              >
-                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Simpan Realisasi
-              </Button>
-            )}
-          </div>
+        <DialogFooter className="flex-row items-center justify-between border-t bg-muted/10 p-4 sm:justify-between">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
+          {current && (
+            <div className="flex gap-2">
+              {canAjukan && !isFormDisabled && (currentFisik > 0 || currentKeuangan > 0) && (
+                <Button
+                  variant="outline" onClick={() => ajukanMutation.mutate()}
+                  disabled={ajukanMutation.isPending}
+                  className="border-blue-300 text-blue-600"
+                >
+                  <Send className="mr-1 h-4 w-4" />Ajukan Rekap Bulan
+                </Button>
+              )}
+              {(canEditFisik || canEditKeuangan) && !isFormDisabled && (
+                <Button
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {saveMutation.isPending
+                    ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    : <Save className="mr-1 h-4 w-4" />}
+                  Simpan Minggu {current.mingguKe}
+                </Button>
+              )}
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

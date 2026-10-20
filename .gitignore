@@ -57,3 +57,6 @@ __pycache__/
 *.py[cod]
 ~$*.docx
 ~$*.xlsx
+
+# Local raw scratch image
+/new_logo_Setara.png

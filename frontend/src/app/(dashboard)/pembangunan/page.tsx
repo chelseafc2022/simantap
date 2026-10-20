@@ -22,6 +22,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -54,6 +61,7 @@ import {
   Layers,
   Database,
   RotateCcw,
+  MoreHorizontal,
 } from "lucide-react"
 
 export default function PaketPembangunanPage() {
@@ -261,19 +269,19 @@ export default function PaketPembangunanPage() {
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          {/* <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               DATA PAKET PBJ
             </span>
             <Badge variant="outline" className="text-[10px] py-0 border-border">
               Tahun Anggaran {tahunAnggaran}
             </Badge>
-          </div>
+          </div> */}
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Daftar Paket Pembangunan
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Pengelolaan paket pengadaan, pagu, nilai kontrak, dan target fisik bulanan
+            Pengelolaan paket pengadaan, pagu, nilai kontrak, dan target fisik mingguan
           </p>
         </div>
 
@@ -310,10 +318,10 @@ export default function PaketPembangunanPage() {
                 size="sm"
                 onClick={() => setBulkSyncOpen(true)}
                 className="h-8 gap-1.5 text-xs border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/50 shadow-xs font-medium"
-                title="Tarik seluruh paket pengadaan otomatis dari SiRUP LKPP"
+                title="Tarik paket dari tabel RUP Konsel Setara"
               >
                 <Database className="h-3.5 w-3.5 text-blue-600" />
-                <span>Sinkronkan SiRUP</span>
+                <span>Sinkronkan RUP</span>
               </Button>
 
               <Button
@@ -474,7 +482,7 @@ export default function PaketPembangunanPage() {
       {/* Main Table Card */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
         {/* Mobile View: Tampilan Kartu Kompak & Nyaman di Layar HP (< md) */}
-        <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
+        <div className="divide-y divide-gray-200 dark:divide-neutral-700 xl:hidden">
           {isLoading ? (
             <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
@@ -497,11 +505,14 @@ export default function PaketPembangunanPage() {
               const no = (page - 1) * limit + index + 1
               const paguNum = typeof paket.nilaiPagu === "string" ? parseFloat(paket.nilaiPagu) : paket.nilaiPagu || 0
               const kontrakNum = typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0
-              const targetB12 = paket.targetBulanan?.find((t) => t.bulan === 12)?.targetFisik || 0
+              const sudahIsiTarget = (paket.targetMingguan?.length ?? 0) > 0
+              const targetAkhir = sudahIsiTarget
+                ? paket.targetMingguan?.at(-1)?.targetFisik ?? 0
+                : 0
 
               return (
                 <div key={paket.id} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
-                  {/* Header Card: No & Badge Metode + Target B12 */}
+                  {/* Header Card: No & Badge Metode + Target Akhir Kontrak */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
@@ -516,9 +527,15 @@ export default function PaketPembangunanPage() {
                         </span>
                       )}
                     </div>
-                    <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 shrink-0">
+                    <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-mono font-medium shrink-0 ${
+                      sudahIsiTarget
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                    }`}>
                       <TrendingUp className="h-3 w-3" />
-                      <span>B12: {targetB12.toFixed(1)}%</span>
+                      <span>
+                        Target akhir: {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
+                      </span>
                     </div>
                   </div>
 
@@ -527,7 +544,7 @@ export default function PaketPembangunanPage() {
                     <button
                       type="button"
                       onClick={() => handleOpenDetail(paket)}
-                      className="font-semibold text-sm text-foreground hover:text-emerald-600 text-left transition-colors cursor-pointer leading-snug line-clamp-2"
+                      className="line-clamp-3 cursor-pointer whitespace-normal break-words text-left text-sm font-semibold leading-5 text-foreground transition-colors [overflow-wrap:anywhere] hover:text-emerald-600"
                     >
                       {paket.namaPaket}
                     </button>
@@ -624,30 +641,39 @@ export default function PaketPembangunanPage() {
           )}
         </div>
 
-        {/* Desktop & Tablet View: Tabel Lebar Penuh dengan Border Abu-Abu Tipis (>= md) */}
-        <div className="hidden md:block w-full overflow-x-auto">
-          <Table className="w-full min-w-[960px] border-collapse">
-            <TableHeader className="bg-gray-50/90 dark:bg-neutral-800/80">
-              <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
-                <TableHead className="w-12 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
+        {/* Desktop & Tablet View */}
+        <div className="hidden w-full xl:block">
+          <Table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col className="w-[4%]" />
+              <col className="w-[29%]" />
+              <col className="w-[19%]" />
+              <col className="w-[13%]" />
+              <col className="w-[16%]" />
+              <col className="w-[13%]" />
+              <col className="w-[6%]" />
+            </colgroup>
+            <TableHeader className="bg-muted/45">
+              <TableRow className="border-b border-border/70 hover:bg-transparent">
+                <TableHead className="px-3 py-3.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   No
                 </TableHead>
-                <TableHead className="min-w-[280px] text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Nama Paket & Identitas PBJ
                 </TableHead>
-                <TableHead className="w-48 text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Sub Unit Kerja
                 </TableHead>
-                <TableHead className="w-36 text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="px-4 py-3.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Metode & Sumber
                 </TableHead>
-                <TableHead className="w-44 text-right text-xs font-semibold py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="px-4 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Pagu & Kontrak (Rp)
                 </TableHead>
-                <TableHead className="w-24 text-center text-xs font-semibold py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
-                  Target B12
+                <TableHead className="px-3 py-3.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Target Akhir
                 </TableHead>
-                <TableHead className="w-28 text-center text-xs font-semibold py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="px-3 py-3.5 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -673,7 +699,7 @@ export default function PaketPembangunanPage() {
                         Belum ada data paket pembangunan
                       </span>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        Silakan klik tombol <strong>Tambah Paket Baru</strong> untuk menginput rincian paket pengadaan dan rancangan target bulanan Anda.
+                        Silakan klik tombol <strong>Tambah Paket Baru</strong> untuk menginput rincian paket pengadaan dan rancangan target mingguan Anda.
                       </p>
                     </div>
                   </TableCell>
@@ -683,29 +709,34 @@ export default function PaketPembangunanPage() {
                   const no = (page - 1) * limit + index + 1
                   const paguNum = typeof paket.nilaiPagu === "string" ? parseFloat(paket.nilaiPagu) : paket.nilaiPagu || 0
                   const kontrakNum = typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0
-                  const targetB12 = paket.targetBulanan?.find((t) => t.bulan === 12)?.targetFisik || 0
+                  const sudahIsiTarget = (paket.targetMingguan?.length ?? 0) > 0
+                  const targetAkhir = sudahIsiTarget
+                    ? paket.targetMingguan?.at(-1)?.targetFisik ?? 0
+                    : 0
 
                   return (
-                    <TableRow key={paket.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                    <TableRow key={paket.id} className="border-b border-border/60 transition-colors hover:bg-muted/25">
                       {/* No */}
-                      <TableCell className="text-center font-mono text-xs text-muted-foreground py-3 px-1 border-r border-b border-gray-200 dark:border-neutral-700">
-                        {no}
+                      <TableCell className="px-3 py-4 text-center align-top">
+                        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-muted px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
+                          {no}
+                        </span>
                       </TableCell>
 
                       {/* Identitas Paket */}
-                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-1">
+                      <TableCell className="whitespace-normal px-4 py-4 align-top">
+                        <div className="min-w-0 space-y-1.5">
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(paket)}
-                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-xs sm:text-sm leading-snug"
+                            className="line-clamp-3 block w-full cursor-pointer whitespace-normal break-words text-left text-sm font-semibold leading-5 text-foreground transition-colors [overflow-wrap:anywhere] hover:text-emerald-600"
                             title={paket.namaPaket}
                           >
                             {paket.namaPaket}
                           </button>
-                          <div className="flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground w-full min-w-0">
+                          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
                             {paket.kodeRupKontrak && (
-                              <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px] shrink-0" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
+                              <span className="shrink-0 rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[10px]" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
                                 RUP: {paket.kodeRupKontrak}
                               </span>
                             )}
@@ -720,11 +751,13 @@ export default function PaketPembangunanPage() {
                       </TableCell>
 
                       {/* Sub Unit Kerja */}
-                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="flex items-center gap-1.5 w-full min-w-0 overflow-hidden">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <TableCell className="whitespace-normal px-4 py-4 align-top">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
+                            <Building2 className="h-3.5 w-3.5" />
+                          </span>
                           <span
-                            className="text-xs font-medium text-foreground truncate block flex-1 min-w-0"
+                            className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-5 text-foreground"
                             title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
                           >
                             {paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
@@ -733,91 +766,95 @@ export default function PaketPembangunanPage() {
                       </TableCell>
 
                       {/* Metode & Sumber */}
-                      <TableCell className="max-w-0 py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-1">
-                          <div className="w-full overflow-hidden">
-                            <Badge variant="secondary" className="text-[10px] sm:text-[11px] font-normal truncate max-w-full block text-center whitespace-nowrap" title={paket.metodePemilihan || "PBJ"}>
+                      <TableCell className="whitespace-normal px-4 py-4 align-top">
+                        <div className="min-w-0 space-y-1.5">
+                          <div className="overflow-hidden">
+                            <Badge variant="secondary" className="block max-w-full truncate px-2 py-1 text-center text-[10px] font-medium" title={paket.metodePemilihan || "PBJ"}>
                               {paket.metodePemilihan || "PBJ"}
                             </Badge>
                           </div>
-                          <div className="text-[11px] text-muted-foreground truncate block w-full" title={paket.sumberDana || "-"}>
+                          <div className="block w-full truncate text-[11px] text-muted-foreground" title={paket.sumberDana || "-"}>
                             {paket.sumberDana || "-"}
                           </div>
                         </div>
                       </TableCell>
 
                       {/* Nilai Pagu & Kontrak */}
-                      <TableCell className="max-w-0 text-right py-3 px-3 border-r border-b border-gray-200 dark:border-neutral-700 font-mono">
-                        <div className="w-full min-w-0 overflow-hidden space-y-0.5">
-                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
+                      <TableCell className="px-4 py-4 text-right align-top font-mono">
+                        <div className="min-w-0 space-y-1">
+                          <div className="truncate text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             {formatRupiah(kontrakNum)}
                           </div>
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            Pagu: {formatRupiah(paguNum)}
+                          <div className="flex items-center justify-end gap-1 truncate text-[10px] text-muted-foreground">
+                            <span className="font-sans">Pagu</span>
+                            <span>{formatRupiah(paguNum)}</span>
                           </div>
                         </div>
                       </TableCell>
 
-                      {/* Target B12 */}
-                      <TableCell className="max-w-0 text-center py-3 px-2 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-mono font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                          <TrendingUp className="h-3 w-3 shrink-0" />
-                          <span>{targetB12.toFixed(1)}%</span>
+                      {/* Target Akhir Kontrak */}
+                      <TableCell className="px-3 py-4 text-center align-top">
+                        <div className={`inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                          sudahIsiTarget
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                            : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                        }`}>
+                          {sudahIsiTarget ? (
+                            <TrendingUp className="h-3 w-3 shrink-0" />
+                          ) : (
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+                          )}
+                          <span>
+                            {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
+                          </span>
                         </div>
                       </TableCell>
 
                       {/* Aksi */}
-                      <TableCell className="text-center py-3 px-1 border-b border-gray-200 dark:border-neutral-700">
-                        <div className="flex items-center justify-center gap-0.5">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                            title="Detail & Target 12 Bulan"
-                            onClick={() => handleOpenDetail(paket)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-
-                          {/* Tombol Khusus Admin Perencanaan: Tetapkan / Ubah Target Fisik */}
-                          {(isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                      <TableCell className="px-2 py-4 text-center align-top">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="icon"
-                              className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                              title="Tetapkan / Ubah Target Fisik (12 Bulan)"
-                              onClick={() => handleOpenTarget(paket)}
+                              className="h-8 w-8 rounded-lg"
+                              title="Buka menu aksi"
                             >
-                              <TrendingUp className="h-3.5 w-3.5" />
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Buka menu aksi paket</span>
                             </Button>
-                          )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem onSelect={() => handleOpenDetail(paket)}>
+                              <Eye className="text-emerald-600" />
+                              Detail & Rekap Bulanan
+                            </DropdownMenuItem>
 
-                          {/* Tombol Ubah Rincian Pengadaan: Admin SiRUP & Administrator */}
-                          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                              title="Ubah Rincian PBJ / Kontrak"
-                              onClick={() => handleOpenEdit(paket)}
-                            >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                            {(isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                              <DropdownMenuItem onSelect={() => handleOpenTarget(paket)}>
+                                <TrendingUp className="text-amber-600" />
+                                Tetapkan Target Mingguan
+                              </DropdownMenuItem>
+                            )}
 
-                          {/* Tombol Hapus: Hanya Administrator & Admin SiRUP pembuat */}
-                          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              title="Hapus Paket"
-                              onClick={() => handleOpenDelete(paket)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
+                            {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => handleOpenEdit(paket)}>
+                                  <Edit3 className="text-blue-600" />
+                                  Ubah Rincian Paket
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={() => handleOpenDelete(paket)}
+                                >
+                                  <Trash2 />
+                                  Hapus Paket
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   )

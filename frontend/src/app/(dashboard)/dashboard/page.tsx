@@ -109,20 +109,20 @@ function StatCard({
   valueClass?: string
 }) {
   return (
-    <Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow">
-      <CardHeader className="flex flex-row items-center justify-between pb-1.5 pt-3.5 px-4 space-y-0">
-        <CardTitle className="text-xs font-semibold text-muted-foreground">{label}</CardTitle>
-        <div className={`p-1.5 rounded-lg ${iconClass ?? "bg-muted"}`}>
-          <Icon className="h-4 w-4" />
+    <Card className="border-border/60 shadow-xs hover:shadow-sm transition-shadow min-w-0">
+      <CardHeader className="flex flex-row items-center justify-between pb-1 pt-2.5 px-3 space-y-0">
+        <CardTitle className="text-[11px] font-semibold text-muted-foreground truncate">{label}</CardTitle>
+        <div className={`p-1 rounded-md shrink-0 ${iconClass ?? "bg-muted"}`}>
+          <Icon className="h-3.5 w-3.5" />
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-3.5 pt-0">
+      <CardContent className="px-3 pb-2.5 pt-0 min-w-0">
         {loading ? (
-          <Skeleton className="h-7 w-24 mb-1" />
+          <Skeleton className="h-6 w-20 mb-0.5" />
         ) : (
-          <div className={`text-lg sm:text-xl font-bold tracking-tight ${valueClass ?? ""}`}>{value}</div>
+          <div className={`text-base sm:text-lg font-bold tracking-tight truncate ${valueClass ?? ""}`}>{value}</div>
         )}
-        {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+        {sub && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</div>}
       </CardContent>
     </Card>
   )
@@ -397,10 +397,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-w-0 px-3 sm:px-4 lg:px-6 space-y-5 pb-8 pt-1">
+    <div className="min-w-0 w-full px-3 sm:px-4 lg:px-6 space-y-3.5 sm:space-y-4 pb-6 pt-0.5">
 
       {/* ─── 1. HEADER RINGKAS & LANGSUNG KE INTI (COMPACT EXECUTIVE HEADER) ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 pb-3 border-b border-border/60">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pb-2.5 border-b border-border/60">
         <div>
           
 
@@ -469,31 +469,32 @@ export default function DashboardPage() {
             </Button>
           )}
 
-          <Button asChild size="sm" variant="outline" className="text-xs h-8 gap-1.5 shadow-2xs">
+          {/* <Button asChild size="sm" variant="outline" className="text-xs h-8 gap-1.5 shadow-2xs">
             <Link href="/laporan">
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
               Matriks RFK
             </Link>
-          </Button>
+          </Button> */}
 
-          <Button asChild size="sm" variant="outline" className="text-xs h-8 gap-1.5 shadow-2xs">
+          {/* <Button asChild size="sm" variant="outline" className="text-xs h-8 gap-1.5 shadow-2xs">
             <Link href="/pembangunan">
               <HardHat className="h-3.5 w-3.5 text-blue-600" />
               Paket
             </Link>
-          </Button>
+          </Button> */}
         </div>
       </div>
 
       {/* ─── 2. CORE METRICS CARDS (PAGU, REALISASI KEUANGAN, TARGET FISIK, CAPAIAN) ─── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 min-w-0 w-full">
         {/* 1. Nilai Pagu Anggaran */}
         <StatCard
           icon={Wallet}
           label="Pagu Anggaran"
           value={rekapLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(macroStats.totalPagu)}
           sub={macroStats.nilaiKontrak > 0 ? `Kontrak: ${formatCurrency(macroStats.nilaiKontrak)}` : "Total pagu daerah"}
-          iconClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+          iconClass="bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400"
+          // iconClass="bg-slate-100 dark:bg-slate-800 text-slate-500"
         />
 
         {/* 2. Realisasi Keuangan (SP2D Cair) */}
@@ -506,8 +507,8 @@ export default function DashboardPage() {
               {macroStats.persenSerapanKeuangan.toFixed(1)}% APBD cair
             </span>
           }
-          iconClass="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-          valueClass="text-emerald-600 dark:text-emerald-400"
+          iconClass="bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400"
+          valueClass="text-slate-600 dark:text-slate-400"
         />
 
         {/* 3. Sisa Anggaran Belum Cair */}
@@ -516,7 +517,7 @@ export default function DashboardPage() {
           label="Sisa Anggaran"
           value={rekapLoading ? <Skeleton className="h-6 w-20" /> : formatCurrency(macroStats.sisaAnggaran)}
           sub={`Belum cair: ${(100 - macroStats.persenSerapanKeuangan).toFixed(1)}%`}
-          iconClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+          iconClass="bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400"
         />
 
         {/* 4. Target Fisik Rencana */}
@@ -525,7 +526,7 @@ export default function DashboardPage() {
           label="Target Fisik"
           value={rekapLoading ? <Skeleton className="h-6 w-14" /> : `${executiveStatus.avgTargetDaerah.toFixed(1)}%`}
           sub={`Target rencana ${namaBulanAktif}`}
-          iconClass="bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400"
+          iconClass="bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400"
         />
 
         {/* 5. Realisasi Fisik Tercapai */}
@@ -538,7 +539,7 @@ export default function DashboardPage() {
               Deviasi: {executiveStatus.deviasiDaerah >= 0 ? "+" : ""}{executiveStatus.deviasiDaerah.toFixed(1)}%
             </span>
           }
-          iconClass="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+          iconClass="bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400"
           valueClass={macroStats.avgFisik >= executiveStatus.avgTargetDaerah ? "text-emerald-600" : "text-amber-600"}
         />
 

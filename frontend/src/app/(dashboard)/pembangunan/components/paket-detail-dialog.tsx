@@ -172,11 +172,11 @@ export function PaketDetailDialog({
 
         <Separator />
 
-        {/* 12 Months Target vs Realisasi Progress */}
+        {/* Rekap bulanan untuk kebutuhan dashboard dan TEPRA */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-foreground">
-              Matriks Target Fisik Kumulatif & Realisasi (12 Bulan)
+              Rekap Bulanan Target & Realisasi untuk TEPRA
             </h4>
             <span className="text-xs text-muted-foreground">
               Deviasi = Realisasi Fisik - Target Fisik

@@ -59,7 +59,7 @@ export class ResetPaketDto {
   opdId?: string;
 }
 
-@ApiTags('SiRUP LKPP Integration')
+@ApiTags('RUP Konsel Setara Integration')
 @ApiBearerAuth('bearer')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sirup')
@@ -95,7 +95,7 @@ export class SirupController {
     RoleEnum.MONEV,
   )
   @ApiOperation({
-    summary: 'Daftar Sub Unit / Satuan Kerja resmi SiRUP LKPP Konawe Selatan',
+    summary: 'Daftar satuan kerja dari tabel RUP Konsel Setara',
   })
   async getSatkerOptions() {
     return this.sirupService.getSatkerOptions();
@@ -180,7 +180,7 @@ export class SirupController {
   @Post('sync-opd')
   @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_SIRUP, RoleEnum.MONEV)
   @ApiOperation({
-    summary: 'Sinkronisasi masal paket dari SiRUP LKPP ke MONALISA',
+    summary: 'Sinkronisasi massal paket dari tabel RUP ke MONALISA',
   })
   async syncOpd(
     @Body() dto: SyncOpdDto,
@@ -265,4 +265,3 @@ export class SirupController {
     });
   }
 }
-

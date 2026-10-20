@@ -209,6 +209,27 @@ export default function RealisasiBulananPage() {
   }, [rawItems])
   const summary = realisasiResponse?.summary
   const meta = realisasiResponse?.meta || { total: 0, totalPages: 1, page: 1 }
+  const availableMonthNumbers: number[] = useMemo(
+    () => Array.isArray(summary?.availableMonths) ? summary.availableMonths : [],
+    [summary]
+  )
+  const availableMonthOptions = availableMonthNumbers.length > 0
+    ? BULAN_LIST.filter((item) => availableMonthNumbers.includes(item.no))
+    : BULAN_LIST
+
+  useEffect(() => {
+    if (availableMonthNumbers.length > 0 && !availableMonthNumbers.includes(bulan)) {
+      const nextMonth = availableMonthNumbers.find((item) => item >= bulan)
+        || availableMonthNumbers.at(-1)
+      if (nextMonth) {
+        const timer = window.setTimeout(() => {
+          setBulan(nextMonth)
+          setPage(1)
+        }, 0)
+        return () => window.clearTimeout(timer)
+      }
+    }
+  }, [availableMonthNumbers, bulan])
 
   // Combobox options
   const opdOptions = useMemo(() => {
@@ -291,19 +312,19 @@ export default function RealisasiBulananPage() {
       {/* Page Title & Breadcrumb Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
+          {/* <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
               REALISASI FISIK & KEUANGAN
             </span>
             <Badge variant="outline" className="text-[10px] py-0 border-border">
               {activeBulanName} {tahunAnggaran}
             </Badge>
-          </div>
+          </div> */}
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Realisasi Fisik &amp; Keuangan
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Monitoring capaian kurva-S fisik (B01–B12), deviasi target, dan penyerapan SP2D anggaran
+            Monitoring progres mingguan paket dengan rekap bulanan untuk laporan TEPRA
           </p>
         </div>
 
@@ -316,14 +337,15 @@ export default function RealisasiBulananPage() {
               size="sm"
               onClick={handleCetakPDF}
               disabled={isLoading || items.length === 0}
-              className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+              // className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+              className="gap-2 shadow-xs"
             >
               <Printer className="h-4 w-4" />
               <span>Cetak Laporan RFK</span>
             </Button>
           )}
 
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={() => refetch()}
@@ -332,7 +354,7 @@ export default function RealisasiBulananPage() {
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Segarkan Data</span>
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -373,7 +395,7 @@ export default function RealisasiBulananPage() {
                   searchPlaceholder="Ketik nama Unit Kerja / OPD..."
                   emptyText="Unit Kerja tidak ditemukan."
                   allLabel="-- Semua Unit Kerja (OPD) --"
-                  icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                  // icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
                 />
               ) : (
                 <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium text-foreground truncate">
@@ -402,7 +424,7 @@ export default function RealisasiBulananPage() {
                   searchPlaceholder="Ketik nama Sub Unit Kerja..."
                   emptyText="Sub Unit Kerja tidak ditemukan."
                   allLabel="-- Semua Sub Unit Kerja --"
-                  icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                  // icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
                   disabled={isLoadingSubUnit}
                 />
               )}
@@ -428,7 +450,7 @@ export default function RealisasiBulananPage() {
               </Select>
             </div>
 
-            {/* Filter Bulan Pelaporan (B01-B12) */}
+            {/* Hanya bulan yang tercakup masa kontrak/target paket */}
             <div className="w-full">
               <Select
                 value={String(bulan)}
@@ -439,12 +461,12 @@ export default function RealisasiBulananPage() {
               >
                 <SelectTrigger className="h-9 text-xs bg-background w-full font-medium">
                   <div className="flex items-center gap-1.5 truncate">
-                    <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                    {/* <Calendar className="h-3.5 w-3.5 text-primary shrink-0" /> */}
                     <SelectValue placeholder="Bulan Pelaporan" />
                   </div>
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
-                  {BULAN_LIST.map((b) => (
+                  {availableMonthOptions.map((b) => (
                     <SelectItem key={b.no} value={String(b.no)} className="text-xs">
                       {b.singkatan} - {b.nama} {b.no === currentMonthNo ? "(Bulan Ini)" : ""}
                     </SelectItem>

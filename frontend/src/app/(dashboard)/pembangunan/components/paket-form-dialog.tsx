@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   Loader2,
   Calendar,
@@ -43,13 +42,12 @@ import {
   Layers,
   ArrowRight,
   ArrowLeft,
-  Lock,
-  TrendingUp,
   Search,
   DownloadCloud,
 } from "lucide-react"
 import { toast } from "sonner"
 import { SirupSearchDialog, SirupItem } from "./sirup-search-dialog"
+import { formatContractDate, generateContractWeeks } from "@/lib/contract-weeks"
 
 export interface OpdOption {
   id: string
@@ -58,8 +56,27 @@ export interface OpdOption {
   singkatan: string | null
 }
 
+interface SubUnitOption {
+  id: string
+  namaSubUnit: string
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  const value = error as { message?: string; response?: { data?: { message?: string } } }
+  return value.response?.data?.message || value.message || fallback
+}
+
 export interface TargetBulananItem {
   bulan: number
+  targetFisik: number
+}
+
+export interface TargetMingguanItem {
+  bulan: number
+  mingguKe: number
+  tanggalMulai: string
+  tanggalSelesai: string
+  uraianKegiatan?: string | null
   targetFisik: number
 }
 
@@ -82,6 +99,7 @@ export interface PaketItem {
   pemenangRekanan?: string | null
   keterangan?: string | null
   targetBulanan?: TargetBulananItem[]
+  targetMingguan?: TargetMingguanItem[]
   opd?: {
     id: string
     namaOpd: string
@@ -121,6 +139,48 @@ const BULAN_NAMES = [
   "November",
   "Desember",
 ]
+
+const buildWeeklyTargetState = (
+  periods: ReturnType<typeof generateContractWeeks>,
+  savedWeekly: TargetMingguanItem[] = [],
+  savedMonthly: TargetBulananItem[] = []
+): TargetMingguanItem[] => {
+  const hasWeeklyProgress = savedWeekly.some((item) => Number(item.targetFisik) > 0)
+
+  return periods.map((period) => {
+    const saved = hasWeeklyProgress
+      ? savedWeekly.find(
+          (item) => item.bulan === period.bulan && item.mingguKe === period.mingguKe
+        )
+      : undefined
+    if (saved) {
+      return {
+        ...period,
+        targetFisik: Number(saved.targetFisik) || 0,
+        uraianKegiatan: saved.uraianKegiatan || "",
+      }
+    }
+
+    const monthWeeks = periods.filter((item) => item.bulan === period.bulan)
+    const weekIndex = monthWeeks.findIndex((item) => item.mingguKe === period.mingguKe)
+    const currentMonthTarget = Number(
+      savedMonthly.find((item) => item.bulan === period.bulan)?.targetFisik
+      ?? savedMonthly.filter((item) => item.bulan < period.bulan).at(-1)?.targetFisik
+      ?? 0
+    )
+    const previousMonthTarget = Number(
+      savedMonthly.filter((item) => item.bulan < period.bulan).at(-1)?.targetFisik ?? 0
+    )
+    const interpolated = previousMonthTarget
+      + ((currentMonthTarget - previousMonthTarget) * (weekIndex + 1)) / monthWeeks.length
+
+    return {
+      ...period,
+      targetFisik: parseFloat(interpolated.toFixed(2)),
+      uraianKegiatan: "",
+    }
+  })
+}
 
 export function PaketFormDialog({
   open,
@@ -205,7 +265,7 @@ export function PaketFormDialog({
 
   const subUnitOptions = useMemo(() => {
     const list = Array.isArray(subUnitsResponse) ? subUnitsResponse : []
-    return list.map((su: any) => ({
+    return (list as SubUnitOption[]).map((su) => ({
       id: su.id,
       label: su.namaSubUnit,
     }))
@@ -230,12 +290,13 @@ export function PaketFormDialog({
     )
   }, [constants?.sumberDana, sumberDana])
 
-  // Targets state: array of 12 numbers (index 0 = bulan 1)
-  const [targets, setTargets] = useState<number[]>(Array(12).fill(0))
+  const [weeklyTargets, setWeeklyTargets] = useState<TargetMingguanItem[]>([])
 
   // Populate data when dialog opens
   useEffect(() => {
     if (initialData) {
+      // Form lokal diselaraskan ketika paket yang dibuka berubah.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTahunAnggaran(initialData.tahunAnggaran || 2026)
       setOpdId(initialData.opdId || "")
       setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
@@ -253,15 +314,12 @@ export function PaketFormDialog({
       setPemenangRekanan(initialData.pemenangRekanan || "")
       setKeterangan(initialData.keterangan || "")
 
-      const newTargets = Array(12).fill(0)
-      if (initialData.targetBulanan && initialData.targetBulanan.length > 0) {
-        initialData.targetBulanan.forEach((t) => {
-          if (t.bulan >= 1 && t.bulan <= 12) {
-            newTargets[t.bulan - 1] = t.targetFisik
-          }
-        })
-      }
-      setTargets(newTargets)
+      const periods = generateContractWeeks(initialData.tanggalMulai, initialData.tanggalSelesai)
+      setWeeklyTargets(buildWeeklyTargetState(
+        periods,
+        initialData.targetMingguan,
+        initialData.targetBulanan
+      ))
     } else {
       // Reset form
       setTahunAnggaran(2026)
@@ -281,7 +339,7 @@ export function PaketFormDialog({
       setTanggalSelesai("")
       setPemenangRekanan("")
       setKeterangan("")
-      setTargets(Array(12).fill(0))
+      setWeeklyTargets([])
     }
     if (defaultTab) {
       setActiveTab(defaultTab)
@@ -291,6 +349,20 @@ export function PaketFormDialog({
       setActiveTab("info")
     }
   }, [initialData, open, defaultTab, isPerencana, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
+
+  const reconcileWeeklyPeriods = (start: string, end: string) => {
+    const periods = generateContractWeeks(start, end)
+    setWeeklyTargets((current) => periods.map((period) => {
+      const existing = current.find(
+        (item) => item.bulan === period.bulan && item.mingguKe === period.mingguKe
+      )
+      return {
+        ...period,
+        targetFisik: existing?.targetFisik ?? 0,
+        uraianKegiatan: existing?.uraianKegiatan || "",
+      }
+    }))
+  }
 
   // Calculated values
   const paguNum = parseFloat(nilaiPagu) || 0
@@ -405,62 +477,50 @@ export function PaketFormDialog({
           description: "Pastikan kode RUP sudah terdaftar pada T.A. yang dipilih.",
         })
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error("Gagal menarik data dari SiRUP", {
-        description: err.response?.data?.message || err.message || "Periksa koneksi internet.",
+        description: getErrorMessage(err, "Periksa koneksi internet."),
       })
     } finally {
       setIsFetchingSirup(false)
     }
   }
 
-  const handleTargetChange = (bulanIndex: number, value: string) => {
+  const handleTargetChange = (bulan: number, mingguKe: number, value: string) => {
     const val = parseFloat(value) || 0
     const clamped = Math.max(0, Math.min(100, val))
-    const updated = [...targets]
-    updated[bulanIndex] = clamped
-    setTargets(updated)
+    setWeeklyTargets((current) => current.map((item) =>
+      item.bulan === bulan && item.mingguKe === mingguKe
+        ? { ...item, targetFisik: clamped }
+        : item
+    ))
   }
 
-  // Auto distribute target between start and end month
+  const handleUraianChange = (bulan: number, mingguKe: number, value: string) => {
+    setWeeklyTargets((current) => current.map((item) =>
+      item.bulan === bulan && item.mingguKe === mingguKe
+        ? { ...item, uraianKegiatan: value }
+        : item
+    ))
+  }
+
+  // Distribusi kumulatif secara proporsional untuk seluruh minggu masa kontrak.
   const autoDistributeTargets = () => {
-    let startMonth = 1
-    let endMonth = 12
-
-    if (tanggalMulai) {
-      startMonth = new Date(tanggalMulai).getMonth() + 1
+    if (weeklyTargets.length === 0) {
+      toast.error("Lengkapi tanggal mulai dan selesai kontrak terlebih dahulu")
+      return
     }
-    if (tanggalSelesai) {
-      endMonth = new Date(tanggalSelesai).getMonth() + 1
-    }
-
-    if (startMonth > endMonth) {
-      endMonth = 12
-    }
-
-    const duration = endMonth - startMonth + 1
-    const updated = Array(12).fill(0)
-
-    for (let i = 0; i < 12; i++) {
-      const monthNum = i + 1
-      if (monthNum < startMonth) {
-        updated[i] = 0
-      } else if (monthNum >= endMonth) {
-        updated[i] = 100
-      } else {
-        const step = (monthNum - startMonth + 1) / duration
-        updated[i] = parseFloat((step * 100).toFixed(2))
-      }
-    }
-
-    setTargets(updated)
-    toast.success(`Target berhasil dihitung proporsional dari Bulan ${startMonth} ke ${endMonth}`)
+    setWeeklyTargets((current) => current.map((item, index) => ({
+      ...item,
+      targetFisik: parseFloat((((index + 1) / current.length) * 100).toFixed(2)),
+    })))
+    toast.success(`Target berhasil dibagi proporsional ke ${weeklyTargets.length} minggu kontrak`)
   }
 
   // Reset targets to 0
   const resetTargets = () => {
-    setTargets(Array(12).fill(0))
-    toast.info("Target bulanan direset ke 0%")
+    setWeeklyTargets((current) => current.map((item) => ({ ...item, targetFisik: 0 })))
+    toast.info("Target mingguan direset ke 0%")
   }
 
   // Mutation Save
@@ -480,11 +540,23 @@ export function PaketFormDialog({
       if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) < new Date(tanggalMulai)) {
         throw new Error("Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai")
       }
+      if (canEditTarget) {
+        for (let index = 1; index < weeklyTargets.length; index += 1) {
+          if (weeklyTargets[index].targetFisik < weeklyTargets[index - 1].targetFisik) {
+            throw new Error(
+              `Target kumulatif B${String(weeklyTargets[index].bulan).padStart(2, "0")} Minggu ${weeklyTargets[index].mingguKe} tidak boleh lebih kecil dari minggu sebelumnya.`
+            )
+          }
+        }
+      }
 
-      const targetBulananPayload = targets.map((val, idx) => ({
-        bulan: idx + 1,
-        targetFisik: val,
-      }))
+      const targetBulananPayload = Array.from({ length: 12 }, (_, idx) => {
+        const bulan = idx + 1
+        const rows = weeklyTargets.filter((item) => item.bulan === bulan)
+        const last = rows.at(-1)
+        const previous = weeklyTargets.filter((item) => item.bulan < bulan).at(-1)
+        return { bulan, targetFisik: last?.targetFisik ?? previous?.targetFisik ?? 0 }
+      })
 
       const payload = {
         tahunAnggaran,
@@ -504,6 +576,10 @@ export function PaketFormDialog({
         pemenangRekanan: pemenangRekanan.trim() || undefined,
         keterangan: keterangan.trim() || undefined,
         targetBulanan: targetBulananPayload,
+        targetMingguan: weeklyTargets.map((item) => ({
+          ...item,
+          uraianKegiatan: item.uraianKegiatan?.trim() || undefined,
+        })),
       }
 
       if (isEdit && initialData) {
@@ -527,13 +603,10 @@ export function PaketFormDialog({
       queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
       onOpenChange(false)
     },
-    onError: (err: any) => {
-      const msg = err.response?.data?.message || err.message || "Gagal menyimpan data paket"
-      toast.error(msg)
-    },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "Gagal menyimpan data paket")),
   })
 
-  const finalTarget = targets[11]
+  const finalTarget = weeklyTargets.at(-1)?.targetFisik || 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -551,7 +624,7 @@ export function PaketFormDialog({
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm mt-0.5 text-muted-foreground">
                   {isEdit
-                    ? "Perbarui rincian teknis pengadaan dan kalibrasi kurva target fisik bulanan (B01–B12)"
+                    ? "Perbarui rincian teknis pengadaan dan kalibrasi target fisik mingguan masa kontrak"
                     : "Formulir standar 16 atribut pengadaan dan kurva kumulatif rencana fisik Pemkab Konawe Selatan"}
                 </DialogDescription>
               </div>
@@ -589,7 +662,7 @@ export function PaketFormDialog({
               </TabsTrigger>
               <TabsTrigger value="targets" className="gap-2 text-xs sm:text-sm font-medium">
                 <Calendar className="h-4 w-4" />
-                2. Target Fisik (12 Bulan)
+                2. Target Fisik Mingguan
               </TabsTrigger>
             </TabsList>
           </div>
@@ -603,7 +676,7 @@ export function PaketFormDialog({
                 <div>
                   <span className="font-semibold">Kewenangan Khusus Admin SiRUP:</span>
                   <p className="mt-0.5 text-muted-foreground">
-                    Rincian kontrak, pagu, dan mekanisme pengadaan diinput oleh <strong>Admin SiRUP</strong> (Mode Hanya Baca untuk Admin Perencanaan). Akun Anda bertugas menetapkan <strong>Target Fisik Bulanan (Tab 2)</strong>.
+                    Rincian kontrak, pagu, dan mekanisme pengadaan diinput oleh <strong>Admin SiRUP</strong> (Mode Hanya Baca untuk Admin Perencanaan). Akun Anda bertugas menetapkan <strong>Target Fisik Mingguan (Tab 2)</strong>.
                   </p>
                 </div>
               </div>
@@ -977,7 +1050,10 @@ export function PaketFormDialog({
                     id="tanggalMulai"
                     type="date"
                     value={tanggalMulai}
-                    onChange={(e) => setTanggalMulai(e.target.value)}
+                    onChange={(e) => {
+                      setTanggalMulai(e.target.value)
+                      reconcileWeeklyPeriods(e.target.value, tanggalSelesai)
+                    }}
                     className="text-sm"
                   />
                 </div>
@@ -991,7 +1067,10 @@ export function PaketFormDialog({
                     id="tanggalSelesai"
                     type="date"
                     value={tanggalSelesai}
-                    onChange={(e) => setTanggalSelesai(e.target.value)}
+                    onChange={(e) => {
+                      setTanggalSelesai(e.target.value)
+                      reconcileWeeklyPeriods(tanggalMulai, e.target.value)
+                    }}
                     className="text-sm"
                   />
                 </div>
@@ -1032,7 +1111,7 @@ export function PaketFormDialog({
             </div>
           </TabsContent>
 
-          {/* TAB 2: TARGET FISIK BULANAN */}
+          {/* TAB 2: TARGET FISIK MINGGUAN */}
           <TabsContent value="targets" className="flex-1 overflow-y-auto p-6 space-y-5 m-0">
             {/* Banner kewenangan Admin Perencanaan */}
             {!canEditTarget && (
@@ -1041,7 +1120,7 @@ export function PaketFormDialog({
                 <div>
                   <span className="font-semibold text-amber-900 dark:text-amber-100">Kewenangan Khusus Admin Perencanaan:</span>
                   <p className="mt-0.5 text-muted-foreground">
-                    Penetapan target fisik bulanan (kurva rencana B01–B12) dilakukan oleh <strong>Admin Perencanaan</strong> setelah paket pengadaan dibuat oleh Admin SiRUP. Target bulanan paket ini saat ini diinisialisasi 0% (Mode Pratinjau untuk Admin SiRUP).
+                    Penetapan target fisik mingguan dilakukan oleh <strong>Admin Perencanaan</strong> setelah paket pengadaan dibuat oleh Admin SiRUP. Rekap bulanan untuk dashboard dan TEPRA dihitung otomatis dari target minggu terakhir setiap bulan.
                   </p>
                 </div>
               </div>
@@ -1052,10 +1131,10 @@ export function PaketFormDialog({
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold flex items-center gap-2 text-foreground">
                   <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  Rencana Fisik Kumulatif (%) Bulan 1 s.d. 12
+                  Rencana Fisik Kumulatif per Minggu Kontrak
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Persentase kemajuan fisik kumulatif pekerjaan untuk setiap bulan berjalan (rentang 0.00% – 100.00%).
+                  Hanya bulan dalam tanggal mulai–selesai kontrak yang ditampilkan. Setiap bulan dibagi per minggu sejak tanggal mulai kontrak.
                 </p>
               </div>
 
@@ -1078,59 +1157,76 @@ export function PaketFormDialog({
                     className="text-xs h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    Hitung Otomatis Berdasarkan Tanggal Kontrak
+                    Bagi Otomatis per Minggu
                   </Button>
                 </div>
               )}
             </div>
 
-            {/* Grid 12 Bulan (Spacious 6 columns on large screen, 3 on tablet, 2 on mobile) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              {BULAN_NAMES.map((namaBulan, idx) => {
-                const val = targets[idx]
-                return (
-                  <div
-                    key={namaBulan}
-                    className="flex flex-col gap-2 p-3.5 rounded-xl border bg-card transition-all hover:border-emerald-500/40 hover:shadow-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground">
-                        B{String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-normal">
-                        {namaBulan.substring(0, 3)}
-                      </Badge>
+            {weeklyTargets.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+                Lengkapi tanggal mulai dan tanggal selesai kontrak pada Tab 1 untuk membentuk periode target mingguan.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Array.from(new Set(weeklyTargets.map((item) => item.bulan))).map((bulan) => (
+                  <div key={bulan} className="rounded-xl border bg-card overflow-hidden">
+                    <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-3">
+                      <div>
+                        <div className="text-sm font-semibold">B{String(bulan).padStart(2, "0")} · {BULAN_NAMES[bulan - 1]}</div>
+                        <div className="text-[11px] text-muted-foreground">{weeklyTargets.filter((item) => item.bulan === bulan).length} periode minggu kontrak</div>
+                      </div>
                     </div>
-
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        disabled={!canEditTarget}
-                        className={`text-right font-mono pr-7 text-sm font-semibold h-9 ${
-                          !canEditTarget ? "bg-muted/40 cursor-not-allowed opacity-80" : ""
-                        }`}
-                        value={val}
-                        onChange={(e) => handleTargetChange(idx, e.target.value)}
-                      />
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
-                        %
-                      </span>
-                    </div>
-
-                    {/* Progress bar visual indicator */}
-                    <div className="w-full bg-muted/80 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-emerald-600 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(100, Math.max(0, val))}%` }}
-                      />
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[760px] text-xs">
+                        <thead className="bg-muted/20 text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium w-24">Minggu</th>
+                            <th className="px-4 py-2 text-left font-medium w-56">Rentang Tanggal</th>
+                            <th className="px-4 py-2 text-left font-medium">Nama/Uraian Kegiatan</th>
+                            <th className="px-4 py-2 text-right font-medium w-36">Target Kumulatif</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {weeklyTargets.filter((item) => item.bulan === bulan).map((item) => (
+                            <tr key={`${item.bulan}-${item.mingguKe}`} className="border-t">
+                              <td className="px-4 py-3 font-semibold">MINGGU {item.mingguKe}</td>
+                              <td className="px-4 py-3 text-muted-foreground">
+                                {formatContractDate(item.tanggalMulai)} – {formatContractDate(item.tanggalSelesai)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Input
+                                  value={item.uraianKegiatan || ""}
+                                  onChange={(event) => handleUraianChange(item.bulan, item.mingguKe, event.target.value)}
+                                  disabled={!canEditTarget}
+                                  placeholder="Contoh: pekerjaan pondasi"
+                                  className="h-9 text-xs"
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={item.targetFisik}
+                                    onChange={(event) => handleTargetChange(item.bulan, item.mingguKe, event.target.value)}
+                                    disabled={!canEditTarget}
+                                    className="h-9 pr-7 text-right font-mono font-semibold"
+                                  />
+                                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Target Validation Notice */}
             <div className="flex items-center justify-between p-4 rounded-xl border bg-card/60">
@@ -1146,15 +1242,15 @@ export function PaketFormDialog({
                 )}
                 <div>
                   <div className="text-xs sm:text-sm font-semibold text-foreground">
-                    Target Akhir Tahun (B12):{" "}
+                    Target Akhir Kontrak: {" "}
                     <span className={finalTarget === 100 ? "text-emerald-600" : "text-amber-600"}>
                       {finalTarget}%
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {finalTarget === 100
-                      ? "Target fisik telah lengkap mencapai 100.00% pada akhir tahun anggaran."
-                      : "Disarankan target fisik mencapai 100.00% pada bulan penyelesaian kontrak."}
+                      ? "Target fisik telah lengkap mencapai 100.00% pada minggu terakhir kontrak."
+                      : "Target minggu terakhir kontrak disarankan mencapai 100.00%."}
                   </p>
                 </div>
               </div>
@@ -1176,7 +1272,7 @@ export function PaketFormDialog({
         {/* Modal Footer */}
         <DialogFooter className="p-4 sm:p-6 border-t bg-muted/20 shrink-0 flex-row items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground hidden sm:block">
-            {activeTab === "info" ? "Tab 1: Rincian PBJ & Kontrak" : "Tab 2: Target Fisik Bulanan (B01–B12)"}
+            {activeTab === "info" ? "Tab 1: Rincian PBJ & Kontrak" : "Tab 2: Target Fisik Mingguan"}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -1223,7 +1319,7 @@ export function PaketFormDialog({
                   }}
                   className="gap-1.5"
                 >
-                  <span>{isSirup ? "Pratinjau Target Fisik" : "Target Fisik (12 Bulan)"}</span>
+                  <span>{isSirup ? "Pratinjau Target Fisik" : "Target Fisik Mingguan"}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </>

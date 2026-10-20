@@ -69,7 +69,7 @@ export function SirupBulkSyncDialog({
   const [syncScope, setSyncScope] = useState<"ALL" | "SINGLE">("SINGLE")
   const [selectedTargetUnit, setSelectedTargetUnit] = useState<string>("")
 
-  // Fetch daftar resmi 51 Sub Unit / Satuan Kerja SiRUP LKPP Konawe Selatan
+  // Fetch daftar satuan kerja dari tabel read-only konsel_setara.rup_satker
   const { data: satkerList = [], isLoading: isLoadingSatkerList } = useQuery<SatkerOption[]>({
     queryKey: ["sirup-satker-options"],
     queryFn: async () => {
@@ -113,11 +113,11 @@ export function SirupBulkSyncDialog({
   )
   const displayTargetNama = isSuperRole
     ? syncScope === "ALL"
-      ? "SEMUA OPD SE-KABUPATEN (51 SUB UNIT KERJA)"
+      ? "SEMUA OPD SE-KABUPATEN"
       : currentSatker?.nama || opdNama || "Sub Unit Terpilih"
     : opdNama || "Sub Unit Anda"
 
-  // Ambil pratinjau paket SiRUP LKPP
+  // Ambil pratinjau paket dari konsel_setara.rup_paket
   const {
     data: previewData,
     isLoading: isLoadingPreview,
@@ -148,7 +148,7 @@ export function SirupBulkSyncDialog({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
       queryClient.invalidateQueries({ queryKey: ["pembangunan-summary"] })
-      toast.success("Sinkronisasi SiRUP Berhasil!", {
+      toast.success("Sinkronisasi RUP Berhasil!", {
         description:
           data?.message ||
           `${data?.totalSynced || 0} paket berhasil dimasukkan ke database MONALISA.`,
@@ -160,7 +160,7 @@ export function SirupBulkSyncDialog({
         description:
           err.response?.data?.message ||
           err.message ||
-          "Terjadi kesalahan saat menghubungkan ke SiRUP LKPP.",
+          "Terjadi kesalahan saat membaca tabel RUP Konsel Setara.",
       })
     },
   })
@@ -179,7 +179,7 @@ export function SirupBulkSyncDialog({
             </div>
             <div>
               <DialogTitle className="text-base font-semibold">
-                Sinkronisasi Paket SiRUP LKPP
+                Sinkronisasi Paket RUP Konsel Setara
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 Tarik otomatis seluruh paket pengadaan ke database MONALISA
@@ -220,7 +220,7 @@ export function SirupBulkSyncDialog({
                     <span>Semua Sub Unit (Total)</span>
                   </div>
                   <span className="text-[10.5px] text-muted-foreground mt-0.5 leading-tight">
-                    Sinkronkan seluruh 51 Satker se-Kabupaten
+                    Sinkronkan seluruh satker yang tersedia
                   </span>
                 </button>
 
@@ -323,12 +323,12 @@ export function SirupBulkSyncDialog({
             </div>
           </div>
 
-          {/* Status Penemuan Paket di SiRUP */}
+          {/* Status penemuan paket di sumber RUP Konsel Setara */}
           <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3.5 space-y-2 text-blue-900">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-medium text-xs">
                 <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                <span>Status Data di SiRUP LKPP:</span>
+                <span>Status Data RUP Konsel Setara:</span>
               </div>
               <Button
                 variant="ghost"
@@ -348,12 +348,12 @@ export function SirupBulkSyncDialog({
             {isLoadingPreview ? (
               <div className="flex items-center gap-2 py-2 text-xs text-blue-700">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Memeriksa paket di server LKPP...</span>
+                <span>Memeriksa tabel RUP Konsel Setara...</span>
               </div>
             ) : previewData ? (
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span>Total Terdata di SiRUP:</span>
+                  <span>Total Terdata di Tabel RUP:</span>
                   <span className="font-bold">
                     {previewData.total.toLocaleString("id-ID")} Paket
                   </span>
@@ -402,8 +402,8 @@ export function SirupBulkSyncDialog({
           <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-md border">
             💡 <strong>Keterangan:</strong> Sistem akan memasukkan nama paket,
             pagu anggaran, metode, jenis pengadaan, dan nomor RUP. Operator Sub
-            Unit tinggal melengkapi nomor kontrak dan target fisik bulanan
-            (Kurva-S B01-B12).
+            Unit tinggal melengkapi nomor kontrak dan target fisik mingguan.
+            Rekap bulanannya dihitung otomatis untuk dashboard dan TEPRA.
           </div>
         </div>
 

@@ -71,15 +71,6 @@ export function NavMain({
             item.isActive ??
             (pathname === item.url ||
               (item.url !== "/dashboard" && pathname.startsWith(item.url)))
-          const theme = item.colorTheme || {
-            iconBgActive:
-              "bg-gradient-to-br from-emerald-600 to-teal-500 text-white shadow-xs shadow-emerald-500/30",
-            iconBgInactive:
-              "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover/menu-button:bg-emerald-500/20",
-            borderActive: "border-l-emerald-500",
-            activeGlow:
-              "bg-gradient-to-r from-emerald-500/12 via-emerald-500/5 to-transparent",
-          }
 
           return (
             <Collapsible
@@ -97,18 +88,15 @@ export function NavMain({
                         className={cn(
                           "cursor-pointer rounded-xl h-auto min-h-11 py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none md:min-h-0",
                           isItemActive &&
-                            cn(
-                              theme.activeGlow,
-                              "font-semibold"
-                            )
+                            "bg-blue-600/10 text-sidebar-foreground font-semibold"
                         )}
                       >
                         <div
                           className={cn(
                             "flex size-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200 group-data-[collapsible=icon]:size-6",
                             isItemActive
-                              ? cn(theme.iconBgActive, "scale-105")
-                              : theme.iconBgInactive
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-sidebar-accent/50 text-sidebar-foreground/70 group-hover/menu-button:bg-sidebar-accent group-hover/menu-button:text-sidebar-foreground"
                           )}
                         >
                           {item.icon && <item.icon className="size-4 shrink-0" />}
@@ -174,10 +162,7 @@ export function NavMain({
                     className={cn(
                       "cursor-pointer rounded-xl h-auto min-h-11 py-2 px-2.5 transition-all duration-200 group/menu-button focus:outline-none focus-visible:ring-0 focus-visible:outline-none md:min-h-0",
                       isItemActive &&
-                        cn(
-                          theme.activeGlow,
-                          "font-semibold"
-                        )
+                        "bg-blue-600/10 text-sidebar-foreground font-semibold"
                     )}
                   >
                     <Link
@@ -189,8 +174,8 @@ export function NavMain({
                         className={cn(
                           "flex size-7 shrink-0 items-center justify-center rounded-lg transition-all duration-200 group-data-[collapsible=icon]:size-6",
                           isItemActive
-                            ? cn(theme.iconBgActive, "scale-105")
-                            : theme.iconBgInactive
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "bg-sidebar-accent/50 text-sidebar-foreground/70 group-hover/menu-button:bg-sidebar-accent group-hover/menu-button:text-sidebar-foreground"
                         )}
                       >
                         {item.icon && <item.icon className="size-4 shrink-0" />}

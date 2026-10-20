@@ -39,6 +39,7 @@ import {
   UpsertRealisasiDto,
 } from './dto/upsert-realisasi.dto';
 import { VerifikasiRealisasiDto } from './dto/verifikasi-realisasi.dto';
+import { UpsertRealisasiMingguanDto } from './dto/upsert-realisasi-mingguan.dto';
 import { PembangunanService } from './pembangunan.service';
 
 // Semua role yang bisa membaca data (read-only roles)
@@ -291,6 +292,20 @@ export class PembangunanController {
     return this.pembangunanService.upsertRealisasi(id, dto, user);
   }
 
+  @Put(':id/realisasi-mingguan')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
+  @ApiOperation({
+    summary:
+      'Simpan realisasi satu minggu dan sinkronkan rekap bulanannya untuk TEPRA',
+  })
+  upsertRealisasiMingguan(
+    @Param('id') id: string,
+    @Body() dto: UpsertRealisasiMingguanDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.upsertRealisasiMingguan(id, dto, user);
+  }
+
   @Put(':id/realisasi/bulk')
   @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
   @ApiOperation({
@@ -410,6 +425,50 @@ export class PembangunanController {
       files,
       deskripsi,
       user,
+    );
+  }
+
+  @Post(':id/realisasi/:bulan/:minggu/bukti')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadDir = join(process.cwd(), 'uploads', 'bukti-fisik');
+          if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        },
+        filename: (_req, file, cb) => {
+          cb(null, `bukti-${randomUUID()}${extname(file.originalname).toLowerCase()}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        const allowed = /\.(jpg|jpeg|png|webp|gif|mp4|pdf)$/i;
+        if (!allowed.test(extname(file.originalname))) {
+          return cb(new Error('Format bukti fisik tidak didukung'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.CREATED)
+  uploadBuktiFisikMingguan(
+    @Param('id') id: string,
+    @Param('bulan') bulan: string,
+    @Param('minggu') minggu: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('deskripsi') deskripsi: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.uploadBuktiFisik(
+      id,
+      parseInt(bulan),
+      files,
+      deskripsi,
+      user,
+      parseInt(minggu),
     );
   }
 

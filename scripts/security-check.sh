@@ -30,8 +30,8 @@ for FILE in $STAGED_FILES; do
         ERRORS=$((ERRORS + 1))
     fi
 
-    # Blokir file binary / arsip / dump database
-    if [[ "$FILE" =~ \.(zip|tar\.gz|tar|rar|7z|sql|dump)$ ]]; then
+    # Blokir file binary / arsip / dump database (kecuali prisma migration.sql)
+    if [[ "$FILE" =~ \.(zip|tar\.gz|tar|rar|7z|dump)$ ]] || ([[ "$FILE" =~ \.sql$ ]] && [[ ! "$FILE" =~ backend/prisma/migrations/.*migration\.sql$ ]]); then
         echo -e "${RED}❌ [DIBLOKIR] File arsip / backup database terdeteksi: ${BOLD}$FILE${NC}"
         echo -e "   File binary / database dump dilarang di-push ke source control!"
         ERRORS=$((ERRORS + 1))
