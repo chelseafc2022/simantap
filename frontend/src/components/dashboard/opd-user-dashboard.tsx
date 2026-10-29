@@ -31,7 +31,6 @@ import {
   Search,
   ChevronRight,
   RotateCcw,
-  ShieldCheck,
   ShieldAlert,
   Wallet,
   Clock,
@@ -299,7 +298,7 @@ export function OpdUserDashboard({
       {/* ─── 1. BANNER HEADER KHUSUS OPD ─── */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-700/10 via-indigo-600/10 to-sky-500/10 border border-blue-200/60 dark:border-blue-900/40 shadow-xs">
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* <div className="flex items-center gap-2 flex-wrap">
             <Badge className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
               Dashboard Perangkat Daerah
             </Badge>
@@ -310,7 +309,7 @@ export function OpdUserDashboard({
                   : r.replace(/_/g, " ")}
               </Badge>
             ))}
-          </div>
+          </div> */}
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground uppercase">
             {opdNama}
           </h1>
@@ -326,9 +325,11 @@ export function OpdUserDashboard({
             )}
           </p>
         </div>
+      </div>
 
-        {/* Periode Selector */}
-        <div className="flex items-center gap-2 flex-wrap self-start lg:self-center">
+      {/* ─── 2. FILTER PERIODE & AKSI CEPAT ─── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 rounded-xl border border-border/60 bg-card/60 backdrop-blur-xs shadow-xs">
+        <div className="flex items-center gap-2 flex-wrap">
           {hasMultipleOpdAccess && (
             <div className="w-52">
               <Select value={selectedOpdId} onValueChange={setSelectedOpdFilter}>
@@ -390,18 +391,18 @@ export function OpdUserDashboard({
               <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           )}
-
-          <Button asChild size="sm" variant="default" className="text-xs h-8 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-xs">
-            <Link href="/realisasi">
-              <TrendingUp className="h-3.5 w-3.5" />
-              Input Realisasi
-            </Link>
-          </Button>
         </div>
+
+        <Button asChild size="sm" variant="default" className="text-xs h-8 gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-xs shrink-0">
+          <Link href="/realisasi">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Input Realisasi
+          </Link>
+        </Button>
       </div>
 
-      {/* ─── 2. EARLY WARNING CALLOUT (JIKA ADA PAKET KRITIS/PERHATIAN) ─── */}
-      {paketPerluPerhatian.length > 0 ? (
+      {/* ─── 3. EARLY WARNING CALLOUT (HANYA JIKA ADA PAKET KRITIS/PERHATIAN) ─── */}
+      {paketPerluPerhatian.length > 0 && (
         <div className="p-4 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5">
@@ -420,21 +421,9 @@ export function OpdUserDashboard({
             <Link href="/realisasi">Buka Form Realisasi <ChevronRight className="h-3.5 w-3.5 ml-1" /></Link>
           </Button>
         </div>
-      ) : (
-        <div className="p-3.5 rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
-              <ShieldCheck className="h-4 w-4" />
-            </div>
-            <p className="text-xs font-semibold">
-              Kinerja Paket Pembangunan OPD Anda On-Track (Sesuai Jadwal dan Rencana Rencana Fisik {namaBulanAktif} {tahun}).
-            </p>
-          </div>
-          <Badge className="bg-emerald-600 text-white text-[10px]">Aman</Badge>
-        </div>
       )}
 
-      {/* ─── 3. CORE METRICS CARDS KHUSUS OPD (6 CARDS) ─── */}
+      {/* ─── 4. CORE METRICS CARDS KHUSUS OPD (6 CARDS) ─── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 min-w-0 w-full">
         {/* Pagu Anggaran OPD */}
         <Card className="border-border/60 shadow-xs min-w-0">
@@ -574,7 +563,7 @@ export function OpdUserDashboard({
       </div>
 
       {/* ─── 4. QUICK SHORTCUTS & ACTION BAR ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Link
           href="/realisasi"
           className="flex items-center justify-between p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/10 hover:bg-amber-500/15 transition-all shadow-2xs group"
@@ -606,7 +595,7 @@ export function OpdUserDashboard({
           </div>
           <ArrowUpRight className="h-4 w-4 text-blue-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
         </Link>
-      </div>
+      </div> */}
 
       {/* ─── 5. DAFTAR PAKET PEMBANGUNAN KHUSUS OPD INI ─── */}
       <Card className="border-border/60 shadow-sm">
