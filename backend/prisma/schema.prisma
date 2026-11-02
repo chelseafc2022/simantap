@@ -176,6 +176,8 @@ model PaketPembangunan {
   lokasiKegiatan  String?   @map("lokasi_kegiatan")
   metodePemilihan String?   @map("metode_pemilihan")
   jenisPengadaan  String?   @map("jenis_pengadaan")
+  kelompokPaket   String    @default("PEMBANGUNAN_MODAL") @map("kelompok_paket")
+  polaMonitoring  String    @default("FISIK_KEUANGAN") @map("pola_monitoring")
   nilaiPagu       Decimal   @default(0) @map("nilai_pagu") @db.Decimal(18, 2)
   nilaiKontrak    Decimal   @default(0) @map("nilai_kontrak") @db.Decimal(18, 2)
   sumberDana      String?   @map("sumber_dana")

@@ -3,10 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService } from '../../core/egov/egov.service';
 import { RedisService } from '../../core/redis/redis.service';
-import {
-  RupSourcePaketRow,
-  RupSourceService,
-} from './rup-source.service';
+import { RupSourcePaketRow, RupSourceService } from './rup-source.service';
 
 export interface SirupPaketItem {
   kodeRup: string;
@@ -658,9 +655,8 @@ export class SirupService {
       parentOpdNama: target.parentOpdNama,
       satkerCode: satkerCode || '-',
       total: packages.length,
-      pembangunanCount: packages.filter(
-        (p: SirupPaketItem) => p.isPembangunan,
-      ).length,
+      pembangunanCount: packages.filter((p: SirupPaketItem) => p.isPembangunan)
+        .length,
       packages,
     };
   }
@@ -782,6 +778,8 @@ export class SirupService {
       namaPaket: string;
       nilaiPagu: number;
       nilaiKontrak: number;
+      kelompokPaket: string;
+      polaMonitoring: string;
       metodePemilihan: string;
       jenisPengadaan: string;
       sumberDana: string;
@@ -807,10 +805,7 @@ export class SirupService {
         nilaiPagu: item.pagu || 0,
         metodePemilihan: this.normalizeMetode(item.metode),
         jenisPengadaan: this.normalizeJenis(item.jenisPengadaan),
-        sumberDana: this.normalizeSumberDana(
-          item.sumberDana,
-          item.namaPaket,
-        ),
+        sumberDana: this.normalizeSumberDana(item.sumberDana, item.namaPaket),
         opdId: targetOpdId,
         subUnitId: targetSubUnitId || existing?.subUnitId || null,
       };
@@ -823,6 +818,10 @@ export class SirupService {
           tahunAnggaran: options.tahun,
           kodeRupKontrak: item.kodeRup,
           nilaiKontrak: 0,
+          kelompokPaket: item.isPembangunan
+            ? 'PEMBANGUNAN_MODAL'
+            : 'PERLU_DITINJAU',
+          polaMonitoring: item.isPembangunan ? 'FISIK_KEUANGAN' : 'KEUANGAN',
           createdById: options.userId || null,
           ...commonData,
         });

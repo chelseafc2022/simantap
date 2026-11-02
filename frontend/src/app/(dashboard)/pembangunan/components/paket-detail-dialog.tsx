@@ -54,6 +54,7 @@ export function PaketDetailDialog({
     }).format(num)
   }
 
+  const isKeuangan = paket.polaMonitoring === "KEUANGAN"
   const paguNum = typeof paket.nilaiPagu === "string" ? parseFloat(paket.nilaiPagu) : paket.nilaiPagu || 0
   const kontrakNum = typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0
   const efisiensiRp = paguNum > kontrakNum ? paguNum - kontrakNum : 0
@@ -135,7 +136,7 @@ export function PaketDetailDialog({
               {formatRupiah(kontrakNum)}
             </div>
             <span className="text-xs text-muted-foreground">
-              Hemat: {formatRupiah(efisiensiRp)} ({efisiensiPersen}%)
+              {isKeuangan ? "Monitoring keuangan saja" : `Hemat: ${formatRupiah(efisiensiRp)} (${efisiensiPersen}%)`}
             </span>
           </div>
 
@@ -201,13 +202,13 @@ export function PaketDetailDialog({
                       B{String(row.bulan).padStart(2, "0")} ({row.namaBulan})
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs border-r border-b border-gray-200 dark:border-neutral-700">
-                      {row.targetFisik.toFixed(2)}%
+                      {isKeuangan ? "—" : `${row.targetFisik.toFixed(2)}%`}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs font-medium border-r border-b border-gray-200 dark:border-neutral-700">
-                      {row.realisasiFisik > 0 ? `${row.realisasiFisik.toFixed(2)}%` : "-"}
+                      {isKeuangan ? "—" : row.realisasiFisik > 0 ? `${row.realisasiFisik.toFixed(2)}%` : "-"}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs border-r border-b border-gray-200 dark:border-neutral-700">
-                      {row.realisasiFisik > 0 ? (
+                      {isKeuangan ? "Tidak berlaku" : row.realisasiFisik > 0 ? (
                         <span
                           className={`font-semibold ${
                             row.deviasi < -10

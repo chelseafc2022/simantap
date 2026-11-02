@@ -32,6 +32,34 @@ export class PembangunanService {
     private readonly egovService: EgovService,
   ) {}
 
+  private validateMonitoring(
+    pola: string,
+    dto: {
+      targetMingguan?: unknown[];
+      targetBulanan?: { targetFisik: number }[];
+    },
+    kontrak: number,
+    penyedia?: string | null,
+  ) {
+    if (pola === 'KEUANGAN') {
+      if (
+        dto.targetMingguan?.length ||
+        dto.targetBulanan?.some((t) => Number(t.targetFisik) > 0)
+      ) {
+        throw new BadRequestException(
+          'Pola keuangan saja tidak menggunakan target fisik',
+        );
+      }
+    } else if (
+      dto.targetMingguan?.length &&
+      (!(kontrak > 0) || !penyedia?.trim())
+    ) {
+      throw new BadRequestException(
+        'Nilai kontrak dan penyedia wajib lengkap sebelum mengisi target mingguan',
+      );
+    }
+  }
+
   private buildMonthlyTargetsFromWeekly(
     targets: Array<{ bulan: number; mingguKe: number; targetFisik: number }>,
   ) {
@@ -88,7 +116,9 @@ export class PembangunanService {
       const weekEnd = new Date(item.tanggalSelesai);
       const key = `${item.bulan}-${item.mingguKe}`;
       if (keys.has(key)) {
-        throw new BadRequestException(`Target ${key} tercatat lebih dari satu kali`);
+        throw new BadRequestException(
+          `Target ${key} tercatat lebih dari satu kali`,
+        );
       }
       keys.add(key);
       if (weekEnd < weekStart || weekStart < start || weekEnd > end) {
@@ -430,6 +460,13 @@ export class PembangunanService {
       throw new BadRequestException('OPD penanggung jawab paket wajib diisi');
     }
 
+    this.validateMonitoring(
+      dto.polaMonitoring || 'FISIK_KEUANGAN',
+      dto,
+      Number(dto.nilaiKontrak),
+      dto.pemenangRekanan,
+    );
+
     // Verifikasi keberadaan OPD di SIMPEG
     const opdExists = this.egovService.getOpdById(assignedOpdId);
     if (!opdExists) {
@@ -489,6 +526,8 @@ export class PembangunanService {
           opdId: assignedOpdId,
           subUnitId: assignedSubUnitId || null,
           kodeRupKontrak: dto.kodeRupKontrak || null,
+          kelompokPaket: dto.kelompokPaket || 'PEMBANGUNAN_MODAL',
+          polaMonitoring: dto.polaMonitoring || 'FISIK_KEUANGAN',
           namaPaket: dto.namaPaket.trim(),
           lokasiKegiatan: dto.lokasiKegiatan || null,
           metodePemilihan: dto.metodePemilihan || null,
@@ -562,6 +601,8 @@ export class PembangunanService {
             resource: 'PAKET_PEMBANGUNAN',
             resourceId: paket.id,
             payload: {
+              polaMonitoring: paket.polaMonitoring,
+              kelompokPaket: paket.kelompokPaket,
               namaPaket: paket.namaPaket,
               nilaiKontrak: paket.nilaiKontrak,
               opdId: paket.opdId,
@@ -613,6 +654,25 @@ export class PembangunanService {
     const assignedOpdId =
       !isSuperRole && user?.opdId ? user.opdId : dto.opdId || existing.opdId;
 
+    const pola = dto.polaMonitoring || existing.polaMonitoring;
+    this.validateMonitoring(
+      pola,
+      dto,
+      Number(dto.nilaiKontrak ?? existing.nilaiKontrak),
+      dto.pemenangRekanan ?? existing.pemenangRekanan,
+    );
+    if (pola !== existing.polaMonitoring && pola === 'KEUANGAN') {
+      const [targets, physical] = await Promise.all([
+        this.prisma.targetMingguan.count({ where: { paketId: id } }),
+        this.prisma.realisasiBulanan.count({
+          where: { paketId: id, realisasiFisik: { gt: 0 } },
+        }),
+      ]);
+      if (targets || physical)
+        throw new BadRequestException(
+          'Paket sudah memiliki target/realisasi fisik. Tinjau data fisik sebelum mengganti pola monitoring.',
+        );
+    }
     // Jika nilai kontrak diisi, data kontrak teknis wajib lengkap
     const effectiveNilaiKontrak =
       dto.nilaiKontrak !== undefined
@@ -685,6 +745,8 @@ export class PembangunanService {
       const updatedPaket = await tx.paketPembangunan.update({
         where: { id },
         data: {
+          kelompokPaket: dto.kelompokPaket,
+          polaMonitoring: dto.polaMonitoring,
           tahunAnggaran:
             dto.tahunAnggaran !== undefined
               ? dto.tahunAnggaran
@@ -882,6 +944,10 @@ export class PembangunanService {
     }
 
     this.checkOpdAccess(user, existing.opdId, existing.subUnitId);
+    if (existing.polaMonitoring === 'KEUANGAN')
+      throw new BadRequestException(
+        'Paket keuangan saja tidak menggunakan target fisik',
+      );
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of dto.targets) {
@@ -1099,7 +1165,9 @@ export class PembangunanService {
 
       if (realisasiKeuangan === 0) {
         const pastKeu = paket.realisasiBulanan
-          .filter((r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0)
+          .filter(
+            (r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
+          )
           .sort((a, b) => b.bulan - a.bulan)[0];
         if (pastKeu) {
           realisasiKeuangan = Number(pastKeu.realisasiKeuangan) || 0;
@@ -1116,8 +1184,11 @@ export class PembangunanService {
           : 0;
 
       // Status capaian berdasarkan standar deviasi fisik
-      let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
-      if (targetFisik === 0 && realisasiFisik === 0) {
+      let status: 'KEUANGAN' | 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' =
+        'AMAN';
+      if (paket.polaMonitoring === 'KEUANGAN') {
+        status = 'KEUANGAN';
+      } else if (targetFisik === 0 && realisasiFisik === 0) {
         status = 'BELUM_MULAI';
       } else if (deviasiFisik >= 0) {
         status = 'AMAN';
@@ -1129,6 +1200,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
+        polaMonitoring: paket.polaMonitoring,
+        kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,
@@ -1184,7 +1257,9 @@ export class PembangunanService {
         : totalKontrak;
     const persenSerapanKeuangan =
       basisAnggaran > 0
-        ? parseFloat(((totalRealisasiKeuangan / basisAnggaran) * 100).toFixed(2))
+        ? parseFloat(
+            ((totalRealisasiKeuangan / basisAnggaran) * 100).toFixed(2),
+          )
         : 0;
 
     const countStatus = {
@@ -1194,21 +1269,26 @@ export class PembangunanService {
       belumMulai: filtered.filter((i) => i.status === 'BELUM_MULAI').length,
     };
 
+    const physicalPackages = filtered.filter(
+      (p) => p.polaMonitoring !== 'KEUANGAN',
+    );
     const avgTargetFisik =
-      filtered.length > 0
+      physicalPackages.length > 0
         ? parseFloat(
             (
-              filtered.reduce((acc, cur) => acc + cur.targetFisik, 0) /
-              filtered.length
+              physicalPackages.reduce((acc, cur) => acc + cur.targetFisik, 0) /
+              physicalPackages.length
             ).toFixed(2),
           )
         : 0;
     const avgRealisasiFisik =
-      filtered.length > 0
+      physicalPackages.length > 0
         ? parseFloat(
             (
-              filtered.reduce((acc, cur) => acc + cur.realisasiFisik, 0) /
-              filtered.length
+              physicalPackages.reduce(
+                (acc, cur) => acc + cur.realisasiFisik,
+                0,
+              ) / physicalPackages.length
             ).toFixed(2),
           )
         : 0;
@@ -1268,6 +1348,7 @@ export class PembangunanService {
     const availableMonths = Array.from(
       new Set(
         pakets.flatMap((paket) => {
+          if (paket.polaMonitoring === 'KEUANGAN') return Array.from({ length: 12 }, (_, i) => i + 1);
           if (paket.targetMingguan.length > 0) {
             return paket.targetMingguan.map((item) => item.bulan);
           }
@@ -1392,6 +1473,9 @@ export class PembangunanService {
           cumulativeKeuangan = realisasiKeuangan;
       }
 
+      if (paket.polaMonitoring === 'KEUANGAN' && !realisasiItem)
+        realisasiKeuangan = cumulativeKeuangan;
+
       const deviasiFisik = parseFloat(
         (realisasiFisik - targetFisik).toFixed(2),
       );
@@ -1401,8 +1485,11 @@ export class PembangunanService {
           ? parseFloat(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
           : 0;
 
-      let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
-      if (targetFisik === 0 && realisasiFisik === 0) {
+      let status: 'KEUANGAN' | 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' =
+        'AMAN';
+      if (paket.polaMonitoring === 'KEUANGAN') {
+        status = 'KEUANGAN';
+      } else if (targetFisik === 0 && realisasiFisik === 0) {
         status = 'BELUM_MULAI';
       } else if (deviasiFisik >= 0) {
         status = 'AMAN';
@@ -1491,6 +1578,8 @@ export class PembangunanService {
     return {
       paket: {
         id: paket.id,
+        polaMonitoring: paket.polaMonitoring,
+        kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
         tahunAnggaran: paket.tahunAnggaran,
         kodeRupKontrak: paket.kodeRupKontrak,
@@ -1529,6 +1618,10 @@ export class PembangunanService {
       );
     }
     this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+    if (paket.polaMonitoring === 'KEUANGAN')
+      throw new BadRequestException(
+        'Gunakan input keuangan bulanan untuk paket ini',
+      );
 
     const bulan = Math.min(12, Math.max(1, Number(dto.bulan)));
     const mingguKe = Math.min(6, Math.max(1, Number(dto.mingguKe)));
@@ -1594,10 +1687,7 @@ export class PembangunanService {
       const previous = await tx.realisasiMingguan.findFirst({
         where: {
           paketId,
-          OR: [
-            { bulan: { lt: bulan } },
-            { bulan, mingguKe: { lt: mingguKe } },
-          ],
+          OR: [{ bulan: { lt: bulan } }, { bulan, mingguKe: { lt: mingguKe } }],
         },
         orderBy: [{ bulan: 'desc' }, { mingguKe: 'desc' }],
       });
@@ -1636,12 +1726,7 @@ export class PembangunanService {
         },
       });
 
-      await this.syncMonthlyRealisasiFromWeekly(
-        tx,
-        paketId,
-        bulan,
-        user?.id,
-      );
+      await this.syncMonthlyRealisasiFromWeekly(tx, paketId, bulan, user?.id);
       return record;
     });
   }
@@ -1700,7 +1785,8 @@ export class PembangunanService {
         const dateStr = new Date(lockPeriod.batasInput).toLocaleString('id-ID', {
           dateStyle: 'medium',
           timeStyle: 'short',
-        });
+          },
+        );
         throw new ForbiddenException(
           `Periode input untuk Bulan ${bulan} telah ditutup (batas akhir: ${dateStr}). Hubungi Administrator untuk permohonan pembukaan kunci.`,
         );
@@ -1731,6 +1817,17 @@ export class PembangunanService {
       );
     }
 
+    if (paket.polaMonitoring === 'KEUANGAN') {
+      if (!isAdmin && !isBendahara)
+        throw new ForbiddenException('Realisasi keuangan diisi oleh Bendahara');
+      if (Number(dto.realisasiFisik) > 0)
+        throw new BadRequestException(
+          'Paket ini tidak menggunakan realisasi fisik',
+        );
+      realisasiFisik = 0;
+      if (Number(realisasiKeuangan) > Number(paket.nilaiPagu))
+        throw new BadRequestException('Realisasi melebihi pagu anggaran');
+    }
     const record = await this.prisma.realisasiBulanan.upsert({
       where: { paketId_bulan: { paketId, bulan } },
       create: {
@@ -1804,6 +1901,10 @@ export class PembangunanService {
       );
 
     this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+    if (paket.polaMonitoring === 'KEUANGAN')
+      throw new BadRequestException(
+        'Gunakan input realisasi keuangan per bulan untuk paket ini',
+      );
 
     const userRoles: RoleEnum[] =
       user?.roles && user.roles.length > 0
@@ -2054,8 +2155,11 @@ export class PembangunanService {
             ? parseFloat(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2))
             : 0;
 
-        let status: 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
-        if (targetFisik === 0 && realisasiFisik === 0) {
+        let status:
+          'KEUANGAN' | 'BELUM_MULAI' | 'AMAN' | 'PERHATIAN' | 'KRITIS' = 'AMAN';
+        if (paket.polaMonitoring === 'KEUANGAN') {
+          status = 'KEUANGAN';
+        } else if (targetFisik === 0 && realisasiFisik === 0) {
           status = 'BELUM_MULAI';
         } else if (deviasiFisik >= 0) {
           status = 'AMAN';
@@ -2080,6 +2184,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
+        polaMonitoring: paket.polaMonitoring,
+        kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,
@@ -2222,9 +2328,10 @@ export class PembangunanService {
 
         const dev = parseFloat((realFisik - target).toFixed(2));
 
+          sumRealisasiKeuangan += realKeu;
+          if (p.polaMonitoring === 'KEUANGAN') continue;
         sumTarget += target;
         sumRealisasiFisik += realFisik;
-        sumRealisasiKeuangan += realKeu;
 
         if (target === 0 && realFisik === 0) countBelumMulai++;
         else if (dev >= 0) countAman++;
@@ -2232,9 +2339,14 @@ export class PembangunanService {
         else countKritis++;
       }
 
-      const avgTargetFisik = parseFloat((sumTarget / totalPaket).toFixed(2));
+        const physicalCount =
+          groupPakets.filter((p) => p.polaMonitoring !== 'KEUANGAN').length ||
+          1;
+        const avgTargetFisik = parseFloat(
+          (sumTarget / physicalCount).toFixed(2),
+        );
       const avgRealisasiFisik = parseFloat(
-        (sumRealisasiFisik / totalPaket).toFixed(2),
+          (sumRealisasiFisik / physicalCount).toFixed(2),
       );
       const avgDeviasiFisik = parseFloat(
         (avgRealisasiFisik - avgTargetFisik).toFixed(2),
@@ -2727,7 +2839,10 @@ export class PembangunanService {
   /**
    * Inisialisasi default: batas input adalah tanggal 10 bulan berikutnya pukul 23:59:59
    */
-  private async initDefaultLockingPeriods(tahun: number, tx: any = this.prisma) {
+  private async initDefaultLockingPeriods(
+    tahun: number,
+    tx: any = this.prisma,
+  ) {
     for (let bulan = 1; bulan <= 12; bulan++) {
       const nextMonthYear = bulan === 12 ? tahun + 1 : tahun;
       const nextMonth = bulan === 12 ? 0 : bulan;
@@ -2901,9 +3016,20 @@ export class PembangunanService {
       for (let bulan = 1; bulan <= 12; bulan++) {
         const nextMonthYear = bulan === 12 ? targetTahun + 1 : targetTahun;
         const nextMonth = bulan === 12 ? 0 : bulan;
-        const daysInNextMonth = new Date(nextMonthYear, nextMonth + 1, 0).getDate();
+        const daysInNextMonth = new Date(
+          nextMonthYear,
+          nextMonth + 1,
+          0,
+        ).getDate();
         const effectiveDay = Math.min(day, daysInNextMonth);
-        const batasInput = new Date(nextMonthYear, nextMonth, effectiveDay, hour, minute, 59);
+        const batasInput = new Date(
+          nextMonthYear,
+          nextMonth,
+          effectiveDay,
+          hour,
+          minute,
+          59,
+        );
 
         await this.prisma.lockingPeriod.upsert({
           where: { tahun_bulan: { tahun: targetTahun, bulan } },

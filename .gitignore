@@ -60,3 +60,8 @@ __pycache__/
 
 # Local raw scratch image
 /new_logo_Setara.png
+
+# Uploaded files
+uploads/
+**/uploads/
+!**/uploads/.gitkeep

@@ -401,9 +401,7 @@ export function SirupBulkSyncDialog({
 
           <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-md border">
             💡 <strong>Keterangan:</strong> Sistem akan memasukkan nama paket,
-            pagu anggaran, metode, jenis pengadaan, dan nomor RUP. Operator Sub
-            Unit tinggal melengkapi nomor kontrak dan target fisik mingguan.
-            Rekap bulanannya dihitung otomatis untuk dashboard dan TEPRA.
+            pagu anggaran, metode, jenis pengadaan, dan nomor RUP. Paket pembangunan menggunakan pola fisik mingguan + keuangan. Paket lainnya ditandai Perlu Ditinjau dengan pola awal keuangan saja. Buka Ubah Paket untuk mengonfirmasi kelompok dan pola input. Sinkronisasi ulang mempertahankan pola yang sudah disimpan.
           </div>
         </div>
 

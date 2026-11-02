@@ -547,6 +547,10 @@ export default function PaketPembangunanPage() {
                       className="line-clamp-3 cursor-pointer whitespace-normal break-words text-left text-sm font-semibold leading-5 text-foreground transition-colors [overflow-wrap:anywhere] hover:text-emerald-600"
                     >
                       {paket.namaPaket}
+                            <span className="block text-[10px] font-normal text-muted-foreground mt-1">
+                              {paket.kelompokPaket === "PERLU_DITINJAU" ? "Perlu ditinjau · " : paket.kelompokPaket === "OPERASIONAL_RUTIN" ? "Operasional/rutin · " : "Pembangunan/modal · "}
+                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan saja" : "Fisik mingguan + keuangan"}
+                            </span>
                     </button>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                       {paket.kodeRupKontrak && (
@@ -733,6 +737,10 @@ export default function PaketPembangunanPage() {
                             title={paket.namaPaket}
                           >
                             {paket.namaPaket}
+                            <span className="block text-[10px] font-normal text-muted-foreground mt-1">
+                              {paket.kelompokPaket === "PERLU_DITINJAU" ? "Perlu ditinjau · " : paket.kelompokPaket === "OPERASIONAL_RUTIN" ? "Operasional/rutin · " : "Pembangunan/modal · "}
+                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan saja" : "Fisik mingguan + keuangan"}
+                            </span>
                           </button>
                           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
                             {paket.kodeRupKontrak && (

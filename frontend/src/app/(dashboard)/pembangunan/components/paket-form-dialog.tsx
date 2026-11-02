@@ -44,6 +44,8 @@ import {
   ArrowLeft,
   Search,
   DownloadCloud,
+  SlidersHorizontal,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
 import { SirupSearchDialog, SirupItem } from "./sirup-search-dialog"
@@ -90,6 +92,8 @@ export interface PaketItem {
   lokasiKegiatan?: string | null
   metodePemilihan?: string | null
   jenisPengadaan?: string | null
+  kelompokPaket?: string
+  polaMonitoring?: string
   nilaiPagu: number | string
   nilaiKontrak: number | string
   sumberDana?: string | null
@@ -216,6 +220,10 @@ export function PaketFormDialog({
   const canSelectSubUnit = isSuperRole || isKepalaOpd || !userSubUnitId
 
   // Active form tab
+  const [showOptionalContract, setShowOptionalContract] = useState(false)
+  const [kelompokPaket, setKelompokPaket] = useState("PEMBANGUNAN_MODAL")
+  const [polaMonitoring, setPolaMonitoring] = useState("FISIK_KEUANGAN")
+  const isKeuangan = polaMonitoring === "KEUANGAN"
   const [activeTab, setActiveTab] = useState<string>("info")
 
   // Form states
@@ -300,6 +308,9 @@ export function PaketFormDialog({
       setTahunAnggaran(initialData.tahunAnggaran || 2026)
       setOpdId(initialData.opdId || "")
       setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
+      setShowOptionalContract(Number(initialData.nilaiKontrak) > 0)
+      setKelompokPaket(initialData.kelompokPaket || "PEMBANGUNAN_MODAL")
+      setPolaMonitoring(initialData.polaMonitoring || "FISIK_KEUANGAN")
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
       setLokasiKegiatan(initialData.lokasiKegiatan || "")
@@ -321,6 +332,9 @@ export function PaketFormDialog({
         initialData.targetBulanan
       ))
     } else {
+      setShowOptionalContract(false)
+      setKelompokPaket("PEMBANGUNAN_MODAL")
+      setPolaMonitoring("FISIK_KEUANGAN")
       // Reset form
       setTahunAnggaran(2026)
       const defaultOpd = !isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")
@@ -341,7 +355,9 @@ export function PaketFormDialog({
       setKeterangan("")
       setWeeklyTargets([])
     }
-    if (defaultTab) {
+    if (initialData?.polaMonitoring === "KEUANGAN") {
+      setActiveTab("info")
+    } else if (defaultTab) {
       setActiveTab(defaultTab)
     } else if (isPerencana) {
       setActiveTab("targets")
@@ -404,6 +420,10 @@ export function PaketFormDialog({
   }
 
   const validateKontrakBeforeNext = (): boolean => {
+    if (!isKontrakActive || !pemenangRekanan.trim() || !tanggalMulai || !tanggalSelesai) {
+      toast.error("Lengkapi nilai kontrak, penyedia, dan masa kontrak sebelum mengisi target mingguan")
+      return false
+    }
     if (!namaPaket.trim()) {
       toast.error("Nama paket pekerjaan wajib diisi")
       return false
@@ -559,6 +579,8 @@ export function PaketFormDialog({
       })
 
       const payload = {
+        kelompokPaket,
+        polaMonitoring,
         tahunAnggaran,
         opdId,
         subUnitId: !canSelectSubUnit && userSubUnitId ? userSubUnitId : (subUnitId || undefined),
@@ -575,8 +597,8 @@ export function PaketFormDialog({
         tanggalSelesai: tanggalSelesai || undefined,
         pemenangRekanan: pemenangRekanan.trim() || undefined,
         keterangan: keterangan.trim() || undefined,
-        targetBulanan: targetBulananPayload,
-        targetMingguan: weeklyTargets.map((item) => ({
+        targetBulanan: isKeuangan ? [] : targetBulananPayload,
+        targetMingguan: isKeuangan ? [] : weeklyTargets.map((item) => ({
           ...item,
           uraianKegiatan: item.uraianKegiatan?.trim() || undefined,
         })),
@@ -658,9 +680,9 @@ export function PaketFormDialog({
             <TabsList className="grid w-full sm:w-[480px] grid-cols-2">
               <TabsTrigger value="info" className="gap-2 text-xs sm:text-sm font-medium">
                 <FileText className="h-4 w-4" />
-                1. Rincian Kontrak & PBJ
+                {isKeuangan ? "Data Anggaran" : "1. Rincian Kontrak & PBJ"}
               </TabsTrigger>
-              <TabsTrigger value="targets" className="gap-2 text-xs sm:text-sm font-medium">
+              <TabsTrigger disabled={isKeuangan} value="targets" className="gap-2 text-xs sm:text-sm font-medium">
                 <Calendar className="h-4 w-4" />
                 2. Target Fisik Mingguan
               </TabsTrigger>
@@ -682,33 +704,99 @@ export function PaketFormDialog({
               </div>
             )}
 
-            {/* SECTION 1: Identitas Paket & OPD */}
+            {/* BOX: Klasifikasi Paket & Pola Monitoring */}
             <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
-                <Building2 className="h-4 w-4 text-emerald-600" />
+                <SlidersHorizontal className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Klasifikasi Paket & Pola Monitoring</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="kelompokPaket" className="text-xs font-medium">
+                      Kelompok Paket <span className="text-red-500">*</span>
+                    </Label>
+                  </div>
+                  <Select value={kelompokPaket} onValueChange={setKelompokPaket} disabled={!canEditInfo}>
+                    <SelectTrigger id="kelompokPaket" className="text-sm h-9">
+                      <SelectValue placeholder="Pilih kelompok paket..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PEMBANGUNAN_MODAL">Pembangunan / Modal</SelectItem>
+                      <SelectItem value="OPERASIONAL_RUTIN">Operasional / Rutin</SelectItem>
+                      <SelectItem value="PERLU_DITINJAU">Perlu ditinjau</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="polaMonitoring" className="text-xs font-medium">
+                      Pola Monitoring <span className="text-red-500">*</span>
+                    </Label>
+                  </div>
+                  <Select value={polaMonitoring} onValueChange={setPolaMonitoring} disabled={!canEditInfo}>
+                    <SelectTrigger id="polaMonitoring" className="text-sm h-9">
+                      <SelectValue placeholder="Pilih pola monitoring..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FISIK_KEUANGAN">Fisik mingguan + Keuangan</SelectItem>
+                      <SelectItem value="KEUANGAN">Keuangan saja</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground flex items-start gap-2 border border-border/40">
+                <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                <div className="space-y-1 leading-relaxed">
+                  <span>
+                    {isKeuangan
+                      ? "Pola Keuangan Saja: Isi identitas, pagu, dan sumber dana. Realisasi keuangan diinput kumulatif bulanan pada menu Realisasi tanpa target fisik mingguan."
+                      : "Pola Fisik + Keuangan: Lengkapi nilai kontrak, penyedia, dan masa kontrak sebelum menetapkan target fisik mingguan pada Tab 2."}
+                  </span>
+                  {kelompokPaket === "PERLU_DITINJAU" && (
+                    <span className="block text-amber-600 dark:text-amber-400 font-medium">
+                      ⚠️ Hasil klasifikasi otomatis RUP. Tinjau kembali kelompok dan pola monitoring, lalu simpan sesuai pelaksanaan paket.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 1: Identitas Paket & OPD Penanggung Jawab */}
+            <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
+                <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 <span>1. Identitas Paket & OPD Penanggung Jawab</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
                 {/* Tahun Anggaran */}
-                <div className="lg:col-span-2 space-y-1.5">
-                  <Label htmlFor="tahunAnggaran" className="text-xs font-medium">
-                    Tahun Anggaran
-                  </Label>
+                <div className="sm:col-span-3 lg:col-span-2 space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="tahunAnggaran" className="text-xs font-medium">
+                      Tahun Anggaran <span className="text-red-500">*</span>
+                    </Label>
+                  </div>
                   <Input
                     id="tahunAnggaran"
                     type="number"
                     value={tahunAnggaran}
                     onChange={(e) => setTahunAnggaran(parseInt(e.target.value) || 2026)}
-                    className="font-mono text-xs h-9"
+                    disabled={!canEditInfo}
+                    className="font-mono text-sm h-9"
                   />
                 </div>
 
-                {/* Unit Kerja (OPD) - SearchableCombobox */}
-                <div className="lg:col-span-5 space-y-1.5">
-                  <Label className="text-xs font-medium">
-                    Unit Kerja (OPD / SKPD) <span className="text-red-500">*</span>
-                  </Label>
+                {/* Unit Kerja (OPD) */}
+                <div className="sm:col-span-9 lg:col-span-5 space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label className="text-xs font-medium">
+                      Unit Kerja (OPD / SKPD) <span className="text-red-500">*</span>
+                    </Label>
+                  </div>
                   {canSelectOpd ? (
                     <SearchableCombobox
                       value={opdId}
@@ -723,6 +811,7 @@ export function PaketFormDialog({
                       searchPlaceholder="Ketik nama Unit Kerja / OPD..."
                       emptyText="Unit Kerja tidak ditemukan."
                       icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                      disabled={!canEditInfo}
                     />
                   ) : (
                     <div className="flex items-center justify-between h-9 px-2.5 rounded-md border bg-muted/40 text-xs font-medium">
@@ -738,10 +827,12 @@ export function PaketFormDialog({
                 </div>
 
                 {/* Sub Unit Kerja */}
-                <div className="lg:col-span-5 space-y-1.5">
-                  <Label className="text-xs font-medium">
-                    Sub Unit Kerja (Bidang / Bagian)
-                  </Label>
+                <div className="sm:col-span-12 lg:col-span-5 space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label className="text-xs font-medium">
+                      Sub Unit Kerja (Bidang / Bagian)
+                    </Label>
+                  </div>
                   {canSelectSubUnit ? (
                     <SearchableCombobox
                       value={subUnitId}
@@ -751,7 +842,7 @@ export function PaketFormDialog({
                       searchPlaceholder="Ketik nama Sub Unit Kerja..."
                       emptyText="Sub Unit Kerja tidak ditemukan."
                       icon={<Layers className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
-                      disabled={isLoadingSubUnits || !opdId}
+                      disabled={isLoadingSubUnits || !opdId || !canEditInfo}
                     />
                   ) : (
                     <div className="flex items-center justify-between h-9 px-2.5 rounded-md border bg-muted/40 text-xs font-medium">
@@ -767,348 +858,542 @@ export function PaketFormDialog({
                 </div>
 
                 {/* Nama Paket */}
-                <div className="sm:col-span-2 lg:col-span-8 space-y-1.5">
-                  <Label htmlFor="namaPaket" className="text-xs font-semibold text-foreground">
-                    Nama Paket Pekerjaan / Pembangunan <span className="text-red-500">*</span>
-                  </Label>
+                <div className="sm:col-span-12 lg:col-span-8 space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="namaPaket" className="text-xs font-semibold text-foreground">
+                      Nama Paket Pekerjaan / Pembangunan <span className="text-red-500">*</span>
+                    </Label>
+                  </div>
                   <Input
                     id="namaPaket"
                     placeholder="Contoh: Peningkatan Jalan Ruas Punggaluku - Andoolo"
                     value={namaPaket}
                     onChange={(e) => setNamaPaket(e.target.value)}
-                    className="text-sm font-medium"
+                    disabled={!canEditInfo}
+                    className="text-sm font-medium h-9"
                   />
                 </div>
 
                 {/* Lokasi Kegiatan */}
-                <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
-                  <Label htmlFor="lokasiKegiatan" className="text-xs font-medium">
-                    Lokasi Pekerjaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
-                  </Label>
+                <div className="sm:col-span-12 lg:col-span-4 space-y-1.5">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="lokasiKegiatan" className="text-xs font-medium">
+                      Lokasi Pekerjaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                    </Label>
+                  </div>
                   <Input
                     id="lokasiKegiatan"
                     placeholder="Contoh: Kec. Andoolo / Kec. Palangga"
                     value={lokasiKegiatan}
                     onChange={(e) => setLokasiKegiatan(e.target.value)}
-                    className="text-sm"
+                    disabled={!canEditInfo}
+                    className="text-sm h-9"
                   />
                 </div>
               </div>
             </div>
 
-            {/* SECTION 2: Pengadaan & Sumber Dana */}
-            <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
-                <Receipt className="h-4 w-4 text-blue-600" />
-                <span>2. Mekanisme PBJ & Sumber Dana</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Kode RUP */}
-                <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="kodeRupKontrak" className="text-xs font-medium">
-                      Kode RUP SiRUP LKPP
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={() => setSirupDialogOpen(true)}
-                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                    >
-                      <Search className="h-3 w-3" />
-                      Cari di SiRUP
-                    </button>
+            {/* SEKSI KHUSUS KEUANGAN: Anggaran Belanja Rutin */}
+            {isKeuangan && (
+              <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between border-b pb-2.5">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>2. Anggaran Belanja Rutin</span>
                   </div>
-                  <div className="flex gap-1.5">
+                  <Badge variant="outline" className="text-[11px] font-normal">
+                    Pola Keuangan Saja
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+                  {/* Nilai Pagu */}
+                  <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                    <div className="flex items-center justify-between h-5">
+                      <Label htmlFor="nilaiPaguKeuangan" className="text-xs font-medium">
+                        Nilai Pagu Anggaran (Rp) <span className="text-red-500">*</span>
+                      </Label>
+                    </div>
                     <Input
-                      id="kodeRupKontrak"
-                      placeholder="Contoh: 58616940"
-                      value={kodeRupKontrak}
-                      onChange={(e) => setKodeRupKontrak(e.target.value)}
-                      className="font-mono text-sm flex-1"
+                      id="nilaiPaguKeuangan"
+                      type="number"
+                      min={0}
+                      value={nilaiPagu}
+                      onChange={(e) => setNilaiPagu(e.target.value)}
+                      disabled={!canEditInfo}
+                      className="font-mono text-sm h-9"
+                      placeholder="0"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isFetchingSirup || !kodeRupKontrak.trim()}
-                      onClick={handleFetchSirupByKode}
-                      className="h-9 px-2.5 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0 font-medium"
-                      title="Tarik data otomatis dari SiRUP LKPP"
-                    >
-                      {isFetchingSirup ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <DownloadCloud className="h-3.5 w-3.5" />
-                      )}
-                      Tarik
-                    </Button>
+                    <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
+                      {formatRupiah(paguNum)}
+                    </div>
+                  </div>
+
+                  {/* Sumber Dana */}
+                  <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                    <div className="flex items-center justify-between h-5">
+                      <Label htmlFor="sumberDanaKeuangan" className="text-xs font-medium">
+                        Sumber Dana <span className="text-red-500">*</span>
+                      </Label>
+                    </div>
+                    <Select value={sumberDana} onValueChange={setSumberDana} disabled={!canEditInfo}>
+                      <SelectTrigger id="sumberDanaKeuangan" className="text-sm h-9">
+                        <SelectValue placeholder="Pilih sumber dana..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sumberDanaOptions.map((v) => (
+                          <SelectItem key={v} value={v}>
+                            {v}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="text-[11px] text-muted-foreground h-4">
+                      Sumber anggaran DPA
+                    </div>
+                  </div>
+
+                  {/* Kode RUP */}
+                  <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+                    <div className="flex items-center justify-between h-5">
+                      <Label htmlFor="kodeRupKeuangan" className="text-xs font-medium">
+                        Kode RUP SiRUP LKPP
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() => setSirupDialogOpen(true)}
+                        disabled={!canEditInfo}
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
+                      >
+                        <Search className="h-3 w-3" />
+                        Cari di SiRUP
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <Input
+                        id="kodeRupKeuangan"
+                        placeholder="Contoh: 58616940"
+                        value={kodeRupKontrak}
+                        onChange={(e) => setKodeRupKontrak(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="font-mono text-sm h-9 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isFetchingSirup || !kodeRupKontrak.trim() || !canEditInfo}
+                        onClick={handleFetchSirupByKode}
+                        className="h-9 px-2.5 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0 font-medium"
+                        title="Tarik data otomatis dari SiRUP LKPP"
+                      >
+                        {isFetchingSirup ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+                        Tarik
+                      </Button>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground h-4">
+                      Integrasi SiRUP (opsional)
+                    </div>
+                  </div>
+
+                  {/* Keterangan */}
+                  <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
+                    <div className="flex items-center justify-between h-5">
+                      <Label htmlFor="keteranganKeuangan" className="text-xs font-medium">
+                        Keterangan / Catatan Belanja
+                      </Label>
+                    </div>
+                    <Textarea
+                      id="keteranganKeuangan"
+                      value={keterangan}
+                      onChange={(e) => setKeterangan(e.target.value)}
+                      disabled={!canEditInfo}
+                      placeholder="Contoh: Pembayaran rutin operasional kantor sesuai kebutuhan selama tahun anggaran..."
+                      rows={2}
+                      className="text-sm resize-none"
+                    />
                   </div>
                 </div>
 
-                {/* Nomor Kontrak */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="nomorKontrak" className="text-xs font-medium">
-                    Nomor Kontrak / SPK {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
-                  </Label>
-                  <Input
-                    id="nomorKontrak"
-                    placeholder="Contoh: 602/01/SPK/DPUPR/2026"
-                    value={nomorKontrak}
-                    onChange={(e) => setNomorKontrak(e.target.value)}
-                    className="font-mono text-sm"
-                  />
-                </div>
-
-                {/* Metode Pemilihan */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="metodePemilihan" className="text-xs font-medium">
-                    Metode Pemilihan Pengadaan
-                  </Label>
-                  <Select value={metodePemilihan} onValueChange={setMetodePemilihan}>
-                    <SelectTrigger id="metodePemilihan" className="text-sm">
-                      <SelectValue placeholder="Pilih metode..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(constants?.metodePemilihan || [
-                        "E-Purchasing",
-                        "Pengadaan Langsung",
-                        "Tender",
-                        "Tender Cepat",
-                        "Seleksi",
-                        "Swakelola Tipe I",
-                        "Penunjukan Langsung",
-                      ]).map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Jenis Pengadaan */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="jenisPengadaan" className="text-xs font-medium">
-                    Jenis Pengadaan
-                  </Label>
-                  <Select value={jenisPengadaan} onValueChange={setJenisPengadaan}>
-                    <SelectTrigger id="jenisPengadaan" className="text-sm">
-                      <SelectValue placeholder="Pilih jenis..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(constants?.jenisPengadaan || [
-                        "Pekerjaan Konstruksi",
-                        "Pengadaan Barang",
-                        "Jasa Konsultansi",
-                        "Jasa Lainnya",
-                      ]).map((j) => (
-                        <SelectItem key={j} value={j}>
-                          {j}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Sumber Dana */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <Label htmlFor="sumberDana" className="text-xs font-medium">
-                    Sumber Dana
-                  </Label>
-                  <Select value={sumberDana} onValueChange={setSumberDana}>
-                    <SelectTrigger id="sumberDana" className="text-sm">
-                      <SelectValue placeholder="Pilih sumber dana..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sumberDanaOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Rekanan / Pelaksana Pemenang */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <Label htmlFor="pemenangRekanan" className="text-xs font-medium">
-                    Penyedia Jasa / Rekanan Pemenang {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
-                  </Label>
-                  <Input
-                    id="pemenangRekanan"
-                    placeholder="Contoh: PT. Konawe Perkasa Mandiri"
-                    value={pemenangRekanan}
-                    onChange={(e) => setPemenangRekanan(e.target.value)}
-                    className="text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 3: Nilai Pagu & Kontrak */}
-            <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
-                <Coins className="h-4 w-4 text-amber-600" />
-                <span>3. Nilai Anggaran & Efisiensi Kontrak</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Nilai Pagu */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="nilaiPagu" className="text-xs font-medium">
-                      Nilai Pagu Anggaran (Rp) <span className="text-red-500">*</span>
-                    </Label>
-                  </div>
-                  <Input
-                    id="nilaiPagu"
-                    type="number"
-                    placeholder="0"
-                    value={nilaiPagu}
-                    onChange={(e) => setNilaiPagu(e.target.value)}
-                    className="font-mono text-sm"
-                  />
-                  <div className="text-[11px] text-muted-foreground font-mono truncate">
-                    {formatRupiah(paguNum)}
-                  </div>
-                </div>
-
-                {/* Nilai Kontrak */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="nilaiKontrak" className="text-xs font-medium">
-                      Nilai Kontrak Terikat (Rp)
-                    </Label>
-                  </div>
-                  <Input
-                    id="nilaiKontrak"
-                    type="number"
-                    placeholder="0"
-                    value={nilaiKontrak}
-                    onChange={(e) => setNilaiKontrak(e.target.value)}
-                    className="font-mono text-sm"
-                  />
-                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono font-medium truncate">
-                    {formatRupiah(kontrakNum)}
-                  </div>
-                </div>
-
-                {/* Live Efisiensi Box */}
-                <div className="flex flex-col justify-center rounded-lg border bg-muted/40 p-3">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Efisiensi PBJ / Penghematan
-                  </span>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                      {persenEfisiensi}%
-                    </span>
-                    <span className="text-xs text-muted-foreground font-mono truncate" title={formatRupiah(selisihEfisiensi)}>
-                      ({formatRupiah(selisihEfisiensi)})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Warning Banner: Jika Nilai Kontrak Terisi, Form Kontrak Wajib Lengkap */}
-            {isKontrakActive && !isKontrakComplete && (
-              <div className="flex items-start gap-3 p-4 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs shadow-xs animate-in fade-in">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1.5">
-                  <div className="font-bold text-amber-900 dark:text-amber-100 text-sm">
-                    Nilai Kontrak Terisi — Data Pengadaan Wajib Dilengkapi:
-                  </div>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Karena nilai kontrak telah ditentukan (<strong>{formatRupiah(kontrakNum)}</strong>), Anda <strong>wajib mengisi Lokasi Pekerjaan, Nomor Kontrak, Penyedia Jasa/Rekanan, dan Tanggal Pelaksanaan</strong> (Keterangan bersifat opsional). Anda tidak dapat lanjut mengisi Target Fisik atau Realisasi sebelum data ini lengkap.
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {kontrakMissingFields.map((f) => (
-                      <Badge key={f} variant="outline" className="border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-[11px] font-semibold">
-                        Wajib Diisi: {f}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-border/40">
+                  <span>Realisasi belanja diinput bulanan melalui menu <strong>Realisasi</strong> tanpa target fisik mingguan.</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowOptionalContract((v) => !v)}
+                    className="text-xs h-7 self-start sm:self-auto font-medium"
+                  >
+                    {showOptionalContract ? "Sembunyikan Rincian Pengadaan Opsional" : "Lihat / Lengkapi Pengadaan & Kontrak (Opsional)"}
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* SECTION 4: Jadwal & Keterangan */}
-            <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
-              <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
-                <Calendar className="h-4 w-4 text-indigo-600" />
-                <span>4. Waktu Pelaksanaan & Catatan</span>
-              </div>
+            {/* SEKSI PENGADAAN & KONTRAK */}
+            {(!isKeuangan || showOptionalContract || kontrakNum > 0) && (
+              <>
+                {/* SECTION 2: Mekanisme PBJ & Sumber Dana */}
+                <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
+                    <Receipt className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span>2. Mekanisme PBJ & Sumber Dana</span>
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
-                {/* Tanggal Mulai */}
-                <div className="lg:col-span-3 space-y-1.5">
-                  <Label htmlFor="tanggalMulai" className="text-xs font-medium">
-                    Tanggal Mulai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
-                  </Label>
-                  <Input
-                    id="tanggalMulai"
-                    type="date"
-                    value={tanggalMulai}
-                    onChange={(e) => {
-                      setTanggalMulai(e.target.value)
-                      reconcileWeeklyPeriods(e.target.value, tanggalSelesai)
-                    }}
-                    className="text-sm"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+                    {/* Kode RUP */}
+                    <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="kodeRupKontrak" className="text-xs font-medium">
+                          Kode RUP SiRUP LKPP
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setSirupDialogOpen(true)}
+                          disabled={!canEditInfo}
+                          className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
+                        >
+                          <Search className="h-3 w-3" />
+                          Cari di SiRUP
+                        </button>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Input
+                          id="kodeRupKontrak"
+                          placeholder="Contoh: 58616940"
+                          value={kodeRupKontrak}
+                          onChange={(e) => setKodeRupKontrak(e.target.value)}
+                          disabled={!canEditInfo}
+                          className="font-mono text-sm h-9 flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isFetchingSirup || !kodeRupKontrak.trim() || !canEditInfo}
+                          onClick={handleFetchSirupByKode}
+                          className="h-9 px-2.5 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0 font-medium"
+                          title="Tarik data otomatis dari SiRUP LKPP"
+                        >
+                          {isFetchingSirup ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
+                          Tarik
+                        </Button>
+                      </div>
+                    </div>
 
-                {/* Tanggal Selesai */}
-                <div className="lg:col-span-3 space-y-1.5">
-                  <Label htmlFor="tanggalSelesai" className="text-xs font-medium">
-                    Tanggal Selesai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
-                  </Label>
-                  <Input
-                    id="tanggalSelesai"
-                    type="date"
-                    value={tanggalSelesai}
-                    onChange={(e) => {
-                      setTanggalSelesai(e.target.value)
-                      reconcileWeeklyPeriods(tanggalMulai, e.target.value)
-                    }}
-                    className="text-sm"
-                  />
-                </div>
+                    {/* Nomor Kontrak */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="nomorKontrak" className="text-xs font-medium">
+                          Nomor Kontrak / SPK {isKeuangan && "(opsional)"} {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                        </Label>
+                      </div>
+                      <Input
+                        id="nomorKontrak"
+                        placeholder="Contoh: 602/01/SPK/DPUPR/2026"
+                        value={nomorKontrak}
+                        onChange={(e) => setNomorKontrak(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="font-mono text-sm h-9"
+                      />
+                    </div>
 
-                {/* Durasi Kontrak Indicator */}
-                <div className="lg:col-span-6 flex flex-col justify-center rounded-lg border bg-muted/40 px-3 py-2">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase">
-                    Masa Kontrak / Durasi
-                  </span>
-                  <div className="text-xs font-medium text-foreground mt-0.5">
-                    {durasiKontrak ? (
-                      <span className="text-foreground">
-                        {durasiKontrak.days} Hari Kalender (~{durasiKontrak.months} Bulan Kerja)
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground italic">
-                        Tentukan tanggal mulai dan selesai
-                      </span>
-                    )}
+                    {/* Sumber Dana */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="sumberDana" className="text-xs font-medium">
+                          Sumber Dana
+                        </Label>
+                      </div>
+                      <Select value={sumberDana} onValueChange={setSumberDana} disabled={!canEditInfo}>
+                        <SelectTrigger id="sumberDana" className="text-sm h-9">
+                          <SelectValue placeholder="Pilih sumber dana..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sumberDanaOptions.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Metode Pemilihan */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="metodePemilihan" className="text-xs font-medium">
+                          Metode Pemilihan Pengadaan
+                        </Label>
+                      </div>
+                      <Select value={metodePemilihan} onValueChange={setMetodePemilihan} disabled={!canEditInfo}>
+                        <SelectTrigger id="metodePemilihan" className="text-sm h-9">
+                          <SelectValue placeholder="Pilih metode..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(constants?.metodePemilihan || [
+                            "E-Purchasing",
+                            "Pengadaan Langsung",
+                            "Tender",
+                            "Tender Cepat",
+                            "Seleksi",
+                            "Swakelola Tipe I",
+                            "Penunjukan Langsung",
+                          ]).map((m) => (
+                            <SelectItem key={m} value={m}>
+                              {m}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Jenis Pengadaan */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="jenisPengadaan" className="text-xs font-medium">
+                          Jenis Pengadaan
+                        </Label>
+                      </div>
+                      <Select value={jenisPengadaan} onValueChange={setJenisPengadaan} disabled={!canEditInfo}>
+                        <SelectTrigger id="jenisPengadaan" className="text-sm h-9">
+                          <SelectValue placeholder="Pilih jenis..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(constants?.jenisPengadaan || [
+                            "Pekerjaan Konstruksi",
+                            "Pengadaan Barang",
+                            "Jasa Konsultansi",
+                            "Jasa Lainnya",
+                          ]).map((j) => (
+                            <SelectItem key={j} value={j}>
+                              {j}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Rekanan / Pelaksana Pemenang */}
+                    <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="pemenangRekanan" className="text-xs font-medium">
+                          Penyedia Jasa / Rekanan {isKeuangan && "(opsional)"} {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                        </Label>
+                      </div>
+                      <Input
+                        id="pemenangRekanan"
+                        placeholder="Contoh: PT. Konawe Perkasa Mandiri"
+                        value={pemenangRekanan}
+                        onChange={(e) => setPemenangRekanan(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="text-sm h-9"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Keterangan */}
-                <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
-                  <Label htmlFor="keterangan" className="text-xs font-medium">
-                    Keterangan Tambahan / Catatan Teknis
-                  </Label>
-                  <Textarea
-                    id="keterangan"
-                    placeholder="Catatan tahapan pelelangan, kondisi lapangan, atau informasi spesifik..."
-                    rows={2}
-                    value={keterangan}
-                    onChange={(e) => setKeterangan(e.target.value)}
-                    className="text-sm resize-none"
-                  />
+                {/* SECTION 3: Nilai Anggaran & Efisiensi Kontrak */}
+                <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
+                    <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>3. Nilai Anggaran & Efisiensi Kontrak</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {/* Nilai Pagu */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="nilaiPagu" className="text-xs font-medium">
+                          Nilai Pagu Anggaran (Rp) <span className="text-red-500">*</span>
+                        </Label>
+                      </div>
+                      <Input
+                        id="nilaiPagu"
+                        type="number"
+                        placeholder="0"
+                        value={nilaiPagu}
+                        onChange={(e) => setNilaiPagu(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="font-mono text-sm h-9"
+                      />
+                      <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
+                        {formatRupiah(paguNum)}
+                      </div>
+                    </div>
+
+                    {/* Nilai Kontrak */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="nilaiKontrak" className="text-xs font-medium">
+                          Nilai Kontrak Terikat (Rp)
+                        </Label>
+                      </div>
+                      <Input
+                        id="nilaiKontrak"
+                        type="number"
+                        placeholder="0"
+                        value={nilaiKontrak}
+                        onChange={(e) => setNilaiKontrak(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="font-mono text-sm h-9"
+                      />
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono font-medium h-4 truncate">
+                        {formatRupiah(kontrakNum)}
+                      </div>
+                    </div>
+
+                    {/* Live Efisiensi Box */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Efisiensi PBJ / Penghematan
+                        </Label>
+                      </div>
+                      <div className="flex items-center justify-between h-9 px-3 rounded-md border bg-muted/40">
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                          {persenEfisiensi}%
+                        </span>
+                        <span className="text-xs text-muted-foreground font-mono truncate" title={formatRupiah(selisihEfisiensi)}>
+                          {formatRupiah(selisihEfisiensi)}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
+                        {kontrakNum > 0
+                          ? selisihEfisiensi >= 0
+                            ? "Penghematan dari nilai pagu"
+                            : "Melebihi nilai pagu"
+                          : "Belum ada nilai kontrak"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+
+                {/* Warning Banner: Jika Nilai Kontrak Terisi, Form Kontrak Wajib Lengkap */}
+                {isKontrakActive && !isKontrakComplete && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl border-2 border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs shadow-xs animate-in fade-in">
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="space-y-1.5">
+                      <div className="font-bold text-amber-900 dark:text-amber-100 text-sm">
+                        Nilai Kontrak Terisi — Data Pengadaan Wajib Dilengkapi:
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Karena nilai kontrak telah ditentukan (<strong>{formatRupiah(kontrakNum)}</strong>), Anda <strong>wajib mengisi Lokasi Pekerjaan, Nomor Kontrak, Penyedia Jasa/Rekanan, dan Tanggal Pelaksanaan</strong> (Keterangan bersifat opsional). Anda tidak dapat lanjut mengisi Target Fisik atau Realisasi sebelum data ini lengkap.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {kontrakMissingFields.map((f) => (
+                          <Badge key={f} variant="outline" className="border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-[11px] font-semibold">
+                            Wajib Diisi: {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SECTION 4: Jadwal & Keterangan */}
+                <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
+                    <Calendar className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>4. Waktu Pelaksanaan & Catatan</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4">
+                    {/* Tanggal Mulai */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="tanggalMulai" className="text-xs font-medium">
+                          Tanggal Mulai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                        </Label>
+                      </div>
+                      <Input
+                        id="tanggalMulai"
+                        type="date"
+                        value={tanggalMulai}
+                        onChange={(e) => {
+                          setTanggalMulai(e.target.value)
+                          reconcileWeeklyPeriods(e.target.value, tanggalSelesai)
+                        }}
+                        disabled={!canEditInfo}
+                        className="text-sm h-9"
+                      />
+                      <div className="text-[11px] text-muted-foreground h-4">
+                        Awal SPMK / Mulai Pekerjaan
+                      </div>
+                    </div>
+
+                    {/* Tanggal Selesai */}
+                    <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="tanggalSelesai" className="text-xs font-medium">
+                          Tanggal Selesai Pelaksanaan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                        </Label>
+                      </div>
+                      <Input
+                        id="tanggalSelesai"
+                        type="date"
+                        value={tanggalSelesai}
+                        onChange={(e) => {
+                          setTanggalSelesai(e.target.value)
+                          reconcileWeeklyPeriods(tanggalMulai, e.target.value)
+                        }}
+                        disabled={!canEditInfo}
+                        className="text-sm h-9"
+                      />
+                      <div className="text-[11px] text-muted-foreground h-4">
+                        Batas Akhir Kontrak / PHO
+                      </div>
+                    </div>
+
+                    {/* Durasi Kontrak Indicator */}
+                    <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label className="text-xs font-medium text-muted-foreground">
+                          Masa Kontrak / Durasi
+                        </Label>
+                      </div>
+                      <div className="flex items-center justify-between h-9 px-3 rounded-md border bg-muted/40 text-xs font-medium">
+                        {durasiKontrak ? (
+                          <>
+                            <span className="text-foreground font-semibold">
+                              {durasiKontrak.days} Hari Kalender
+                            </span>
+                            <span className="text-muted-foreground">
+                              ~{durasiKontrak.months} Bulan Kerja
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">
+                            Tentukan rentang tanggal
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground h-4">
+                        Dihitung otomatis kalender
+                      </div>
+                    </div>
+
+                    {/* Keterangan */}
+                    <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
+                      <div className="flex items-center justify-between h-5">
+                        <Label htmlFor="keterangan" className="text-xs font-medium">
+                          Keterangan Tambahan / Catatan Teknis
+                        </Label>
+                      </div>
+                      <Textarea
+                        id="keterangan"
+                        placeholder="Catatan tahapan pelelangan, kondisi lapangan, atau informasi spesifik..."
+                        rows={2}
+                        value={keterangan}
+                        onChange={(e) => setKeterangan(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* TAB 2: TARGET FISIK MINGGUAN */}
@@ -1272,7 +1557,7 @@ export function PaketFormDialog({
         {/* Modal Footer */}
         <DialogFooter className="p-4 sm:p-6 border-t bg-muted/20 shrink-0 flex-row items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground hidden sm:block">
-            {activeTab === "info" ? "Tab 1: Rincian PBJ & Kontrak" : "Tab 2: Target Fisik Mingguan"}
+            {activeTab === "info" ? (isKeuangan ? "Monitoring Keuangan Saja" : "Tab 1: Rincian PBJ & Kontrak") : "Tab 2: Target Fisik Mingguan"}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -1288,7 +1573,7 @@ export function PaketFormDialog({
             {activeTab === "info" ? (
               <>
                 {/* Admin SiRUP bisa langsung simpan di Tab 1 tanpa harus isi target */}
-                {isSirup && (
+                {(isSirup || (isKeuangan && canEditInfo)) && (
                   <Button
                     type="button"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
@@ -1303,7 +1588,7 @@ export function PaketFormDialog({
                     ) : (
                       <>
                         <CheckCircle2 className="h-4 w-4" />
-                        {isEdit ? "Simpan Perubahan Pengadaan" : "Simpan Paket Pembangunan"}
+                        {isKeuangan ? "Simpan Data Anggaran" : isEdit ? "Simpan Perubahan Pengadaan" : "Simpan Paket Pembangunan"}
                       </>
                     )}
                   </Button>
@@ -1311,6 +1596,7 @@ export function PaketFormDialog({
 
                 <Button
                   type="button"
+                  disabled={isKeuangan}
                   variant={isSirup ? "outline" : "default"}
                   onClick={() => {
                     if (validateKontrakBeforeNext()) {

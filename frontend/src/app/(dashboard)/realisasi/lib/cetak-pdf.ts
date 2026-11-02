@@ -1,5 +1,7 @@
 export interface CetakRealisasiItem {
   id: string
+  polaMonitoring?: string
+  kelompokPaket?: string
   namaPaket: string
   kodeRupKontrak?: string | null
   nomorKontrak?: string | null
@@ -103,10 +105,10 @@ export function cetakLaporanRealisasiPDF({
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt; font-family: monospace;">${item.nomorKontrak || "-"}</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt;">${tglMulaiStr}</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt;">${tglSelesaiStr}</td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${item.targetFisik}%</td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">${item.realisasiFisik}%</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.realisasiFisik}%`}</td>
         <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold; color: ${deviasiColor};">
-          ${item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+          ${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.deviasiFisik > 0 ? "+" : ""}${item.deviasiFisik}%`}
         </td>
         <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">Rp ${formatRupiah(item.realisasiKeuangan)}</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-family: monospace;">${item.persenKeuangan}%</td>

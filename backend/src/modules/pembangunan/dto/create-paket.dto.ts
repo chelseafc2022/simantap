@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -15,6 +16,18 @@ import { TargetBulananItemDto } from './target-bulanan.dto';
 import { TargetMingguanItemDto } from './target-mingguan.dto';
 
 export class CreatePaketDto {
+  @ApiPropertyOptional({
+    enum: ['PEMBANGUNAN_MODAL', 'OPERASIONAL_RUTIN', 'PERLU_DITINJAU'],
+  })
+  @IsOptional()
+  @IsIn(['PEMBANGUNAN_MODAL', 'OPERASIONAL_RUTIN', 'PERLU_DITINJAU'])
+  kelompokPaket?: string;
+
+  @ApiPropertyOptional({ enum: ['FISIK_KEUANGAN', 'KEUANGAN'] })
+  @IsOptional()
+  @IsIn(['FISIK_KEUANGAN', 'KEUANGAN'])
+  polaMonitoring?: string;
+
   @ApiPropertyOptional({
     description: 'Tahun Anggaran',
     default: 2026,

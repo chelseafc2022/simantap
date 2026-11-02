@@ -553,7 +553,7 @@ export default function RealisasiBulananPage() {
                       #{no}
                     </span>
                     <div>
-                      {item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                      {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan saja</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                           Belum Mulai
                         </Badge>
@@ -616,10 +616,10 @@ export default function RealisasiBulananPage() {
                     <div className="space-y-0.5">
                       <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
                       <div className="font-bold text-foreground">
-                        {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                        {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
                       </div>
                       <div className="text-[10px] text-muted-foreground font-sans">
-                        Target: {item.targetFisik}%
+                        Target: {item.polaMonitoring === "KEUANGAN" ? "Tidak berlaku" : `${item.targetFisik}%`}
                       </div>
                     </div>
                     <div className="space-y-0.5">
@@ -767,14 +767,14 @@ export default function RealisasiBulananPage() {
                       <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="w-full min-w-0 overflow-hidden space-y-1">
                           <div className="flex items-center justify-end gap-1.5 text-xs truncate">
-                            <span className="text-muted-foreground text-[11px]">Tgt: {item.targetFisik}%</span>
+                            <span className="text-muted-foreground text-[11px]">Tgt: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</span>
                             <span className="text-muted-foreground">•</span>
                             <span className="font-bold text-foreground">
-                              Real: {item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                              Real: {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
                             </span>
                           </div>
                           <div className="flex items-center justify-end gap-1">
-                            {item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                            {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan saja</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                                 Belum Mulai
                               </Badge>

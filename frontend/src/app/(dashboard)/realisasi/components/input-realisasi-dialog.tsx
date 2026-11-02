@@ -13,6 +13,7 @@ import {
 } from "recharts"
 import { toast } from "sonner"
 
+import { InputKeuanganDialog } from "./input-keuangan-dialog"
 import { apiClient } from "@/lib/api-client"
 import { formatContractDate } from "@/lib/contract-weeks"
 import { useAuth } from "@/hooks/use-auth"
@@ -354,6 +355,12 @@ export function InputRealisasiDialog({
       <AlertCircle className="mr-1 h-3 w-3" />Kritis ({currentDeviasi}%)
     </Badge>
   )
+
+  if (paket?.polaMonitoring === "KEUANGAN") {
+    return <InputKeuanganDialog key={`${paket.id}-${open}`} open={open} onOpenChange={onOpenChange}
+      paket={paket} timeline={detailData?.timeline || []} activeBulan={activeBulan} roles={roles}
+      lockedMonths={lockingPeriods.filter(item => item.isEffectiveLocked).map(item => item.bulan)} onSaved={invalidateData} />
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
