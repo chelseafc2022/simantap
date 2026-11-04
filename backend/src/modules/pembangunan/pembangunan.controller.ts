@@ -1,3 +1,5 @@
+import { UpdatePencairanDto } from './dto/update-pencairan.dto';
+import { CreatePencairanDto } from './dto/create-pencairan.dto';
 import {
   Body,
   Controller,
@@ -7,6 +9,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  ParseIntPipe,
   Post,
   Put,
   Query,
@@ -38,7 +41,6 @@ import {
   BulkUpsertRealisasiDto,
   UpsertRealisasiDto,
 } from './dto/upsert-realisasi.dto';
-import { VerifikasiRealisasiDto } from './dto/verifikasi-realisasi.dto';
 import { UpsertRealisasiMingguanDto } from './dto/upsert-realisasi-mingguan.dto';
 import { PembangunanService } from './pembangunan.service';
 
@@ -188,25 +190,6 @@ export class PembangunanController {
     return this.pembangunanService.getLaporanRekapOpd(query, user);
   }
 
-  // ─── ANTRIAN VERIFIKASI untuk MONEV ─────────────────────────────────────
-  @Get('monev/antrian')
-  @Roles(
-    RoleEnum.ADMINISTRATOR,
-    RoleEnum.MONEV,
-    RoleEnum.KEPALA_OPD,
-    RoleEnum.PIMPINAN_DAERAH,
-  )
-  @ApiOperation({
-    summary:
-      'Daftar realisasi bulanan yang sudah diajukan PPK dan menunggu verifikasi MONEV',
-  })
-  getAntrianVerifikasi(
-    @Query() query: QueryRealisasiDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.pembangunanService.getAntrianVerifikasi(query, user);
-  }
-
   // ─── MENU 1: Data Paket ─────────────────────────────────────────────────
   @Get()
   @Roles(...ALL_ROLES)
@@ -278,6 +261,46 @@ export class PembangunanController {
     return this.pembangunanService.getRealisasiPaket(id, user);
   }
 
+  @Post(':id/pencairan')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  @ApiOperation({
+    summary: 'Tambah record pencairan dan hitung realisasi kumulatif otomatis',
+  })
+  tambahPencairan(
+    @Param('id') id: string,
+    @Body() dto: CreatePencairanDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.tambahPencairan(id, dto, user);
+  }
+
+  @Patch(':id/pencairan/:pencairanId')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  ubahPencairan(@Param('id') id: string, @Param('pencairanId') pencairanId: string,
+    @Body() dto: UpdatePencairanDto, @CurrentUser() user: any) {
+    return this.pembangunanService.ubahPencairan(id, pencairanId, dto, user);
+  }
+
+  @Delete(':id/pencairan/:pencairanId')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  hapusPencairan(@Param('id') id: string, @Param('pencairanId') pencairanId: string, @CurrentUser() user: any) {
+    return this.pembangunanService.ubahPencairan(id, pencairanId, null, user);
+  }
+
+  @Put(':id/realisasi/:bulan/saldo')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  ubahSaldoRealisasi(@Param('id') id: string, @Param('bulan', ParseIntPipe) bulan: number,
+    @Body() dto: UpdatePencairanDto, @CurrentUser() user: any) {
+    return this.pembangunanService.ubahPencairan(id, null, dto, user, bulan);
+  }
+
+  @Delete(':id/realisasi-mingguan/:bulan/:minggu')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
+  hapusRealisasiMingguan(@Param('id') id: string, @Param('bulan', ParseIntPipe) bulan: number,
+    @Param('minggu', ParseIntPipe) minggu: number, @CurrentUser() user: any) {
+    return this.pembangunanService.hapusRealisasiMingguan(id, bulan, minggu, user);
+  }
+
   @Put(':id/realisasi')
   @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
   @ApiOperation({
@@ -318,58 +341,6 @@ export class PembangunanController {
     @CurrentUser() user: any,
   ) {
     return this.pembangunanService.bulkUpsertRealisasi(id, dto, user);
-  }
-
-  // ─── Ajukan Realisasi ke MONEV (PPK/Bendahara) ─────────────────────────
-  @Patch(':id/realisasi/:bulan/ajukan')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
-  @ApiOperation({
-    summary:
-      'PPK/Bendahara mengajukan realisasi bulan tertentu ke MONEV untuk diverifikasi',
-  })
-  ajukanRealisasi(
-    @Param('id') id: string,
-    @Param('bulan') bulan: string,
-    @CurrentUser() user: any,
-  ) {
-    return this.pembangunanService.ajukanRealisasi(id, parseInt(bulan), user);
-  }
-
-  // ─── Verifikasi MONEV: ACC ───────────────────────────────────────────────
-  @Patch(':id/realisasi/:bulan/acc')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.MONEV)
-  @ApiOperation({
-    summary:
-      'MONEV menyetujui (ACC) realisasi yang diajukan PPK — data terkunci final',
-  })
-  accRealisasi(
-    @Param('id') id: string,
-    @Param('bulan') bulan: string,
-    @Body() dto: VerifikasiRealisasiDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.pembangunanService.accRealisasi(id, parseInt(bulan), dto, user);
-  }
-
-  // ─── Verifikasi MONEV: TOLAK ─────────────────────────────────────────────
-  @Patch(':id/realisasi/:bulan/tolak')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.MONEV)
-  @ApiOperation({
-    summary:
-      'MONEV menolak realisasi dengan mengisi alasan — data dikembalikan ke PPK',
-  })
-  tolakRealisasi(
-    @Param('id') id: string,
-    @Param('bulan') bulan: string,
-    @Body() dto: VerifikasiRealisasiDto,
-    @CurrentUser() user: any,
-  ) {
-    return this.pembangunanService.tolakRealisasi(
-      id,
-      parseInt(bulan),
-      dto,
-      user,
-    );
   }
 
   // ─── Upload Bukti Fisik (foto) oleh PPK ─────────────────────────────────

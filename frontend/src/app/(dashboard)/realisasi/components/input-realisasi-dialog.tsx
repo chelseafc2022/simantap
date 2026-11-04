@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle, AlertTriangle, CalendarDays, CheckCircle2,
-  Image as ImageIcon, Loader2, Save,
+  Image as ImageIcon, Loader2, Save, Trash2,
   TrendingUp, Upload, X,
 } from "lucide-react"
 import {
@@ -274,6 +274,18 @@ export function InputRealisasiDialog({
       invalidateData()
     },
     onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menghapus bukti")),
+  })
+
+  const deleteMingguanMutation = useMutation({
+    mutationFn: () => {
+      if (!paketId || !current) throw new Error("Periode minggu tidak valid")
+      return apiClient.delete(`/pembangunan/${paketId}/realisasi-mingguan/${current.bulan}/${current.mingguKe}`)
+    },
+    onSuccess: () => {
+      toast.success(`Realisasi B${String(selectedBulan).padStart(2, "0")} Minggu ${selectedMinggu} berhasil dihapus / direset ke 0`)
+      invalidateData()
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menghapus realisasi")),
   })
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -712,17 +724,47 @@ export function InputRealisasiDialog({
         <DialogFooter className="flex-row items-center justify-between border-t bg-muted/10 p-4 sm:justify-between">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
           {current && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {(Number(current.realisasiFisik || 0) > 0 || Number(current.realisasiKeuangan || 0) > 0) &&
+                (canEditFisik || canEditKeuangan) &&
+                !isFormDisabled && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Yakin ingin menghapus realisasi B${String(selectedBulan).padStart(2, "0")} Minggu ${selectedMinggu}? Nilai fisik/keuangan minggu ini akan direset kembali ke 0.`
+                        )
+                      ) {
+                        deleteMingguanMutation.mutate()
+                      }
+                    }}
+                    disabled={deleteMingguanMutation.isPending || saveMutation.isPending}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-800 text-xs"
+                  >
+                    {deleteMingguanMutation.isPending ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    )}
+                    Hapus Realisasi Minggu Ini
+                  </Button>
+                )}
               {(canEditFisik || canEditKeuangan) && !isFormDisabled && (
                 <Button
                   onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700"
+                  disabled={saveMutation.isPending || deleteMingguanMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-xs"
                 >
-                  {saveMutation.isPending
-                    ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                    : <Save className="mr-1 h-4 w-4" />}
-                  Simpan Minggu {current.mingguKe}
+                  {saveMutation.isPending ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {Number(current.realisasiFisik || 0) > 0 || Number(current.realisasiKeuangan || 0) > 0
+                    ? `Perbarui Minggu ${current.mingguKe}`
+                    : `Simpan Minggu ${current.mingguKe}`}
                 </Button>
               )}
             </div>

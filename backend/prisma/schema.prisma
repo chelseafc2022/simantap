@@ -19,6 +19,7 @@ enum RoleEnum {
 }
 
 enum StatusVerifikasi {
+  TERCATAT
   DRAFT
   DIAJUKAN
   TERVERIFIKASI
@@ -193,6 +194,7 @@ model PaketPembangunan {
   createdBy         User?               @relation("UserPaketCreated", fields: [createdById], references: [id], onDelete: SetNull)
   targetBulanan     TargetBulanan[]
   targetMingguan    TargetMingguan[]
+  pencairanKeuangan PencairanKeuangan[]
   realisasiBulanan  RealisasiBulanan[]
   realisasiMingguan RealisasiMingguan[]
 
@@ -244,7 +246,7 @@ model RealisasiBulanan {
   catatanOperator   String?          @map("catatan_operator")
   inputById         String?          @map("input_by_id")
   // Kolom verifikasi oleh MONEV/Administrator
-  statusVerifikasi  StatusVerifikasi @default(DRAFT) @map("status_verifikasi")
+  statusVerifikasi  StatusVerifikasi @default(TERCATAT) @map("status_verifikasi")
   catatanVerifikasi String?          @map("catatan_verifikasi")
   verifikasiOlehId  String?          @map("verifikasi_oleh_id")
   verifikasiAt      DateTime?        @map("verifikasi_at")
@@ -300,4 +302,19 @@ model BuktiFisik {
 
   @@index([realisasiId])
   @@map("bukti_fisik")
+}
+
+model PencairanKeuangan {
+  id          String   @id
+  paketId     String   @map("paket_id")
+  bulan       Int
+  nominal     Decimal  @db.Decimal(18, 2)
+  catatan     String
+  inputById   String?  @map("input_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+
+  @@index([paketId, bulan])
+  @@map("pencairan_keuangan")
 }

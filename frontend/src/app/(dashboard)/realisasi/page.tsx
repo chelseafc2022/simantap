@@ -9,6 +9,7 @@ import { SearchableCombobox } from "@/components/searchable-combobox"
 import { isExcludedOpd } from "@/lib/utils"
 import { RealisasiStatCards } from "./components/realisasi-stat-cards"
 import { InputRealisasiDialog, BULAN_LIST } from "./components/input-realisasi-dialog"
+import { MiniDonut } from "@/components/ui/mini-donut"
 import { cetakLaporanRealisasiPDF, CetakRealisasiItem } from "./lib/cetak-pdf"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -628,24 +629,52 @@ export default function RealisasiBulananPage() {
                     </span>
                   </div>
 
-                  {/* Grid Realisasi Fisik & Keuangan */}
+                  {/* Grid Realisasi Fisik & Keuangan dengan Mini Donut */}
                   <div className="grid grid-cols-2 gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono">
-                    <div className="space-y-0.5">
-                      <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
-                      <div className="font-bold text-foreground">
-                        {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-sans">
-                        Target: {item.polaMonitoring === "KEUANGAN" ? "Tidak berlaku" : `${item.targetFisik}%`}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {item.polaMonitoring !== "KEUANGAN" && (
+                        <MiniDonut
+                          value={item.realisasiFisik}
+                          size={34}
+                          strokeWidth={3.5}
+                          color={
+                            item.status === "AMAN"
+                              ? "#059669"
+                              : item.status === "PERHATIAN"
+                              ? "#d97706"
+                              : item.realisasiFisik > 0
+                              ? "#e11d48"
+                              : "#94a3b8"
+                          }
+                          label="Fisik"
+                        />
+                      )}
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
+                        <div className="font-bold text-foreground">
+                          {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-sans truncate">
+                          Target: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
-                      <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
-                        {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-sans">
-                        {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "-"}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MiniDonut
+                        value={item.persenKeuangan}
+                        size={34}
+                        strokeWidth={3.5}
+                        color="#2563eb"
+                        label="Serapan Keuangan"
+                      />
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="text-[10px] text-muted-foreground font-sans">Keuangan</div>
+                        <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
+                          {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground font-sans truncate">
+                          {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -656,16 +685,24 @@ export default function RealisasiBulananPage() {
                     {item.polaMonitoring !== "KEUANGAN" && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>}
                   </div>
 
-                  {/* Tombol Input */}
+                  {/* Tombol Input / Ubah */}
                   <div className="pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleOpenInput(item.id)}
-                      className="w-full h-8 text-xs gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors justify-center"
+                      className={`w-full h-8 text-xs gap-1.5 transition-colors justify-center ${
+                        Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                          ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                          : "hover:bg-primary/10 hover:text-primary"
+                      }`}
                     >
-                      <Edit3 className="h-3.5 w-3.5 text-primary" />
-                      <span>Input Realisasi Bulan Ini</span>
+                      <Edit3 className="h-3.5 w-3.5" />
+                      <span>
+                        {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                          ? "Ubah Realisasi"
+                          : "Input Realisasi"}
+                      </span>
                     </Button>
                   </div>
                 </div>
@@ -787,52 +824,80 @@ export default function RealisasiBulananPage() {
                       </TableCell>
 
                       {/* Kinerja Fisik: Target, Realisasi & Deviasi / Status */}
-                      <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-1">
-                          <div className="flex items-center justify-end gap-1.5 text-xs truncate">
-                            <span className="text-muted-foreground text-[11px]">Tgt: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="font-bold text-foreground">
-                              Real: {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-end gap-1">
-                            {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-                                Belum Mulai
-                              </Badge>
-                            ) : (
-                              <Badge
-                                className={`text-[10px] px-1.5 py-0 font-medium whitespace-nowrap ${
-                                  item.status === "AMAN"
-                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                                    : item.status === "PERHATIAN"
-                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                                    : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
-                                }`}
-                              >
-                                {item.status === "AMAN" ? (
-                                  <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
-                                ) : item.status === "PERHATIAN" ? (
-                                  <AlertTriangle className="h-2.5 w-2.5 mr-1" />
-                                ) : (
-                                  <AlertCircle className="h-2.5 w-2.5 mr-1" />
-                                )}
-                                Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
-                              </Badge>
-                            )}
+                      <TableCell className="max-w-0 py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="flex items-center justify-end gap-2.5">
+                          {item.polaMonitoring !== "KEUANGAN" && (
+                            <MiniDonut
+                              value={item.realisasiFisik}
+                              size={38}
+                              strokeWidth={3.8}
+                              color={
+                                item.status === "AMAN"
+                                  ? "#059669"
+                                  : item.status === "PERHATIAN"
+                                  ? "#d97706"
+                                  : item.realisasiFisik > 0
+                                  ? "#e11d48"
+                                  : "#94a3b8"
+                              }
+                              label="Realisasi Fisik"
+                            />
+                          )}
+                          <div className="min-w-0 text-right space-y-1">
+                            <div className="flex items-center justify-end gap-1.5 text-xs truncate">
+                              <span className="text-muted-foreground text-[11px]">Tgt: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</span>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="font-bold text-foreground">
+                                Real: {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1">
+                              {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                                  Belum Mulai
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  className={`text-[10px] px-1.5 py-0 font-medium whitespace-nowrap ${
+                                    item.status === "AMAN"
+                                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                                      : item.status === "PERHATIAN"
+                                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                                      : "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30"
+                                  }`}
+                                >
+                                  {item.status === "AMAN" ? (
+                                    <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
+                                  ) : item.status === "PERHATIAN" ? (
+                                    <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                                  ) : (
+                                    <AlertCircle className="h-2.5 w-2.5 mr-1" />
+                                  )}
+                                  Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
 
                       {/* Realisasi Keuangan */}
-                      <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-0.5">
-                          <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                            {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "-"}
+                      <TableCell className="max-w-0 py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
+                        <div className="flex items-center justify-end gap-2.5">
+                          <MiniDonut
+                            value={item.persenKeuangan}
+                            size={38}
+                            strokeWidth={3.8}
+                            color="#2563eb"
+                            label="Serapan Keuangan"
+                          />
+                          <div className="min-w-0 text-right space-y-0.5">
+                            <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
+                              {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -843,10 +908,18 @@ export default function RealisasiBulananPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleOpenInput(item.id)}
-                          className="h-8 px-2.5 text-xs gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors"
+                          className={`h-8 px-2.5 text-xs gap-1.5 transition-colors ${
+                            Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                              ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                              : "hover:bg-primary/10 hover:text-primary"
+                          }`}
                         >
-                          <Edit3 className="h-3.5 w-3.5 text-primary" />
-                          <span>Input</span>
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>
+                            {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                              ? "Ubah"
+                              : "Input"}
+                          </span>
                         </Button>
                       </TableCell>
                     </TableRow>
