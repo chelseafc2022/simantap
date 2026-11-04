@@ -220,8 +220,6 @@ export function PaketFormDialog({
   const canSelectSubUnit = isSuperRole || isKepalaOpd || !userSubUnitId
 
   // Active form tab
-  const [showOptionalContract, setShowOptionalContract] = useState(false)
-  const [kelompokPaket, setKelompokPaket] = useState("PEMBANGUNAN_MODAL")
   const [polaMonitoring, setPolaMonitoring] = useState("FISIK_KEUANGAN")
   const isKeuangan = polaMonitoring === "KEUANGAN"
   const [activeTab, setActiveTab] = useState<string>("info")
@@ -308,8 +306,6 @@ export function PaketFormDialog({
       setTahunAnggaran(initialData.tahunAnggaran || 2026)
       setOpdId(initialData.opdId || "")
       setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
-      setShowOptionalContract(Number(initialData.nilaiKontrak) > 0)
-      setKelompokPaket(initialData.kelompokPaket || "PEMBANGUNAN_MODAL")
       setPolaMonitoring(initialData.polaMonitoring || "FISIK_KEUANGAN")
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
@@ -332,8 +328,6 @@ export function PaketFormDialog({
         initialData.targetBulanan
       ))
     } else {
-      setShowOptionalContract(false)
-      setKelompokPaket("PEMBANGUNAN_MODAL")
       setPolaMonitoring("FISIK_KEUANGAN")
       // Reset form
       setTahunAnggaran(2026)
@@ -560,7 +554,7 @@ export function PaketFormDialog({
       if (tanggalMulai && tanggalSelesai && new Date(tanggalSelesai) < new Date(tanggalMulai)) {
         throw new Error("Tanggal selesai pelaksanaan tidak boleh lebih awal dari tanggal mulai")
       }
-      if (canEditTarget) {
+      if (canEditTarget && !isKeuangan) {
         for (let index = 1; index < weeklyTargets.length; index += 1) {
           if (weeklyTargets[index].targetFisik < weeklyTargets[index - 1].targetFisik) {
             throw new Error(
@@ -579,7 +573,6 @@ export function PaketFormDialog({
       })
 
       const payload = {
-        kelompokPaket,
         polaMonitoring,
         tahunAnggaran,
         opdId,
@@ -677,15 +670,15 @@ export function PaketFormDialog({
           className="flex-1 flex flex-col min-h-0"
         >
           <div className="px-6 py-2.5 border-b bg-muted/20 shrink-0">
-            <TabsList className="grid w-full sm:w-[480px] grid-cols-2">
+            <TabsList className={`grid w-full ${isKeuangan ? "sm:w-[240px] grid-cols-1" : "sm:w-[480px] grid-cols-2"}`}>
               <TabsTrigger value="info" className="gap-2 text-xs sm:text-sm font-medium">
                 <FileText className="h-4 w-4" />
                 {isKeuangan ? "Data Anggaran" : "1. Rincian Kontrak & PBJ"}
               </TabsTrigger>
-              <TabsTrigger disabled={isKeuangan} value="targets" className="gap-2 text-xs sm:text-sm font-medium">
+              {!isKeuangan && <TabsTrigger value="targets" className="gap-2 text-xs sm:text-sm font-medium">
                 <Calendar className="h-4 w-4" />
                 2. Target Fisik Mingguan
-              </TabsTrigger>
+              </TabsTrigger>}
             </TabsList>
           </div>
 
@@ -704,32 +697,14 @@ export function PaketFormDialog({
               </div>
             )}
 
-            {/* BOX: Klasifikasi Paket & Pola Monitoring */}
+            {/* BOX: Pola Monitoring */}
             <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2.5">
                 <SlidersHorizontal className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Klasifikasi Paket & Pola Monitoring</span>
+                <span>Pola Monitoring</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between h-5">
-                    <Label htmlFor="kelompokPaket" className="text-xs font-medium">
-                      Kelompok Paket <span className="text-red-500">*</span>
-                    </Label>
-                  </div>
-                  <Select value={kelompokPaket} onValueChange={setKelompokPaket} disabled={!canEditInfo}>
-                    <SelectTrigger id="kelompokPaket" className="text-sm h-9">
-                      <SelectValue placeholder="Pilih kelompok paket..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PEMBANGUNAN_MODAL">Pembangunan / Modal</SelectItem>
-                      <SelectItem value="OPERASIONAL_RUTIN">Operasional / Rutin</SelectItem>
-                      <SelectItem value="PERLU_DITINJAU">Perlu ditinjau</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
+              <div className="max-w-md">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between h-5">
                     <Label htmlFor="polaMonitoring" className="text-xs font-medium">
@@ -741,8 +716,8 @@ export function PaketFormDialog({
                       <SelectValue placeholder="Pilih pola monitoring..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="FISIK_KEUANGAN">Fisik mingguan + Keuangan</SelectItem>
-                      <SelectItem value="KEUANGAN">Keuangan saja</SelectItem>
+                      <SelectItem value="FISIK_KEUANGAN">Fisik</SelectItem>
+                      <SelectItem value="KEUANGAN">Keuangan</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -753,14 +728,9 @@ export function PaketFormDialog({
                 <div className="space-y-1 leading-relaxed">
                   <span>
                     {isKeuangan
-                      ? "Pola Keuangan Saja: Isi identitas, pagu, dan sumber dana. Realisasi keuangan diinput kumulatif bulanan pada menu Realisasi tanpa target fisik mingguan."
-                      : "Pola Fisik + Keuangan: Lengkapi nilai kontrak, penyedia, dan masa kontrak sebelum menetapkan target fisik mingguan pada Tab 2."}
+                      ? "Pola Keuangan: Cukup lengkapi data dasar paket, pagu, dan sumber dana. Tidak perlu mengisi target fisik mingguan. Realisasi keuangan diinput kumulatif bulanan pada menu Realisasi."
+                      : "Pola Fisik: Lengkapi data kontrak dan target fisik mingguan pada Tab 2. Realisasi fisik dan keuangan diinput pada menu Realisasi."}
                   </span>
-                  {kelompokPaket === "PERLU_DITINJAU" && (
-                    <span className="block text-amber-600 dark:text-amber-400 font-medium">
-                      ⚠️ Hasil klasifikasi otomatis RUP. Tinjau kembali kelompok dan pola monitoring, lalu simpan sesuai pelaksanaan paket.
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -893,16 +863,16 @@ export function PaketFormDialog({
               </div>
             </div>
 
-            {/* SEKSI KHUSUS KEUANGAN: Anggaran Belanja Rutin */}
+            {/* SEKSI KHUSUS KEUANGAN: Data Anggaran */}
             {isKeuangan && (
               <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
                 <div className="flex items-center justify-between border-b pb-2.5">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <Coins className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <span>2. Anggaran Belanja Rutin</span>
+                    <span>2. Data Anggaran</span>
                   </div>
                   <Badge variant="outline" className="text-[11px] font-normal">
-                    Pola Keuangan Saja
+                    Pola Keuangan
                   </Badge>
                 </div>
 
@@ -1015,23 +985,12 @@ export function PaketFormDialog({
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-border/40">
-                  <span>Realisasi belanja diinput bulanan melalui menu <strong>Realisasi</strong> tanpa target fisik mingguan.</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowOptionalContract((v) => !v)}
-                    className="text-xs h-7 self-start sm:self-auto font-medium"
-                  >
-                    {showOptionalContract ? "Sembunyikan Rincian Pengadaan Opsional" : "Lihat / Lengkapi Pengadaan & Kontrak (Opsional)"}
-                  </Button>
-                </div>
+
               </div>
             )}
 
             {/* SEKSI PENGADAAN & KONTRAK */}
-            {(!isKeuangan || showOptionalContract || kontrakNum > 0) && (
+            {!isKeuangan && (
               <>
                 {/* SECTION 2: Mekanisme PBJ & Sumber Dana */}
                 <div className="rounded-xl border bg-card/60 p-4 sm:p-5 space-y-4 shadow-xs">
@@ -1085,7 +1044,7 @@ export function PaketFormDialog({
                     <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
                       <div className="flex items-center justify-between h-5">
                         <Label htmlFor="nomorKontrak" className="text-xs font-medium">
-                          Nomor Kontrak / SPK {isKeuangan && "(opsional)"} {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                          Nomor Kontrak / SPK {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                         </Label>
                       </div>
                       <Input
@@ -1178,7 +1137,7 @@ export function PaketFormDialog({
                     <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
                       <div className="flex items-center justify-between h-5">
                         <Label htmlFor="pemenangRekanan" className="text-xs font-medium">
-                          Penyedia Jasa / Rekanan {isKeuangan && "(opsional)"} {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
+                          Penyedia Jasa / Rekanan {isKontrakActive && <span className="text-red-500 font-bold">*</span>}
                         </Label>
                       </div>
                       <Input
@@ -1557,7 +1516,7 @@ export function PaketFormDialog({
         {/* Modal Footer */}
         <DialogFooter className="p-4 sm:p-6 border-t bg-muted/20 shrink-0 flex-row items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground hidden sm:block">
-            {activeTab === "info" ? (isKeuangan ? "Monitoring Keuangan Saja" : "Tab 1: Rincian PBJ & Kontrak") : "Tab 2: Target Fisik Mingguan"}
+            {activeTab === "info" ? (isKeuangan ? "Monitoring Keuangan" : "Tab 1: Rincian PBJ & Kontrak") : "Tab 2: Target Fisik Mingguan"}
           </div>
 
           <div className="flex items-center gap-2 ml-auto">

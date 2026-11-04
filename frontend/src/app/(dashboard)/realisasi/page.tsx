@@ -124,6 +124,7 @@ export default function RealisasiBulananPage() {
     data: realisasiResponse,
     isLoading,
     isFetching,
+    isError,
     refetch,
   } = useQuery({
     queryKey: [
@@ -168,9 +169,13 @@ export default function RealisasiBulananPage() {
     ? realisasiResponse.data
     : []
 
-  // Urutan: Kritis (deviasi paling parah) -> Perhatian/Waspada -> Aman (< 100%) -> Selesai (100%) -> Belum diisi/Belum mulai (paling bawah)
+  // Dahulukan paket dengan realisasi fisik atau keuangan, lalu urutkan berdasarkan status.
   const items: CetakRealisasiItem[] = useMemo(() => {
     return [...rawItems].sort((a, b) => {
+      const hasRealisasiA = Number(a.realisasiFisik || 0) > 0 || Number(a.realisasiKeuangan || 0) > 0
+      const hasRealisasiB = Number(b.realisasiFisik || 0) > 0 || Number(b.realisasiKeuangan || 0) > 0
+      if (hasRealisasiA !== hasRealisasiB) return hasRealisasiA ? -1 : 1
+
       const getPriority = (item: any) => {
         if (
           item.status === "BELUM_MULAI" ||
@@ -359,7 +364,7 @@ export default function RealisasiBulananPage() {
       </div>
 
       {/* Stat Cards */}
-      <RealisasiStatCards summary={summary} isLoading={isLoading} />
+      {!isError && <RealisasiStatCards summary={summary} isLoading={isLoading} />}
 
       {/* Filter Toolbar - Mengadopsi Layout & Style Presisi /users */}
       <Card className="border-border/70 shadow-xs bg-card/60 backdrop-blur-xs">
@@ -521,6 +526,16 @@ export default function RealisasiBulananPage() {
         </CardContent>
       </Card>
 
+      {isError && (
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <p className="font-medium">Data realisasi gagal dimuat.</p>
+          <p className="mt-1 text-muted-foreground">Periksa koneksi ke server, lalu coba muat ulang.</p>
+          <Button variant="outline" size="sm" className="mt-3" disabled={isFetching} onClick={() => refetch()}>
+            Coba lagi
+          </Button>
+        </div>
+      )}
+
       {/* Main Table Card */}
       <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden">
         {/* Mobile View: Tampilan Kartu Kompak di Layar HP (< md) */}
@@ -530,6 +545,8 @@ export default function RealisasiBulananPage() {
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
               <span className="text-xs text-muted-foreground">Memuat data realisasi bulanan...</span>
             </div>
+          ) : isError ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Daftar paket belum dapat dimuat.</div>
           ) : items.length === 0 ? (
             <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
               <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
@@ -553,7 +570,7 @@ export default function RealisasiBulananPage() {
                       #{no}
                     </span>
                     <div>
-                      {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan saja</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                      {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                           Belum Mulai
                         </Badge>
@@ -636,7 +653,7 @@ export default function RealisasiBulananPage() {
                   {/* Nilai Pagu & Kontrak */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
                     <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
-                    <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>
+                    {item.polaMonitoring !== "KEUANGAN" && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>}
                   </div>
 
                   {/* Tombol Input */}
@@ -690,6 +707,12 @@ export default function RealisasiBulananPage() {
                       <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
                       <span className="text-xs text-muted-foreground">Memuat data realisasi bulanan...</span>
                     </div>
+                  </TableCell>
+                </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-56 text-center text-sm text-muted-foreground">
+                    Daftar paket belum dapat dimuat.
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
@@ -755,10 +778,10 @@ export default function RealisasiBulananPage() {
                       <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="w-full min-w-0 overflow-hidden space-y-0.5">
                           <div className="font-semibold text-xs text-foreground truncate">
-                            {formatRupiah(item.nilaiKontrak)}
+                            {formatRupiah(item.polaMonitoring === "KEUANGAN" ? item.nilaiPagu : item.nilaiKontrak)}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate">
-                            Pagu: {formatRupiah(item.nilaiPagu)}
+                            {item.polaMonitoring === "KEUANGAN" ? "Pagu anggaran" : `Pagu: ${formatRupiah(item.nilaiPagu)}`}
                           </div>
                         </div>
                       </TableCell>
@@ -774,7 +797,7 @@ export default function RealisasiBulananPage() {
                             </span>
                           </div>
                           <div className="flex items-center justify-end gap-1">
-                            {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan saja</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                            {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                                 Belum Mulai
                               </Badge>
@@ -879,6 +902,7 @@ export default function RealisasiBulananPage() {
 
       {/* Input Realisasi Dialog */}
       <InputRealisasiDialog
+        key={`${selectedPaketId}-${inputModalOpen}`}
         open={inputModalOpen}
         onOpenChange={setInputModalOpen}
         paketId={selectedPaketId}

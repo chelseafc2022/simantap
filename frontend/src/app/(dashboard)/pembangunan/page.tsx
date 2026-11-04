@@ -527,6 +527,7 @@ export default function PaketPembangunanPage() {
                         </span>
                       )}
                     </div>
+                    {paket.polaMonitoring !== "KEUANGAN" && (
                     <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-mono font-medium shrink-0 ${
                       sudahIsiTarget
                         ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -537,6 +538,7 @@ export default function PaketPembangunanPage() {
                         Target akhir: {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
                       </span>
                     </div>
+                    )}
                   </div>
 
                   {/* Nama Paket (Klik untuk buka detail) */}
@@ -603,7 +605,7 @@ export default function PaketPembangunanPage() {
                       <span>Detail</span>
                     </Button>
 
-                    {(isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                    {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -802,6 +804,9 @@ export default function PaketPembangunanPage() {
 
                       {/* Target Akhir Kontrak */}
                       <TableCell className="px-3 py-4 text-center align-top">
+                        {paket.polaMonitoring === "KEUANGAN" ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
                         <div className={`inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                           sudahIsiTarget
                             ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -816,6 +821,7 @@ export default function PaketPembangunanPage() {
                             {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
                           </span>
                         </div>
+                        )}
                       </TableCell>
 
                       {/* Aksi */}
@@ -838,7 +844,7 @@ export default function PaketPembangunanPage() {
                               Detail & Rekap Bulanan
                             </DropdownMenuItem>
 
-                            {(isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                            {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
                               <DropdownMenuItem onSelect={() => handleOpenTarget(paket)}>
                                 <TrendingUp className="text-amber-600" />
                                 Tetapkan Target Mingguan

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  AlertCircle, AlertTriangle, CalendarDays, CheckCircle2, FileCheck,
-  FileClock, FileX, Image as ImageIcon, Loader2, Save, Send,
+  AlertCircle, AlertTriangle, CalendarDays, CheckCircle2,
+  Image as ImageIcon, Loader2, Save,
   TrendingUp, Upload, X,
 } from "lucide-react"
 import {
@@ -71,7 +71,7 @@ interface WeeklyItem {
   realisasiFisik: string
   realisasiKeuangan: string
   catatanOperator: string
-  statusVerifikasi: "DRAFT" | "DIAJUKAN" | "TERVERIFIKASI" | "DITOLAK"
+  statusVerifikasi: "TERCATAT" | null
   catatanVerifikasi?: string | null
   buktiFisik: BuktiFisikItem[]
 }
@@ -128,8 +128,6 @@ export function InputRealisasiDialog({
   const canEditFisik = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
   const canEditKeuangan = roles.some((role) => ["ADMINISTRATOR", "BENDAHARA"].includes(role))
   const canUploadFoto = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
-  const canAjukan = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK", "BENDAHARA"].includes(role))
-  const canVerifikasi = roles.some((role) => ["ADMINISTRATOR", "MONEV"].includes(role))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [weeklyState, setWeeklyState] = useState<WeeklyItem[]>([])
@@ -137,10 +135,8 @@ export function InputRealisasiDialog({
   const [selectedMinggu, setSelectedMinggu] = useState(1)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [deskripsiFile, setDeskripsiFile] = useState("")
-  const [showTolakInput, setShowTolakInput] = useState(false)
-  const [alasanTolak, setAlasanTolak] = useState("")
 
-  const { data: detailData, isLoading } = useQuery({
+  const { data: detailData, isLoading, isError, refetch } = useQuery({
     queryKey: ["paket-realisasi-detail", paketId],
     queryFn: async () => {
       if (!paketId) return null
@@ -203,12 +199,9 @@ export function InputRealisasiDialog({
   const currentDeviasi = Number((currentFisik - currentTarget).toFixed(2))
   const currentSerapan = nilaiKontrak > 0
     ? Number(((currentKeuangan / nilaiKontrak) * 100).toFixed(2)) : 0
-  const monthStatus = current?.statusVerifikasi || "DRAFT"
-  const isLocked = monthStatus === "TERVERIFIKASI"
-  const isDiajukan = monthStatus === "DIAJUKAN"
   const lockPeriod = lockingPeriods.find((item) => item.bulan === selectedBulan)
   const isPeriodLocked = !isAdmin && !!lockPeriod?.isEffectiveLocked
-  const isFormDisabled = isLocked || isDiajukan || isPeriodLocked
+  const isFormDisabled = isPeriodLocked
 
   const updateCurrent = (changes: Partial<WeeklyItem>) => {
     setWeeklyState((rows) => rows.map((item) =>
@@ -217,16 +210,16 @@ export function InputRealisasiDialog({
     ))
   }
 
-  const invalidateData = () => {
-    queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] })
-    queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] })
-    queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
-    queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] })
-    queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] })
-    queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] })
-    queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] })
-    queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] })
-  }
+  const invalidateData = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["paket-realisasi-detail", paketId] }),
+    queryClient.invalidateQueries({ queryKey: ["rekap-realisasi"] }),
+    queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] }),
+    queryClient.invalidateQueries({ queryKey: ["dashboard-paket"] }),
+    queryClient.invalidateQueries({ queryKey: ["dashboard-rekap-opd"] }),
+    queryClient.invalidateQueries({ queryKey: ["laporan-rfk"] }),
+    queryClient.invalidateQueries({ queryKey: ["laporan-matriks-12"] }),
+    queryClient.invalidateQueries({ queryKey: ["laporan-rekap-opd"] }),
+  ])
 
   const uploadFiles = async () => {
     if (!paketId || !current || pendingFiles.length === 0) return
@@ -259,7 +252,7 @@ export function InputRealisasiDialog({
       })
     },
     onSuccess: () => {
-      toast.success(`Realisasi B${String(selectedBulan).padStart(2, "0")} Minggu ${selectedMinggu} berhasil disimpan`)
+      toast.success(`Realisasi B${String(selectedBulan).padStart(2, "0")} Minggu ${selectedMinggu} langsung tercatat`)
       invalidateData()
     },
     onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menyimpan realisasi")),
@@ -281,45 +274,6 @@ export function InputRealisasiDialog({
       invalidateData()
     },
     onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menghapus bukti")),
-  })
-
-  const ajukanMutation = useMutation({
-    mutationFn: async () => {
-      if (!paketId) throw new Error("Paket tidak valid")
-      return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/ajukan`)
-    },
-    onSuccess: () => {
-      toast.success(`Rekap Bulan ${BULAN_LIST[selectedBulan - 1].nama} diajukan ke MONEV`)
-      invalidateData()
-    },
-    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal mengajukan realisasi")),
-  })
-
-  const accMutation = useMutation({
-    mutationFn: () => apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/acc`, {
-      catatanVerifikasi: "Terverifikasi sesuai laporan progres mingguan",
-    }),
-    onSuccess: () => {
-      toast.success("Rekap bulanan berhasil diverifikasi")
-      invalidateData()
-    },
-    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal memverifikasi")),
-  })
-
-  const tolakMutation = useMutation({
-    mutationFn: () => {
-      if (!alasanTolak.trim()) throw new Error("Alasan penolakan wajib diisi")
-      return apiClient.patch(`/pembangunan/${paketId}/realisasi/${selectedBulan}/tolak`, {
-        catatanVerifikasi: alasanTolak.trim(),
-      })
-    },
-    onSuccess: () => {
-      toast.success("Rekap bulanan dikembalikan untuk diperbaiki")
-      setShowTolakInput(false)
-      setAlasanTolak("")
-      invalidateData()
-    },
-    onError: (error: unknown) => toast.error(getErrorMessage(error, "Gagal menolak realisasi")),
   })
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -356,9 +310,22 @@ export function InputRealisasiDialog({
     </Badge>
   )
 
+  if (!open) return null
+  if (isLoading || !paket || isError) {
+    return <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Realisasi Paket</DialogTitle>
+          <DialogDescription>{isError ? "Data realisasi gagal dimuat." : "Memuat data realisasi paket..."}</DialogDescription>
+        </DialogHeader>
+        {isError ? <Button variant="outline" onClick={() => refetch()}>Coba lagi</Button> : <Loader2 className="mx-auto my-6 h-6 w-6 animate-spin text-emerald-600" />}
+      </DialogContent>
+    </Dialog>
+  }
+
   if (paket?.polaMonitoring === "KEUANGAN") {
     return <InputKeuanganDialog key={`${paket.id}-${open}`} open={open} onOpenChange={onOpenChange}
-      paket={paket} timeline={detailData?.timeline || []} activeBulan={activeBulan} roles={roles}
+      paket={paket} pencairanTersedia={detailData?.pencairanTersedia === true} timeline={detailData?.timeline || []} activeBulan={activeBulan} roles={roles}
       lockedMonths={lockingPeriods.filter(item => item.isEffectiveLocked).map(item => item.bulan)} onSaved={invalidateData} />
   }
 
@@ -485,13 +452,7 @@ export function InputRealisasiDialog({
                         </div>
                         <div className="flex gap-2">
                           {performanceBadge}
-                          {monthStatus === "TERVERIFIKASI" ? (
-                            <Badge className="bg-blue-600"><FileCheck className="mr-1 h-3 w-3" />ACC Bulanan</Badge>
-                          ) : monthStatus === "DIAJUKAN" ? (
-                            <Badge variant="outline"><FileClock className="mr-1 h-3 w-3" />Diajukan</Badge>
-                          ) : monthStatus === "DITOLAK" ? (
-                            <Badge variant="destructive"><FileX className="mr-1 h-3 w-3" />Ditolak</Badge>
-                          ) : null}
+
                         </div>
                       </div>
                     </CardHeader>
@@ -545,7 +506,7 @@ export function InputRealisasiDialog({
                             })}
                             className="text-right font-mono"
                           />
-                          <p className="text-right text-[11px] text-muted-foreground">Serapan {currentSerapan}%</p>
+                          <p className="text-right text-[11px] text-muted-foreground">{formatRupiah(currentKeuangan)} · Serapan {currentSerapan}%</p>
                         </div>
                       </div>
                       <div className="space-y-1.5">
@@ -691,28 +652,6 @@ export function InputRealisasiDialog({
                 </CardContent>
               </Card>
 
-              {canVerifikasi && isDiajukan && (
-                <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-4">
-                  <div className="mb-3 flex items-center gap-2 font-semibold text-blue-700">
-                    <FileCheck className="h-4 w-4" />Verifikasi Rekap Bulanan MONEV
-                  </div>
-                  {!showTolakInput ? (
-                    <div className="flex gap-2">
-                      <Button onClick={() => accMutation.mutate()} className="bg-emerald-600 hover:bg-emerald-700">ACC & Kunci Bulan</Button>
-                      <Button variant="outline" onClick={() => setShowTolakInput(true)} className="border-red-300 text-red-600">Tolak</Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Textarea value={alasanTolak} onChange={(event) => setAlasanTolak(event.target.value)} placeholder="Alasan penolakan..." />
-                      <div className="flex gap-2">
-                        <Button variant="destructive" onClick={() => tolakMutation.mutate()}>Konfirmasi Tolak</Button>
-                        <Button variant="ghost" onClick={() => setShowTolakInput(false)}>Batal</Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               <div className="overflow-hidden rounded-xl border">
                 <div className="border-b bg-muted/50 p-3">
                   <span className="text-sm font-semibold">
@@ -774,15 +713,6 @@ export function InputRealisasiDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
           {current && (
             <div className="flex gap-2">
-              {canAjukan && !isFormDisabled && (currentFisik > 0 || currentKeuangan > 0) && (
-                <Button
-                  variant="outline" onClick={() => ajukanMutation.mutate()}
-                  disabled={ajukanMutation.isPending}
-                  className="border-blue-300 text-blue-600"
-                >
-                  <Send className="mr-1 h-4 w-4" />Ajukan Rekap Bulan
-                </Button>
-              )}
               {(canEditFisik || canEditKeuangan) && !isFormDisabled && (
                 <Button
                   onClick={() => saveMutation.mutate()}

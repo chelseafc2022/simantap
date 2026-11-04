@@ -205,6 +205,7 @@ export default function DashboardPage() {
       return res.data?.data ?? res.data
     },
     staleTime: 3 * 60 * 1000,
+    refetchInterval: 30_000,
     retry: 1,
   })
 

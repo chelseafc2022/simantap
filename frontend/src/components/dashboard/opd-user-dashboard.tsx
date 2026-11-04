@@ -136,6 +136,7 @@ export function OpdUserDashboard({
     },
     enabled: Boolean(userOpdId || accessibleOpds.length > 0),
     staleTime: 2 * 60 * 1000,
+    refetchInterval: 30_000,
   })
 
   // Raw items dari response
