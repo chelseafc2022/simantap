@@ -207,9 +207,11 @@ export function PaketFormDialog({
   const isKepalaOpd = hasRole("KEPALA_OPD")
   const isPerencana = hasRole("ADMIN_PERENCANAAN")
   const isSirup = hasRole("ADMIN_SIRUP")
+  const isPpk = hasRole("ADMIN_PPK")
+  const isSirupOnly = isSirup && !isPerencana && !isPpk && !isSuperRole
 
-  const canEditInfo = isSuperRole || isSirup
-  const canEditTarget = isSuperRole || isPerencana
+  const canEditInfo = isSuperRole || isSirup || isPerencana || isPpk
+  const canEditTarget = isSuperRole || isPerencana || isPpk
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
   const userSubUnitId = user?.subUnit?.id
@@ -1531,8 +1533,8 @@ export function PaketFormDialog({
 
             {activeTab === "info" ? (
               <>
-                {/* Admin SiRUP bisa langsung simpan di Tab 1 tanpa harus isi target */}
-                {(isSirup || (isKeuangan && canEditInfo)) && (
+                {/* Admin SiRUP murni bisa langsung simpan di Tab 1 tanpa harus isi target */}
+                {(isSirupOnly || (isKeuangan && canEditInfo)) && (
                   <Button
                     type="button"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
@@ -1556,7 +1558,7 @@ export function PaketFormDialog({
                 <Button
                   type="button"
                   disabled={isKeuangan}
-                  variant={isSirup ? "outline" : "default"}
+                  variant={isSirupOnly ? "outline" : "default"}
                   onClick={() => {
                     if (validateKontrakBeforeNext()) {
                       setActiveTab("targets")
@@ -1564,7 +1566,7 @@ export function PaketFormDialog({
                   }}
                   className="gap-1.5"
                 >
-                  <span>{isSirup ? "Pratinjau Target Fisik" : "Target Fisik Mingguan"}</span>
+                  <span>{isSirupOnly ? "Pratinjau Target Fisik" : "Target Fisik Mingguan"}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </>
@@ -1594,10 +1596,12 @@ export function PaketFormDialog({
                   ) : (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
-                      {isPerencana
-                        ? "Simpan Penetapan Target Fisik"
-                        : isSirup
-                        ? "Simpan Paket (Target Diisi Admin Perencanaan)"
+                      {canEditTarget
+                        ? isEdit
+                          ? "Simpan Target Fisik & Perubahan"
+                          : "Simpan Target & Paket Baru"
+                        : isSirupOnly
+                        ? "Simpan Paket (Target Diisi Admin Perencanaan / PPK)"
                         : isEdit
                         ? "Simpan Perubahan"
                         : "Simpan Paket Pembangunan"}

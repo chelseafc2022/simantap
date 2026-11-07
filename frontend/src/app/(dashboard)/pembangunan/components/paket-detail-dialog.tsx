@@ -136,7 +136,7 @@ export function PaketDetailDialog({
               {formatRupiah(kontrakNum)}
             </div>
             <span className="text-xs text-muted-foreground">
-              {isKeuangan ? "Monitoring keuangan saja" : `Hemat: ${formatRupiah(efisiensiRp)} (${efisiensiPersen}%)`}
+              {isKeuangan ? "Monitoring keuangan" : `Hemat: ${formatRupiah(efisiensiRp)} (${efisiensiPersen}%)`}
             </span>
           </div>
 
