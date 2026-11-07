@@ -290,6 +290,7 @@ export class PembangunanService {
       opdId,
       subUnitId,
       metodePemilihan,
+      polaMonitoring,
       jenisPengadaan,
       sumberDana,
       sortBy = 'createdAt',
@@ -314,6 +315,10 @@ export class PembangunanService {
     }
     if (subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all') {
       andConditions.push({ subUnitId });
+    }
+
+    if (polaMonitoring) {
+      andConditions.push({ polaMonitoring });
     }
 
     // Filter kategori pengadaan
@@ -349,26 +354,44 @@ export class PembangunanService {
       [sortBy]: sortOrder,
     };
 
-    const [total, data] = await Promise.all([
+    // Prioritas diterapkan sebelum pagination agar kegiatan berjalan/selesai
+    // selalu mendahului paket yang belum berkontrak atau belum ada realisasi.
+    const started: Prisma.PaketPembangunanWhereInput = {
+      OR: [
+        { nilaiKontrak: { gt: 0 } },
+        { realisasiBulanan: { some: { OR: [
+          { realisasiFisik: { gt: 0 } },
+          { realisasiKeuangan: { gt: 0 } },
+        ] } } },
+      ],
+    };
+    const startedWhere = { AND: [where, started] };
+    const pendingWhere = { AND: [where, { NOT: started }] };
+    const [total, startedTotal] = await Promise.all([
       this.prisma.paketPembangunan.count({ where }),
-      this.prisma.paketPembangunan.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        include: {
-          targetBulanan: {
-            orderBy: { bulan: 'asc' },
-          },
-          targetMingguan: {
-            orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
-          },
-          realisasiBulanan: {
-            orderBy: { bulan: 'asc' },
-          },
-        },
-      }),
+      this.prisma.paketPembangunan.count({ where: startedWhere }),
     ]);
+    const include = {
+      targetBulanan: { orderBy: { bulan: 'asc' as const } },
+      targetMingguan: { orderBy: [{ bulan: 'asc' as const }, { mingguKe: 'asc' as const }] },
+      realisasiBulanan: { orderBy: { bulan: 'asc' as const } },
+    };
+    const stableOrder = [orderBy, { id: 'asc' as const }];
+    const startedTake = Math.min(limit, Math.max(0, startedTotal - skip));
+    const [startedData, pendingData] = await Promise.all([
+      startedTake > 0
+        ? this.prisma.paketPembangunan.findMany({
+            where: startedWhere, skip, take: startedTake, orderBy: stableOrder, include,
+          })
+        : Promise.resolve([]),
+      limit > startedTake
+        ? this.prisma.paketPembangunan.findMany({
+            where: pendingWhere, skip: Math.max(0, skip - startedTotal),
+            take: limit - startedTake, orderBy: stableOrder, include,
+          })
+        : Promise.resolve([]),
+    ]);
+    const data = [...startedData, ...pendingData];
 
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -444,16 +467,18 @@ export class PembangunanService {
    * Tambah paket pembangunan baru beserta inisialisasi target bulanan B01-B12
    */
   async create(dto: CreatePaketDto, user?: any) {
-    const isSuperRole =
-      user?.role &&
+    const userRoles = this.getUserRoles(user);
+    const isSuperRole = userRoles.some((role) =>
       [
         RoleEnum.ADMINISTRATOR,
         RoleEnum.PIMPINAN_DAERAH,
         RoleEnum.MONEV,
-      ].includes(user.role);
+      ].includes(role),
+    );
+    const isKepalaOpd = userRoles.includes(RoleEnum.KEPALA_OPD);
     const assignedOpdId = !isSuperRole && user?.opdId ? user.opdId : dto.opdId;
     const assignedSubUnitId =
-      !isSuperRole && user?.subUnitId && user.role !== RoleEnum.KEPALA_OPD
+      !isSuperRole && user?.subUnitId && !isKepalaOpd
         ? user.subUnitId
         : dto.subUnitId;
 
@@ -548,12 +573,16 @@ export class PembangunanService {
       });
 
       // 2. Buat otomatis 12 baris target bulanan (B01 - B12)
-      // Hanya ADMINISTRATOR & ADMIN_PERENCANAAN yang berwenang menetapkan target kurva fisik.
-      // Jika diinput oleh ADMIN_SIRUP, seluruh target bulanan diinisialisasi 0% menunggu input Admin Perencanaan.
+      // ADMINISTRATOR, ADMIN_PERENCANAAN, dan ADMIN_PPK berwenang menetapkan target kurva fisik.
+      // Jika diinput murni oleh ADMIN_SIRUP tanpa role perencanaan/PPK, seluruh target bulanan diinisialisasi 0% menunggu input Admin Perencanaan / PPK.
       const canSetTargets =
-        !user?.role ||
-        [RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PERENCANAAN].includes(
-          user.role,
+        userRoles.length === 0 ||
+        userRoles.some((role) =>
+          [
+            RoleEnum.ADMINISTRATOR,
+            RoleEnum.ADMIN_PERENCANAAN,
+            RoleEnum.ADMIN_PPK,
+          ].includes(role),
         );
 
       const weeklyTargets = canSetTargets ? dto.targetMingguan || [] : [];
@@ -645,13 +674,14 @@ export class PembangunanService {
 
     this.checkOpdAccess(user, existing.opdId, existing.subUnitId);
 
-    const isSuperRole =
-      user?.role &&
+    const userRoles = this.getUserRoles(user);
+    const isSuperRole = userRoles.some((role) =>
       [
         RoleEnum.ADMINISTRATOR,
         RoleEnum.PIMPINAN_DAERAH,
         RoleEnum.MONEV,
-      ].includes(user.role);
+      ].includes(role),
+    );
     const assignedOpdId =
       !isSuperRole && user?.opdId ? user.opdId : dto.opdId || existing.opdId;
 
@@ -802,11 +832,15 @@ export class PembangunanService {
         },
       });
 
-      // 2. Update target bulanan jika disertakan dan role berwenang (ADMINISTRATOR / ADMIN_PERENCANAAN)
+      // 2. Update target bulanan jika disertakan dan role berwenang (ADMINISTRATOR / ADMIN_PERENCANAAN / ADMIN_PPK)
       const canUpdateTargets =
-        !user?.role ||
-        [RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PERENCANAAN].includes(
-          user.role,
+        userRoles.length === 0 ||
+        userRoles.some((role) =>
+          [
+            RoleEnum.ADMINISTRATOR,
+            RoleEnum.ADMIN_PERENCANAAN,
+            RoleEnum.ADMIN_PPK,
+          ].includes(role),
         );
 
       if (canUpdateTargets && dto.targetBulanan && dto.targetBulanan.length > 0) {

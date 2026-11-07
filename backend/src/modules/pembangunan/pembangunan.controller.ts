@@ -213,10 +213,15 @@ export class PembangunanController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_SIRUP)
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.ADMIN_PPK,
+  )
   @ApiOperation({
     summary:
-      'Tambah paket pembangunan baru (ADMIN_SIRUP) — data awal dari SiRUP LKPP',
+      'Tambah paket pembangunan baru (ADMIN_SIRUP / ADMIN_PPK / ADMIN_PERENCANAAN)',
   })
   @ApiResponse({
     status: 201,
@@ -227,8 +232,13 @@ export class PembangunanController {
   }
 
   @Put(':id')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_SIRUP, RoleEnum.ADMIN_PERENCANAAN)
-  @ApiOperation({ summary: 'Perbarui data paket pembangunan (ADMIN_SIRUP / ADMIN_PERENCANAAN)' })
+  @Roles(
+    RoleEnum.ADMINISTRATOR,
+    RoleEnum.ADMIN_SIRUP,
+    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.ADMIN_PPK,
+  )
+  @ApiOperation({ summary: 'Perbarui data paket pembangunan (ADMIN_SIRUP / ADMIN_PERENCANAAN / ADMIN_PPK)' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdatePaketDto,

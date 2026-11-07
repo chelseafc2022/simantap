@@ -1,9 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 export class QueryPaketDto extends PaginationDto {
+  @ApiPropertyOptional({ description: 'Filter pola monitoring', enum: ['KEUANGAN', 'FISIK_KEUANGAN'] })
+  @IsOptional()
+  @IsIn(['KEUANGAN', 'FISIK_KEUANGAN'])
+  polaMonitoring?: string;
+
   @ApiPropertyOptional({
     description: 'Filter tahun anggaran (default 2026)',
     example: 2026,

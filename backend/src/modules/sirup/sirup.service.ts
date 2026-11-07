@@ -820,7 +820,7 @@ export class SirupService {
           nilaiKontrak: 0,
           kelompokPaket: item.isPembangunan
             ? 'PEMBANGUNAN_MODAL'
-            : 'PERLU_DITINJAU',
+            : 'OPERASIONAL_RUTIN',
           polaMonitoring: item.isPembangunan ? 'FISIK_KEUANGAN' : 'KEUANGAN',
           createdById: options.userId || null,
           ...commonData,
