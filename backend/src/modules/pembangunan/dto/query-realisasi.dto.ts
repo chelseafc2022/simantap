@@ -50,4 +50,12 @@ export class QueryRealisasiDto extends PaginationDto {
   @IsOptional()
   @IsString()
   statusDeviasi?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter pola monitoring (KEUANGAN / FISIK_KEUANGAN)',
+    enum: ['KEUANGAN', 'FISIK_KEUANGAN'],
+  })
+  @IsOptional()
+  @IsString()
+  polaMonitoring?: string;
 }

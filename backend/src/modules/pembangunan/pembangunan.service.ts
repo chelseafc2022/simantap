@@ -1092,6 +1092,7 @@ export class PembangunanService {
       subUnitId,
       metodePemilihan,
       statusDeviasi,
+      polaMonitoring,
     } = query;
 
     const activeBulan = bulan
@@ -1101,6 +1102,14 @@ export class PembangunanService {
     const andConditions: Prisma.PaketPembangunanWhereInput[] = [
       { tahunAnggaran: Number(tahunAnggaran) },
     ];
+
+    if (
+      polaMonitoring &&
+      polaMonitoring !== 'ALL' &&
+      polaMonitoring !== 'all'
+    ) {
+      andConditions.push({ polaMonitoring });
+    }
 
     // Filter scope role (Administrator & MONEV can see all)
     const scopeFilter = this.buildScopeFilter(user);

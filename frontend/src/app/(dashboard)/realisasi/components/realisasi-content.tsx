@@ -147,6 +147,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
         limit,
         tahunAnggaran,
         bulan,
+        polaMonitoring: selectedPola,
       }
       if (debouncedSearch) params.search = debouncedSearch
       if (!canSelectOpd && userOpdId) {
@@ -161,52 +162,34 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
         params.statusDeviasi = selectedStatus
       }
 
-
-      // Server online belum mendukung parameter polaMonitoring.
-      // Filter seluruh hasil dalam scope sebelum menghitung ringkasan dan paginasi.
-      const allItems: CetakRealisasiItem[] = []
-      let currentPage = 1
-      let totalPages = 1
-      let originalSummary: any
-      do {
-        const res = await apiClient.get("/pembangunan/realisasi", {
-          params: { ...params, page: currentPage, limit: 100 },
-        })
-        allItems.push(...(res.data?.data || []))
-        originalSummary = res.data?.summary
-        totalPages = Number(res.data?.meta?.totalPages) || 1
-        currentPage += 1
-      } while (currentPage <= totalPages)
-
-      const filtered = allItems.filter((item) => item.polaMonitoring === selectedPola)
-      const sum = (key: "nilaiPagu" | "nilaiKontrak" | "realisasiKeuangan") =>
-        filtered.reduce((total, item) => total + Number(item[key] || 0), 0)
-      const totalPagu = sum("nilaiPagu")
-      const totalKontrak = sum("nilaiKontrak")
-      const totalRealisasiKeuangan = sum("realisasiKeuangan")
-      const allBerkontrak = filtered.length > 0 && filtered.every((item) => Number(item.nilaiKontrak) > 0)
-      const basis = allBerkontrak && totalKontrak > 0 ? totalKontrak : totalPagu > 0 ? totalPagu : totalKontrak
-      const physical = filtered.filter((item) => item.polaMonitoring === "FISIK_KEUANGAN")
-      const avg = (key: "targetFisik" | "realisasiFisik") => physical.length
-        ? Number((physical.reduce((total, item) => total + Number(item[key] || 0), 0) / physical.length).toFixed(2)) : 0
-      const avgTargetFisik = avg("targetFisik")
-      const avgRealisasiFisik = avg("realisasiFisik")
-      return {
-        data: filtered.slice((page - 1) * limit, page * limit),
-        meta: { page, limit, total: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / limit)) },
-        summary: {
-          ...originalSummary,
-          totalPaket: filtered.length, totalPagu, totalKontrak, totalRealisasiKeuangan,
-          persenSerapanKeuangan: basis > 0 ? Number((totalRealisasiKeuangan / basis * 100).toFixed(2)) : 0,
-          avgTargetFisik, avgRealisasiFisik,
-          avgDeviasiFisik: Number((avgRealisasiFisik - avgTargetFisik).toFixed(2)),
-          countStatus: {
-            aman: filtered.filter((item) => item.status === "AMAN").length,
-            perhatian: filtered.filter((item) => item.status === "PERHATIAN").length,
-            kritis: filtered.filter((item) => item.status === "KRITIS").length,
-            belumMulai: filtered.filter((item) => item.status === "BELUM_MULAI").length,
-          },
-        },
+      try {
+        const res = await apiClient.get("/pembangunan/realisasi", { params })
+        return res.data
+      } catch (error: any) {
+        // Fallback untuk backend lama jika belum menerima polaMonitoring
+        const message = error?.response?.data?.message
+        const messages = Array.isArray(message) ? message : [message]
+        if (
+          params.polaMonitoring &&
+          error?.response?.status === 400 &&
+          messages.some(
+            (m: string) =>
+              typeof m === "string" && m.includes("polaMonitoring should not exist")
+          )
+        ) {
+          const { polaMonitoring: _, ...fallbackParams } = params
+          const res = await apiClient.get("/pembangunan/realisasi", {
+            params: fallbackParams,
+          })
+          const filtered = (res.data?.data || []).filter(
+            (item: CetakRealisasiItem) => item.polaMonitoring === selectedPola
+          )
+          return {
+            ...res.data,
+            data: filtered,
+          }
+        }
+        throw error
       }
     },
     placeholderData: keepPreviousData,
