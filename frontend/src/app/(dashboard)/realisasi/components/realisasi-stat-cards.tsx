@@ -33,10 +33,11 @@ interface RealisasiSummary {
 
 interface RealisasiStatCardsProps {
   summary?: RealisasiSummary | null
+  keuanganSaja?: boolean
   isLoading?: boolean
 }
 
-export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStatCardsProps) {
+export function RealisasiStatCards({ summary, isLoading = false, keuanganSaja = false }: RealisasiStatCardsProps) {
   const formatRupiah = (val: number | undefined | null) => {
     const num = val || 0
     return new Intl.NumberFormat("id-ID", {
@@ -67,7 +68,7 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
   const isDeviasiPositif = s.avgDeviasiFisik >= 0
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className={keuanganSaja ? "grid grid-cols-1 gap-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}>
       {/* CARD 1: Realisasi Keuangan */}
       <Card className="border-border/70 shadow-xs hover:border-emerald-500/40 transition-all bg-card/60 backdrop-blur-xs">
         <CardContent className="p-4 sm:p-5">
@@ -96,6 +97,7 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
         </CardContent>
       </Card>
 
+      {!keuanganSaja && <>
       {/* CARD 2: Capaian Fisik Rata-rata */}
       <Card className="border-border/70 shadow-xs hover:border-blue-500/40 transition-all bg-card/60 backdrop-blur-xs">
         <CardContent className="p-4 sm:p-5">
@@ -190,6 +192,7 @@ export function RealisasiStatCards({ summary, isLoading = false }: RealisasiStat
           </div>
         </CardContent>
       </Card>
+      </>}
     </div>
   )
 }

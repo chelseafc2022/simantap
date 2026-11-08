@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle, AlertTriangle, CalendarDays, CheckCircle2,
-  Image as ImageIcon, Loader2, Save, Trash2,
+  Image as ImageIcon, FileText, ExternalLink, Loader2, Save, Trash2,
   TrendingUp, Upload, X,
 } from "lucide-react"
 import {
@@ -494,16 +494,18 @@ export function InputRealisasiDialog({
                         <div className="space-y-1.5">
                           <Label>Realisasi Fisik (%)</Label>
                           <Input
-                            type="number" min="0" max="100" step="0.1"
+                            type="text" inputMode="decimal" placeholder="Contoh: 57,14"
                             value={current.realisasiFisik}
                             disabled={!canEditFisik || isFormDisabled}
-                            onChange={(event) => updateCurrent({
-                              realisasiFisik: String(
-                                Math.min(100, Math.max(0, Number(event.target.value)))
-                              ),
-                            })}
+                            onChange={(event) => {
+                              const value = event.target.value.replace(",", ".")
+                              if (value === "" || (/^\d{1,3}(\.\d{0,2})?$/.test(value) && Number(value) <= 100)) {
+                                updateCurrent({ realisasiFisik: value })
+                              }
+                            }}
                             className="text-right font-mono"
                           />
+                          <p className="text-[11px] text-muted-foreground">0–100%, maksimal 2 angka desimal.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label>Realisasi Keuangan (Rp)</Label>
@@ -518,7 +520,7 @@ export function InputRealisasiDialog({
                             })}
                             className="text-right font-mono"
                           />
-                          <p className="text-right text-[11px] text-muted-foreground">{formatRupiah(currentKeuangan)} · Serapan {currentSerapan}%</p>
+                          <p className="text-right text-[11px] text-muted-foreground">{currentKeuangan > 0 ? `${formatRupiah(currentKeuangan)} · Serapan ${currentSerapan}%` : "Kosongkan jika belum ada realisasi keuangan (Rp 0)."}</p>
                         </div>
                       </div>
                       <div className="space-y-1.5">
@@ -549,40 +551,53 @@ export function InputRealisasiDialog({
                 <Card className="h-fit xl:sticky xl:top-0">
                   <CardHeader className="border-b pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <ImageIcon className="h-4 w-4 text-purple-600" />Foto Bukti Minggu {current.mingguKe}
+                      <ImageIcon className="h-4 w-4 text-purple-600" />Bukti Minggu {current.mingguKe}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 pt-4">
                     {current.buktiFisik.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3">
-                        {current.buktiFisik.map((item) => (
-                          <div key={item.id} className="group relative aspect-square overflow-hidden rounded-lg border bg-muted">
-                            {item.mimeType?.startsWith("image/") ? (
-                              // Bukti berasal dari host API dinamis sehingga tidak memakai optimisasi next/image.
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={`${API_STORAGE_URL}${item.pathFile}`}
-                                alt={item.deskripsi || item.namaFile}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center p-2 text-center text-xs">{item.namaFile}</div>
-                            )}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 p-2 text-center text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-                              <span>{item.deskripsi || item.namaFile}</span>
-                              <span>{formatBytes(item.ukuranBytes)}</span>
-                              {!isFormDisabled && (
-                                <button
-                                  type="button"
-                                  onClick={() => deleteBuktiMutation.mutate(item.id)}
-                                  className="mt-2 rounded bg-red-600 px-2 py-1"
-                                >
-                                  Hapus
-                                </button>
-                              )}
+                        {current.buktiFisik.map((item) => {
+                          const fileUrl = `${API_STORAGE_URL}${item.pathFile}`
+                          const isPdf = item.mimeType === "application/pdf" || /\.pdf(?:[?#]|$)/i.test(item.pathFile || item.namaFile)
+                          return (
+                            <div key={item.id} className="overflow-hidden rounded-lg border bg-muted/40">
+                              <a
+                                href={fileUrl} target="_blank" rel="noopener noreferrer"
+                                aria-label={`Buka ${item.namaFile}`}
+                                className="flex aspect-square items-center justify-center overflow-hidden bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+                              >
+                                {item.mimeType?.startsWith("image/") ? (
+                                  // Bukti berasal dari host API dinamis sehingga tidak memakai optimisasi next/image.
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={fileUrl} alt={item.deskripsi || item.namaFile} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex min-w-0 flex-col items-center gap-2 p-3 text-center">
+                                    <FileText className={`h-9 w-9 ${isPdf ? "text-red-600" : "text-muted-foreground"}`} />
+                                    <span className="text-[10px] font-semibold">{isPdf ? "PDF" : "Lampiran"}</span>
+                                    <span className="w-full break-all text-xs">{item.namaFile}</span>
+                                  </div>
+                                )}
+                              </a>
+                              <div className="space-y-2 p-2">
+                                {item.deskripsi && <p className="break-words text-xs">{item.deskripsi}</p>}
+                                {item.ukuranBytes ? <p className="text-[10px] text-muted-foreground">{formatBytes(item.ukuranBytes)}</p> : null}
+                                <Button asChild variant="outline" size="sm" className="w-full text-xs">
+                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="mr-1 h-3 w-3" />{isPdf ? "Buka PDF" : "Buka File"}
+                                  </a>
+                                </Button>
+                                {!isFormDisabled && (
+                                  <Button type="button" variant="ghost" size="sm" className="w-full text-xs text-destructive"
+                                    disabled={deleteBuktiMutation.isPending}
+                                    onClick={() => deleteBuktiMutation.mutate(item.id)}>
+                                    <Trash2 className="mr-1 h-3 w-3" />Hapus
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground">

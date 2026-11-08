@@ -90,6 +90,7 @@ export default function PaketPembangunanPage() {
   const [selectedOpd, setSelectedOpd] = useState<string>("ALL")
   const [selectedSubUnit, setSelectedSubUnit] = useState<string>("all")
   const [selectedMetode, setSelectedMetode] = useState<string>("ALL")
+  const [selectedPola, setSelectedPola] = useState<string>("ALL")
   const [page, setPage] = useState<number>(1)
   const limit = 10
 
@@ -157,15 +158,17 @@ export default function PaketPembangunanPage() {
     data: paketResponse,
     isLoading,
     isFetching,
+    isError,
     refetch,
   } = useQuery({
-    queryKey: ["paket-pembangunan", page, debouncedSearch, tahunAnggaran, selectedOpd, selectedSubUnit, selectedMetode],
+    queryKey: ["paket-pembangunan", page, debouncedSearch, tahunAnggaran, selectedOpd, selectedSubUnit, selectedMetode, selectedPola],
     queryFn: async () => {
       const params: any = {
         page,
         limit,
         tahunAnggaran,
       }
+      if (selectedPola !== "ALL") params.polaMonitoring = selectedPola
       if (debouncedSearch) params.search = debouncedSearch
       if (!canSelectOpd && userOpdId) {
         params.opdId = userOpdId
@@ -179,8 +182,36 @@ export default function PaketPembangunanPage() {
         params.metodePemilihan = selectedMetode
       }
 
-      const res = await apiClient.get("/pembangunan", { params })
-      return res.data
+      try {
+        const res = await apiClient.get("/pembangunan", { params })
+        return res.data
+      } catch (error: any) {
+        // Backend lama menolak parameter polaMonitoring. Ambil semua halaman
+        // dalam scope yang sama sebelum memfilter agar pagination tetap benar.
+        const message = error?.response?.data?.message
+        const messages = Array.isArray(message) ? message : [message]
+        if (!params.polaMonitoring || error?.response?.status !== 400 ||
+            !messages.includes("property polaMonitoring should not exist")) throw error
+
+        const { polaMonitoring, ...legacyParams } = params
+        const items: PaketItem[] = []
+        let currentPage = 1
+        let totalPages = 1
+        do {
+          const response = await apiClient.get("/pembangunan", {
+            params: { ...legacyParams, page: currentPage, limit: 100 },
+          })
+          items.push(...(response.data?.data || []))
+          totalPages = Number(response.data?.meta?.totalPages) || 1
+          currentPage += 1
+        } while (currentPage <= totalPages)
+
+        const filtered = items.filter((item) => item.polaMonitoring === polaMonitoring)
+        return {
+          data: filtered.slice((page - 1) * limit, page * limit),
+          meta: { page, limit, total: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / limit)) },
+        }
+      }
     },
     placeholderData: keepPreviousData,
   })
@@ -261,6 +292,7 @@ export default function PaketPembangunanPage() {
     setSelectedOpd(hasMultipleOpdAccess ? "ALL" : (userOpdId || "ALL"))
     setSelectedSubUnit("all")
     setSelectedMetode("ALL")
+    setSelectedPola("ALL")
     setPage(1)
   }
 
@@ -361,8 +393,8 @@ export default function PaketPembangunanPage() {
             />
           </div>
 
-          {/* Baris 2: Sejajar 4 Filter: Unit Kerja (OPD), Sub Unit Kerja, Tahun, Metode */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* Filter Unit Kerja, Sub Unit, Tahun, Metode, dan Pola Monitoring */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
             {/* Filter Unit Kerja (OPD) - Searchable & Typeable */}
             <div className="w-full min-w-0">
               {canSelectOpd ? (
@@ -433,6 +465,25 @@ export default function PaketPembangunanPage() {
               </Select>
             </div>
 
+            <div className="w-full min-w-0">
+              <Select
+                value={selectedPola}
+                onValueChange={(val) => {
+                  setSelectedPola(val)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger aria-label="Filter pola monitoring" className="h-9 text-xs bg-background w-full">
+                  <SelectValue placeholder="Semua Pola Monitoring" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Semua Pola Monitoring</SelectItem>
+                  <SelectItem value="KEUANGAN">Keuangan</SelectItem>
+                  <SelectItem value="FISIK_KEUANGAN">Fisik dan Keuangan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Filter Metode Pemilihan PBJ */}
             <div className="w-full min-w-0">
               <Select
@@ -462,7 +513,7 @@ export default function PaketPembangunanPage() {
             </div>
           </div>
 
-          {(search || (selectedOpd !== "ALL" && selectedOpd !== "all") || (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") || selectedMetode !== "ALL" || tahunAnggaran !== 2026) && (
+          {(search || (selectedOpd !== "ALL" && selectedOpd !== "all") || (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") || selectedMetode !== "ALL" || selectedPola !== "ALL" || tahunAnggaran !== 2026) && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t text-xs text-muted-foreground">
               <span>Filter aktif diterapkan pada daftar paket</span>
               <Button
@@ -487,6 +538,12 @@ export default function PaketPembangunanPage() {
             <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
               <span className="text-xs text-muted-foreground">Memuat data paket pembangunan...</span>
+            </div>
+          ) : isError ? (
+            <div role="alert" className="p-8 text-center space-y-2">
+              <p className="text-sm font-semibold text-destructive">Gagal memuat daftar paket pembangunan</p>
+              <p className="text-xs text-muted-foreground">Data belum dapat diambil dari server. Coba muat ulang daftar paket.</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Coba Lagi</Button>
             </div>
           ) : paketList.length === 0 ? (
             <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
@@ -550,8 +607,7 @@ export default function PaketPembangunanPage() {
                     >
                       {paket.namaPaket}
                             <span className="block text-[10px] font-normal text-muted-foreground mt-1">
-                              {paket.kelompokPaket === "PERLU_DITINJAU" ? "Perlu ditinjau · " : paket.kelompokPaket === "OPERASIONAL_RUTIN" ? "Operasional/rutin · " : "Pembangunan/modal · "}
-                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan saja" : "Fisik mingguan + keuangan"}
+                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
                             </span>
                     </button>
                     <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
@@ -694,6 +750,16 @@ export default function PaketPembangunanPage() {
                     </div>
                   </TableCell>
                 </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="p-8 text-center">
+                    <div role="alert" className="space-y-2">
+                      <p className="text-sm font-semibold text-destructive">Gagal memuat daftar paket pembangunan</p>
+                      <p className="text-xs text-muted-foreground">Data belum dapat diambil dari server. Coba muat ulang daftar paket.</p>
+                      <Button variant="outline" size="sm" onClick={() => refetch()}>Coba Lagi</Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : paketList.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
@@ -740,8 +806,7 @@ export default function PaketPembangunanPage() {
                           >
                             {paket.namaPaket}
                             <span className="block text-[10px] font-normal text-muted-foreground mt-1">
-                              {paket.kelompokPaket === "PERLU_DITINJAU" ? "Perlu ditinjau · " : paket.kelompokPaket === "OPERASIONAL_RUTIN" ? "Operasional/rutin · " : "Pembangunan/modal · "}
-                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan saja" : "Fisik mingguan + keuangan"}
+                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
                             </span>
                           </button>
                           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
