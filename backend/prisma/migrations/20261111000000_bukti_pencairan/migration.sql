@@ -16,3 +16,4 @@ CREATE TABLE "bukti_pencairan" (
 
 -- CreateIndex
 CREATE INDEX "bukti_pencairan_pencairan_id_idx" ON "bukti_pencairan"("pencairan_id");
+

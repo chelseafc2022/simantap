@@ -47,8 +47,6 @@ import { PembangunanService } from './pembangunan.service';
 // Semua role yang bisa membaca data (read-only roles)
 const ALL_ROLES = [
   RoleEnum.ADMINISTRATOR,
-  RoleEnum.ADMIN_SIRUP,
-  RoleEnum.ADMIN_PERENCANAAN,
   RoleEnum.ADMIN_PPK,
   RoleEnum.BENDAHARA,
   RoleEnum.KEPALA_OPD,
@@ -213,15 +211,10 @@ export class PembangunanController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @Roles(
-    RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
-    RoleEnum.ADMIN_PPK,
-  )
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
   @ApiOperation({
     summary:
-      'Tambah paket pembangunan baru (ADMIN_SIRUP / ADMIN_PPK / ADMIN_PERENCANAAN)',
+      'Tambah paket pembangunan baru (ADMINISTRATOR / ADMIN_PPK)',
   })
   @ApiResponse({
     status: 201,
@@ -232,13 +225,8 @@ export class PembangunanController {
   }
 
   @Put(':id')
-  @Roles(
-    RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
-    RoleEnum.ADMIN_PPK,
-  )
-  @ApiOperation({ summary: 'Perbarui data paket pembangunan (ADMIN_SIRUP / ADMIN_PERENCANAAN / ADMIN_PPK)' })
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
+  @ApiOperation({ summary: 'Perbarui data paket pembangunan (ADMINISTRATOR / ADMIN_PPK)' })
   update(
     @Param('id') id: string,
     @Body() dto: UpdatePaketDto,
@@ -248,9 +236,9 @@ export class PembangunanController {
   }
 
   @Patch(':id/targets')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PERENCANAAN)
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
   @ApiOperation({
-    summary: 'Set target fisik kurva-S B01-B12 (hak khusus ADMIN_PERENCANAAN)',
+    summary: 'Set target fisik kurva-S B01-B12 (ADMINISTRATOR / ADMIN_PPK)',
   })
   setTargets(
     @Param('id') id: string,

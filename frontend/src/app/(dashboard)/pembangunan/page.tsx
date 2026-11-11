@@ -330,7 +330,7 @@ export default function PaketPembangunanPage() {
             <span>Segarkan Data</span>
           </Button>
 
-          {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+          {(isSuperRole || hasRole("ADMIN_PPK")) && (
             <>
               {isSuperRole && (
                 <Button
@@ -661,7 +661,7 @@ export default function PaketPembangunanPage() {
                       <span>Detail</span>
                     </Button>
 
-                    {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                    {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -673,7 +673,7 @@ export default function PaketPembangunanPage() {
                       </Button>
                     )}
 
-                    {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                    {(isSuperRole || hasRole("ADMIN_PPK")) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -685,7 +685,7 @@ export default function PaketPembangunanPage() {
                       </Button>
                     )}
 
-                    {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                    {(isSuperRole || hasRole("ADMIN_PPK")) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -909,14 +909,14 @@ export default function PaketPembangunanPage() {
                               Detail & Rekap Bulanan
                             </DropdownMenuItem>
 
-                            {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PERENCANAAN")) && (
+                            {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
                               <DropdownMenuItem onSelect={() => handleOpenTarget(paket)}>
                                 <TrendingUp className="text-amber-600" />
                                 Tetapkan Target Mingguan
                               </DropdownMenuItem>
                             )}
 
-                            {(isSuperRole || hasRole("ADMIN_SIRUP")) && (
+                            {(isSuperRole || hasRole("ADMIN_PPK")) && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onSelect={() => handleOpenEdit(paket)}>

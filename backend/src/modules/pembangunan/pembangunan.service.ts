@@ -574,14 +574,12 @@ export class PembangunanService {
       });
 
       // 2. Buat otomatis 12 baris target bulanan (B01 - B12)
-      // ADMINISTRATOR, ADMIN_PERENCANAAN, dan ADMIN_PPK berwenang menetapkan target kurva fisik.
-      // Jika diinput murni oleh ADMIN_SIRUP tanpa role perencanaan/PPK, seluruh target bulanan diinisialisasi 0% menunggu input Admin Perencanaan / PPK.
+      // ADMINISTRATOR dan ADMIN_PPK berwenang menetapkan target kurva fisik.
       const canSetTargets =
         userRoles.length === 0 ||
         userRoles.some((role) =>
           [
             RoleEnum.ADMINISTRATOR,
-            RoleEnum.ADMIN_PERENCANAAN,
             RoleEnum.ADMIN_PPK,
           ].includes(role),
         );
@@ -833,13 +831,12 @@ export class PembangunanService {
         },
       });
 
-      // 2. Update target bulanan jika disertakan dan role berwenang (ADMINISTRATOR / ADMIN_PERENCANAAN / ADMIN_PPK)
+      // 2. Update target bulanan jika disertakan dan role berwenang (ADMINISTRATOR / ADMIN_PPK)
       const canUpdateTargets =
         userRoles.length === 0 ||
         userRoles.some((role) =>
           [
             RoleEnum.ADMINISTRATOR,
-            RoleEnum.ADMIN_PERENCANAAN,
             RoleEnum.ADMIN_PPK,
           ].includes(role),
         );

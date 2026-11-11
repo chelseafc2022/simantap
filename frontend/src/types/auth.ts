@@ -1,7 +1,5 @@
 export type RoleEnum =
   | 'ADMINISTRATOR'
-  | 'ADMIN_SIRUP'
-  | 'ADMIN_PERENCANAAN'
   | 'ADMIN_PPK'
   | 'BENDAHARA'
   | 'KEPALA_OPD'

@@ -758,7 +758,7 @@ export function InputKeuanganDialog({
                               ) : (
                                 <Plus className="h-3 w-3" />
                               )}
-                              <span>+ Lampirkan Dokumen</span>
+                              <span>Lampirkan Dokumen</span>
                               <input
                                 type="file"
                                 multiple

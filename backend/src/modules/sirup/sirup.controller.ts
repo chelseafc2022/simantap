@@ -69,8 +69,6 @@ export class SirupController {
   @Get('summary')
   @Roles(
     RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
     RoleEnum.ADMIN_PPK,
     RoleEnum.BENDAHARA,
     RoleEnum.KEPALA_OPD,
@@ -86,8 +84,6 @@ export class SirupController {
   @Get('satker-options')
   @Roles(
     RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
     RoleEnum.ADMIN_PPK,
     RoleEnum.BENDAHARA,
     RoleEnum.KEPALA_OPD,
@@ -104,8 +100,6 @@ export class SirupController {
   @Get('search')
   @Roles(
     RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
     RoleEnum.ADMIN_PPK,
     RoleEnum.BENDAHARA,
     RoleEnum.KEPALA_OPD,
@@ -137,8 +131,7 @@ export class SirupController {
   @Get('preview-opd')
   @Roles(
     RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
+    RoleEnum.ADMIN_PPK,
     RoleEnum.KEPALA_OPD,
     RoleEnum.MONEV,
   )
@@ -178,7 +171,7 @@ export class SirupController {
   }
 
   @Post('sync-opd')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_SIRUP, RoleEnum.MONEV)
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.MONEV)
   @ApiOperation({
     summary: 'Sinkronisasi massal paket dari tabel RUP ke MONALISA',
   })
@@ -220,8 +213,6 @@ export class SirupController {
   @Get('paket/:kodeRup')
   @Roles(
     RoleEnum.ADMINISTRATOR,
-    RoleEnum.ADMIN_SIRUP,
-    RoleEnum.ADMIN_PERENCANAAN,
     RoleEnum.ADMIN_PPK,
     RoleEnum.BENDAHARA,
     RoleEnum.KEPALA_OPD,

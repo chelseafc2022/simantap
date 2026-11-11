@@ -205,13 +205,10 @@ export function PaketFormDialog({
   const hasRole = (role: string) => userRoles.includes(role)
   const isSuperRole = userRoles.length === 0 || userRoles.some((r) => ["ADMINISTRATOR", "PIMPINAN_DAERAH", "MONEV"].includes(r))
   const isKepalaOpd = hasRole("KEPALA_OPD")
-  const isPerencana = hasRole("ADMIN_PERENCANAAN")
-  const isSirup = hasRole("ADMIN_SIRUP")
   const isPpk = hasRole("ADMIN_PPK")
-  const isSirupOnly = isSirup && !isPerencana && !isPpk && !isSuperRole
 
-  const canEditInfo = isSuperRole || isSirup || isPerencana || isPpk
-  const canEditTarget = isSuperRole || isPerencana || isPpk
+  const canEditInfo = isSuperRole || isPpk
+  const canEditTarget = isSuperRole || isPpk
   const userOpdId = user?.opd?.id
   const userOpdNama = user?.opd?.namaOpd || user?.opd?.singkatan
   const userSubUnitId = user?.subUnit?.id
@@ -355,12 +352,10 @@ export function PaketFormDialog({
       setActiveTab("info")
     } else if (defaultTab) {
       setActiveTab(defaultTab)
-    } else if (isPerencana) {
-      setActiveTab("targets")
     } else {
       setActiveTab("info")
     }
-  }, [initialData, open, defaultTab, isPerencana, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
+  }, [initialData, open, defaultTab, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
 
   const reconcileWeeklyPeriods = (start: string, end: string) => {
     const periods = generateContractWeeks(start, end)
@@ -1533,8 +1528,8 @@ export function PaketFormDialog({
 
             {activeTab === "info" ? (
               <>
-                {/* Admin SiRUP murni bisa langsung simpan di Tab 1 tanpa harus isi target */}
-                {(isSirupOnly || (isKeuangan && canEditInfo)) && (
+                {/* Paket non-fisik / keuangan bisa langsung simpan di tab info */}
+                {(isKeuangan && canEditInfo) && (
                   <Button
                     type="button"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
@@ -1549,7 +1544,7 @@ export function PaketFormDialog({
                     ) : (
                       <>
                         <CheckCircle2 className="h-4 w-4" />
-                        {isKeuangan ? "Simpan Data Anggaran" : isEdit ? "Simpan Perubahan Pengadaan" : "Simpan Paket Pembangunan"}
+                        Simpan Data Anggaran
                       </>
                     )}
                   </Button>
@@ -1558,7 +1553,7 @@ export function PaketFormDialog({
                 <Button
                   type="button"
                   disabled={isKeuangan}
-                  variant={isSirupOnly ? "outline" : "default"}
+                  variant="default"
                   onClick={() => {
                     if (validateKontrakBeforeNext()) {
                       setActiveTab("targets")
@@ -1566,7 +1561,7 @@ export function PaketFormDialog({
                   }}
                   className="gap-1.5"
                 >
-                  <span>{isSirupOnly ? "Pratinjau Target Fisik" : "Target Fisik Mingguan"}</span>
+                  <span>Target Fisik Mingguan</span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </>
@@ -1600,8 +1595,6 @@ export function PaketFormDialog({
                         ? isEdit
                           ? "Simpan Target Fisik & Perubahan"
                           : "Simpan Target & Paket Baru"
-                        : isSirupOnly
-                        ? "Simpan Paket (Target Diisi Admin Perencanaan / PPK)"
                         : isEdit
                         ? "Simpan Perubahan"
                         : "Simpan Paket Pembangunan"}

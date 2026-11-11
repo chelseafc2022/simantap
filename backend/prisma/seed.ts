@@ -19,46 +19,34 @@ async function main() {
       urutan: 1,
     },
     {
-      kode: RoleEnum.ADMIN_SIRUP,
-      nama: 'Admin SiRUP',
-      deskripsi: 'Input data awal kegiatan pembangunan: kode RUP, pagu, nomor kontrak, rekanan, lokasi dari SiRUP LKPP.',
-      urutan: 2,
-    },
-    {
-      kode: RoleEnum.ADMIN_PERENCANAAN,
-      nama: 'Admin Perencanaan',
-      deskripsi: 'Menyusun rencana target fisik bulanan B01-B12 (Kurva-S): target 30%, 60%, 100% per paket.',
-      urutan: 3,
-    },
-    {
       kode: RoleEnum.ADMIN_PPK,
       nama: 'Admin PPK (Pejabat Pembuat Komitmen)',
-      deskripsi: 'Input realisasi fisik (%) kumulatif bulanan, kendala lapangan, upload bukti foto/video, dan pengajuan ke MONEV.',
-      urutan: 4,
+      deskripsi: 'Sinkronisasi paket dari SiRUP, target fisik (Kurva-S), realisasi fisik (%), dan upload bukti foto/video lapangan.',
+      urutan: 2,
     },
     {
       kode: RoleEnum.BENDAHARA,
       nama: 'Bendahara Pengeluaran',
-      deskripsi: 'Input realisasi keuangan kumulatif berbasis SP2D / Kas yang sudah dicairkan BPKAD per paket.',
-      urutan: 5,
+      deskripsi: 'Input realisasi keuangan kumulatif berbasis SP2D / Kas yang sudah dicairkan BPKAD per paket fisik & non fisik.',
+      urutan: 3,
     },
     {
       kode: RoleEnum.KEPALA_OPD,
       nama: 'Kepala OPD / Pengguna Anggaran',
       deskripsi: 'Monitoring, evaluasi, dan pertanggungjawaban capaian realisasi paket pembangunan di tingkat OPD.',
-      urutan: 6,
+      urutan: 4,
     },
     {
       kode: RoleEnum.PIMPINAN_DAERAH,
       nama: 'Pimpinan Daerah (Bupati / Sekda)',
       deskripsi: 'Executive dashboard pemantauan makro capaian pembangunan lintas seluruh OPD se-Kabupaten Konawe Selatan.',
-      urutan: 7,
+      urutan: 5,
     },
     {
       kode: RoleEnum.MONEV,
       nama: 'Tim MONEV Pembangunan',
       deskripsi: 'Verifikasi, validasi, approval atau penolakan pengajuan realisasi PPK & Bendahara serta analisis deviasi.',
-      urutan: 8,
+      urutan: 6,
     },
   ];
 

@@ -45,12 +45,8 @@ function formatRole(role?: string): string {
   switch (role) {
     case "ADMINISTRATOR":
       return "Administrator"
-    case "ADMIN_SIRUP":
-      return "Admin SiRUP"
-    case "ADMIN_PERENCANAAN":
-      return "Admin Perencanaan"
     case "ADMIN_PPK":
-      return "Admin PPK"
+      return "PPK"
     case "BENDAHARA":
       return "Bendahara"
     case "KEPALA_OPD":
