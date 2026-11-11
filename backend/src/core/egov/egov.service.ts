@@ -457,6 +457,41 @@ export class EgovService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Mengambil username E-Gov untuk kumpulan NIP secara batch
+   */
+  async getUsernamesByNips(nips: string[]): Promise<Record<string, string>> {
+    if (!nips || nips.length === 0) return {};
+    const pool = await this.ensureConnection();
+    if (!pool) return {};
+    try {
+      const cleanNips = Array.from(
+        new Set(nips.map((n) => n?.trim()).filter(Boolean)),
+      );
+      if (cleanNips.length === 0) return {};
+      const placeholders = cleanNips.map(() => '?').join(',');
+      const sql = `
+        SELECT username, nama_nip
+        FROM egov.users
+        WHERE nama_nip IN (${placeholders}) OR username IN (${placeholders})
+      `;
+      const [rows] = await pool.query<any[]>(sql, [...cleanNips, ...cleanNips]);
+      const result: Record<string, string> = {};
+      for (const r of rows || []) {
+        if (r.nama_nip && r.username) {
+          result[r.nama_nip] = r.username;
+        }
+        if (r.username) {
+          result[r.username] = r.username;
+        }
+      }
+      return result;
+    } catch (error) {
+      this.logger.error('Error saat fetch usernames by NIPs:', error.message);
+      return {};
+    }
+  }
+
+  /**
    * Direktori Pegawai E-Gov & SIMPEG terpaginasi
    * Mengadopsi pola dari konsel-setara/backend/apiMysql/pegawai.js (directory)
    */

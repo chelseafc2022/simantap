@@ -132,8 +132,12 @@ export class UsersService implements OnModuleInit {
 
     const totalPages = Math.ceil(total / limit) || 1;
 
+    const nips = data.map((u) => u.nip).filter(Boolean);
+    const usernameMap = await this.egovService.getUsernamesByNips(nips);
+
     const enrichedData = data.map((u) => ({
       ...u,
+      username: usernameMap[u.nip] || null,
       opd: this.egovService.getOpdById(u.opdId),
       subUnit: this.egovService.getSubUnitById(u.subUnitId),
       accessScopes: u.accessScopes.map((scope) => ({
@@ -912,8 +916,10 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException(`Pengguna dengan ID '${id}' tidak ditemukan`);
     }
 
+    const usernameMap = await this.egovService.getUsernamesByNips([user.nip]);
     const safeUser = {
       ...user,
+      username: usernameMap[user.nip] || null,
       opd: this.egovService.getOpdById(user.opdId),
       subUnit: this.egovService.getSubUnitById(user.subUnitId),
     };

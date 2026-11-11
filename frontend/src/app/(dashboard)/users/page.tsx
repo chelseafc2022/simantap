@@ -465,8 +465,19 @@ export default function UsersManagementPage() {
                           <div className="font-semibold text-sm text-foreground leading-snug">
                             {user.namaLengkap}
                           </div>
-                          <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                            NIP. {user.nip}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              NIP. {user.nip}
+                            </span>
+                            {user.username && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-mono px-1.5 py-0 bg-muted/80 text-foreground border border-border/60"
+                                title={`Akun E-Gov: ${user.username}`}
+                              >
+                                @{user.username}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <div>
@@ -533,6 +544,7 @@ export default function UsersManagementPage() {
                               handleOpenSetRole({
                                 nip: user.nip,
                                 namaLengkap: user.namaLengkap,
+                                username: user.username,
                                 jabatan: user.jabatan,
                                 opd: user.opd?.namaOpd,
                                 opdId: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opdId || user.opdId,
@@ -618,8 +630,19 @@ export default function UsersManagementPage() {
                             <div className="font-semibold text-xs text-foreground leading-snug break-words whitespace-normal line-clamp-2">
                               {user.namaLengkap}
                             </div>
-                            <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                              NIP. {user.nip}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-[11px] font-mono text-muted-foreground">
+                                NIP. {user.nip}
+                              </span>
+                              {user.username && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] font-mono px-1.5 py-0 bg-muted/80 text-foreground border border-border/60"
+                                  title={`Akun E-Gov: ${user.username}`}
+                                >
+                                  @{user.username}
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell className="py-3 align-top min-w-[210px] border-r border-b border-gray-200 dark:border-neutral-700">
@@ -683,6 +706,7 @@ export default function UsersManagementPage() {
                                   handleOpenSetRole({
                                     nip: user.nip,
                                     namaLengkap: user.namaLengkap,
+                                    username: user.username,
                                     jabatan: user.jabatan,
                                     opd: user.opd?.namaOpd,
                                     opdId: user.accessScopes?.find((scope: any) => scope.role === "ADMIN_PPK")?.opdId || user.opdId,
