@@ -838,6 +838,13 @@ export default function LaporanDanEvaluasiPage() {
 
                       {/* Nama Paket Pekerjaan */}
                       <div>
+                        {item.subKegiatan && (
+                          <div className="mb-1">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
+                              <span className="opacity-70">Sub Kegiatan:</span> {item.subKegiatan}
+                            </span>
+                          </div>
+                        )}
                         <div className="font-semibold text-sm text-foreground leading-snug">
                           {item.namaPaket}
                         </div>
@@ -990,6 +997,13 @@ export default function LaporanDanEvaluasiPage() {
                                 {rowNo}
                               </TableCell>
                               <TableCell className="px-3 py-3.5 whitespace-normal border-r border-b border-gray-200 dark:border-neutral-700">
+                                {item.subKegiatan && (
+                                  <div className="mb-1">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
+                                      <span className="opacity-70">Sub Kegiatan:</span> {item.subKegiatan}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="line-clamp-2 whitespace-normal break-words font-semibold text-xs text-foreground leading-snug" title={item.namaPaket}>
                                   {item.namaPaket}
                                 </div>

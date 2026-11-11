@@ -1,4 +1,5 @@
 interface CetakRfkItem {
+  subKegiatan?: string | null;
   namaPaket: string;
   metodePemilihan?: string | null;
   sumberDana?: string | null;
@@ -106,7 +107,10 @@ export function cetakLaporanPdf({
     return `
       <tr>
         <td class="center">${index + 1}</td>
-        <td class="wrap"><strong>${escapeHtml(item.namaPaket)}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
+        <td class="wrap">
+          ${item.subKegiatan ? `<span style="font-size: 8.5px; color: #1d4ed8; display: block; font-weight: 600; margin-bottom: 2px;">[Sub Kegiatan: ${escapeHtml(item.subKegiatan)}]</span>` : ''}
+          <strong>${escapeHtml(item.namaPaket)}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small>
+        </td>
         <td class="money">${escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
         ${isFisik ? `        <td class="money">${escapeHtml(formatRupiah(item.nilaiKontrak || 0))}</td>
         <td class="wrap">${escapeHtml(item.nomorKontrak || '-')}</td>

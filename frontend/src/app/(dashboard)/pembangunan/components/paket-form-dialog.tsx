@@ -88,6 +88,7 @@ export interface PaketItem {
   opdId: string
   subUnitId?: string | null
   kodeRupKontrak?: string | null
+  subKegiatan?: string | null
   namaPaket: string
   lokasiKegiatan?: string | null
   metodePemilihan?: string | null
@@ -227,6 +228,7 @@ export function PaketFormDialog({
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2026)
   const [opdId, setOpdId] = useState<string>("")
   const [subUnitId, setSubUnitId] = useState<string>("")
+  const [subKegiatan, setSubKegiatan] = useState<string>("")
   const [namaPaket, setNamaPaket] = useState<string>("")
   const [kodeRupKontrak, setKodeRupKontrak] = useState<string>("")
   const [lokasiKegiatan, setLokasiKegiatan] = useState<string>("")
@@ -306,6 +308,7 @@ export function PaketFormDialog({
       setOpdId(initialData.opdId || "")
       setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
       setPolaMonitoring(initialData.polaMonitoring || "FISIK_KEUANGAN")
+      setSubKegiatan((initialData as any).subKegiatan || "")
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
       setLokasiKegiatan(initialData.lokasiKegiatan || "")
@@ -333,6 +336,7 @@ export function PaketFormDialog({
       const defaultOpd = !isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")
       setOpdId(defaultOpd)
       setSubUnitId(!canSelectSubUnit && userSubUnitId ? userSubUnitId : "")
+      setSubKegiatan("")
       setNamaPaket("")
       setKodeRupKontrak("")
       setLokasiKegiatan("")
@@ -574,6 +578,7 @@ export function PaketFormDialog({
         tahunAnggaran,
         opdId,
         subUnitId: !canSelectSubUnit && userSubUnitId ? userSubUnitId : (subUnitId || undefined),
+        subKegiatan: subKegiatan.trim() || undefined,
         namaPaket: namaPaket.trim(),
         kodeRupKontrak: kodeRupKontrak.trim() || undefined,
         lokasiKegiatan: lokasiKegiatan.trim() || undefined,
@@ -822,6 +827,27 @@ export function PaketFormDialog({
                       </Badge>
                     </div>
                   )}
+                </div>
+
+                {/* Sub Kegiatan / Kegiatan Induk (Opsional) */}
+                <div className="sm:col-span-12 space-y-1.5 bg-muted/20 p-2.5 rounded-lg border border-border/60">
+                  <div className="flex items-center justify-between h-5">
+                    <Label htmlFor="subKegiatan" className="text-xs font-semibold text-foreground flex items-center gap-1.5 flex-wrap">
+                      <span>Sub Kegiatan / Kegiatan Induk</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">(Opsional · Untuk paket pecahan pagu gelondongan DPA)</span>
+                    </Label>
+                  </div>
+                  <Input
+                    id="subKegiatan"
+                    placeholder="Contoh: Pengadaan Obat dan BMHP (DAU) - Total Pagu Rp 3,5 Miliar"
+                    value={subKegiatan}
+                    onChange={(e) => setSubKegiatan(e.target.value)}
+                    disabled={!canEditInfo}
+                    className="text-xs h-8.5 bg-background"
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-tight">
+                    Kosongkan jika bukan pecahan pagu. Jika diisi, sistem akan mencatat paket ini sebagai bagian dari sub-kegiatan tersebut.
+                  </p>
                 </div>
 
                 {/* Nama Paket */}

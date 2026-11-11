@@ -53,6 +53,15 @@ export class CreatePaketDto {
   @IsString()
   kodeRupKontrak?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Sub Kegiatan DPA / Induk Kegiatan (opsional, untuk paket pecahan dari pagu gelondongan)',
+    example: 'Pengadaan Obat dan BMHP (DAU) - Pagu Rp 3,5 M',
+  })
+  @IsOptional()
+  @IsString()
+  subKegiatan?: string;
+
   @ApiProperty({ description: 'Nama Paket Pekerjaan / Pembangunan' })
   @IsNotEmpty({ message: 'Nama paket wajib diisi' })
   @IsString()

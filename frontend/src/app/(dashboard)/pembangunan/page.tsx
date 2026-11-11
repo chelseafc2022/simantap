@@ -600,6 +600,13 @@ export default function PaketPembangunanPage() {
 
                   {/* Nama Paket (Klik untuk buka detail) */}
                   <div>
+                    {paket.subKegiatan && (
+                      <div className="mb-1">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
+                          <span className="opacity-70">Sub Kegiatan:</span> {paket.subKegiatan}
+                        </span>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleOpenDetail(paket)}
@@ -798,6 +805,13 @@ export default function PaketPembangunanPage() {
                       {/* Identitas Paket */}
                       <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="min-w-0 space-y-1.5">
+                          {paket.subKegiatan && (
+                            <div>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
+                                <span className="opacity-70">Sub Kegiatan:</span> {paket.subKegiatan}
+                              </span>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(paket)}

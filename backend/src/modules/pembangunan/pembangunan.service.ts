@@ -339,6 +339,7 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
+          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -553,6 +554,7 @@ export class PembangunanService {
           opdId: assignedOpdId,
           subUnitId: assignedSubUnitId || null,
           kodeRupKontrak: dto.kodeRupKontrak || null,
+          subKegiatan: dto.subKegiatan ? dto.subKegiatan.trim() : null,
           kelompokPaket: dto.kelompokPaket || 'PEMBANGUNAN_MODAL',
           polaMonitoring: dto.polaMonitoring || 'FISIK_KEUANGAN',
           namaPaket: dto.namaPaket.trim(),
@@ -788,6 +790,10 @@ export class PembangunanService {
             dto.kodeRupKontrak !== undefined
               ? dto.kodeRupKontrak
               : existing.kodeRupKontrak,
+          subKegiatan:
+            dto.subKegiatan !== undefined
+              ? (dto.subKegiatan ? dto.subKegiatan.trim() : null)
+              : existing.subKegiatan,
           namaPaket:
             dto.namaPaket !== undefined
               ? dto.namaPaket.trim()
@@ -1134,6 +1140,7 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
+          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -1244,6 +1251,7 @@ export class PembangunanService {
         id: paket.id,
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
+        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,
@@ -1669,6 +1677,7 @@ export class PembangunanService {
         id: paket.id,
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
+        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         tahunAnggaran: paket.tahunAnggaran,
         kodeRupKontrak: paket.kodeRupKontrak,
@@ -2384,6 +2393,7 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
+          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -2478,6 +2488,7 @@ export class PembangunanService {
         id: paket.id,
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
+        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,

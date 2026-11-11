@@ -2,6 +2,7 @@ export interface CetakRealisasiItem {
   id: string
   polaMonitoring?: string
   kelompokPaket?: string
+  subKegiatan?: string | null
   namaPaket: string
   kodeRupKontrak?: string | null
   nomorKontrak?: string | null

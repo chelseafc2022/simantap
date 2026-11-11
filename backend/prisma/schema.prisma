@@ -172,6 +172,7 @@ model PaketPembangunan {
   opdId           String    @map("opd_id")
   subUnitId       String?   @map("sub_unit_id")
   kodeRupKontrak  String?   @map("kode_rup_kontrak")
+  subKegiatan     String?   @map("sub_kegiatan")
   namaPaket       String    @map("nama_paket")
   lokasiKegiatan  String?   @map("lokasi_kegiatan")
   metodePemilihan String?   @map("metode_pemilihan")

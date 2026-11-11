@@ -103,6 +103,13 @@ export function PaketDetailDialog({
                   </Badge>
                 )}
               </div>
+              {(paket as any).subKegiatan && (
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-2 py-0.5 rounded">
+                    <span className="opacity-70">Sub Kegiatan:</span> {(paket as any).subKegiatan}
+                  </span>
+                </div>
+              )}
               <DialogTitle className="text-xl font-bold text-foreground">
                 {paket.namaPaket}
               </DialogTitle>
