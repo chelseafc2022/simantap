@@ -41,9 +41,23 @@ export function MiniDonut({
 
   const resolvedTrackColor = trackColor || "currentColor"
 
+  const formattedTooltipValue =
+    safeValue % 1 !== 0 ? safeValue.toFixed(2) : safeValue.toString()
+
   const tooltipText = label
-    ? `${label}: ${safeValue.toFixed(1)}%`
-    : `${safeValue.toFixed(1)}%`
+    ? `${label}: ${formattedTooltipValue}%`
+    : `${formattedTooltipValue}%`
+
+  // Format teks persentase:
+  // JANGAN bulatkan ke 100% jika belum benar-benar 100% (misal 99.53%)
+  const formattedPercent = React.useMemo(() => {
+    if (safeValue >= 100) return "100%"
+    if (safeValue <= 0) return "0%"
+    if (safeValue > 0 && safeValue < 1) return "<1%"
+    // Jika 99.01% - 99.99%, tampilkan 99% agar tidak menyesatkan bahwa anggaran sudah 100% habis
+    if (safeValue >= 99 && safeValue < 100) return "99%"
+    return `${Math.round(safeValue)}%`
+  }, [safeValue])
 
   return (
     <div
@@ -95,7 +109,7 @@ export function MiniDonut({
             color: safeValue > 0 ? "inherit" : "#94a3b8",
           }}
         >
-          {Math.round(safeValue)}%
+          {formattedPercent}
         </span>
       )}
     </div>
