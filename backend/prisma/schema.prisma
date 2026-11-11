@@ -181,6 +181,8 @@ model PaketPembangunan {
   polaMonitoring  String    @default("FISIK_KEUANGAN") @map("pola_monitoring")
   nilaiPagu       Decimal   @default(0) @map("nilai_pagu") @db.Decimal(18, 2)
   nilaiKontrak    Decimal   @default(0) @map("nilai_kontrak") @db.Decimal(18, 2)
+  isGelondongan   Boolean   @default(false) @map("is_gelondongan")
+  subPaket        Json?     @default("[]") @map("sub_paket")
   sumberDana      String?   @map("sumber_dana")
   nomorKontrak    String?   @map("nomor_kontrak")
   tanggalMulai    DateTime? @map("tanggal_mulai")

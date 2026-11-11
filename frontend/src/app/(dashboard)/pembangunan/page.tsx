@@ -62,6 +62,7 @@ import {
   Database,
   RotateCcw,
   MoreHorizontal,
+  Boxes,
 } from "lucide-react"
 
 export default function PaketPembangunanPage() {
@@ -600,6 +601,14 @@ export default function PaketPembangunanPage() {
 
                   {/* Nama Paket (Klik untuk buka detail) */}
                   <div>
+                    {paket.isGelondongan && (
+                      <div className="mb-1">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                          <Boxes className="h-3 w-3" />
+                          Paket Gelondongan ({Array.isArray(paket.subPaket) ? paket.subPaket.length : 0} Sub Paket)
+                        </span>
+                      </div>
+                    )}
                     {paket.subKegiatan && (
                       <div className="mb-1">
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
@@ -805,6 +814,14 @@ export default function PaketPembangunanPage() {
                       {/* Identitas Paket */}
                       <TableCell className="whitespace-normal px-4 py-4 align-top">
                         <div className="min-w-0 space-y-1.5">
+                          {paket.isGelondongan && (
+                            <div>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                                <Boxes className="h-3 w-3" />
+                                Paket Gelondongan ({Array.isArray(paket.subPaket) ? paket.subPaket.length : 0} Sub Paket)
+                              </span>
+                            </div>
+                          )}
                           {paket.subKegiatan && (
                             <div>
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">

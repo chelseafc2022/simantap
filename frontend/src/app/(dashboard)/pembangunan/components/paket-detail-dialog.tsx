@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Building2, Calendar, FileText, MapPin, User, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Building2, Calendar, FileText, MapPin, User, CheckCircle2, AlertTriangle, Boxes } from "lucide-react"
 import { PaketItem } from "./paket-form-dialog"
 
 interface PaketDetailDialogProps {
@@ -102,6 +102,12 @@ export function PaketDetailDialog({
                     {paket.metodePemilihan}
                   </Badge>
                 )}
+                {paket.isGelondongan && (
+                  <Badge className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20 text-xs flex items-center gap-1">
+                    <Boxes className="h-3 w-3" />
+                    Paket Gelondongan ({Array.isArray(paket.subPaket) ? paket.subPaket.length : 0} Sub Paket)
+                  </Badge>
+                )}
               </div>
               {(paket as any).subKegiatan && (
                 <div className="mt-1">
@@ -177,6 +183,63 @@ export function PaketDetailDialog({
             <div className="font-medium text-foreground">{paket.jenisPengadaan || "-"}</div>
           </div>
         </div>
+
+        {/* Rincian Sub-Paket jika Gelondongan */}
+        {paket.isGelondongan && Array.isArray(paket.subPaket) && paket.subPaket.length > 0 && (
+          <div className="space-y-2.5 pt-1">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Boxes className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                Rincian Sub Paket Gelondongan ({paket.subPaket.length})
+              </h4>
+              <span className="text-xs text-muted-foreground">
+                Plafon Pagu Induk: {formatRupiah(paguNum)}
+              </span>
+            </div>
+
+            <div className="rounded-lg border border-border/80 overflow-x-auto">
+              <Table className="text-xs">
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="w-10 text-center">No</TableHead>
+                    <TableHead>Nama Sub Paket</TableHead>
+                    <TableHead>Pagu (Rp)</TableHead>
+                    <TableHead>No. Kontrak / SPK</TableHead>
+                    <TableHead>Masa Kontrak</TableHead>
+                    <TableHead>Penyedia / Rekanan</TableHead>
+                    <TableHead>Sumber Dana</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paket.subPaket.map((sp: any, idx: number) => (
+                    <TableRow key={sp.id || idx}>
+                      <TableCell className="text-center font-mono text-muted-foreground">{idx + 1}</TableCell>
+                      <TableCell className="font-medium text-foreground">
+                        <div>{sp.namaSubPaket}</div>
+                        {sp.keterangan && <div className="text-[10px] text-muted-foreground">{sp.keterangan}</div>}
+                      </TableCell>
+                      <TableCell className="font-mono font-semibold whitespace-nowrap">
+                        {formatRupiah(sp.pagu)}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px] whitespace-nowrap text-muted-foreground">
+                        {sp.nomorKontrak || "-"}
+                      </TableCell>
+                      <TableCell className="text-[11px] whitespace-nowrap text-muted-foreground">
+                        {sp.tanggalMulai ? sp.tanggalMulai.substring(0, 10) : "-"} s/d {sp.tanggalSelesai ? sp.tanggalSelesai.substring(0, 10) : "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        {sp.rekanan || "-"}
+                      </TableCell>
+                      <TableCell className="text-[11px] whitespace-nowrap">
+                        {sp.sumberDana || "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
 
         <Separator />
 

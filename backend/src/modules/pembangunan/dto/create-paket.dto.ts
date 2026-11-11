@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsIn,
@@ -140,6 +141,22 @@ export class CreatePaketDto {
   @IsOptional()
   @IsString()
   pemenangRekanan?: string;
+
+  @ApiPropertyOptional({
+    description: 'Apakah paket merupakan paket gelondongan (memayungi beberapa sub-paket / multi-kontrak)',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isGelondongan?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Daftar rincian sub-paket dari paket gelondongan',
+    example: [],
+  })
+  @IsOptional()
+  @IsArray()
+  subPaket?: any[];
 
   @ApiPropertyOptional({ description: 'Keterangan tambahan paket' })
   @IsOptional()
