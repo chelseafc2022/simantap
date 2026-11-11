@@ -353,9 +353,9 @@ export class PembangunanController {
     return this.pembangunanService.bulkUpsertRealisasi(id, dto, user);
   }
 
-  // ─── Upload Bukti Fisik (foto) oleh PPK ─────────────────────────────────
+  // ─── Upload Bukti Fisik / Keuangan (foto/PDF) oleh PPK & Bendahara ──────
   @Post(':id/realisasi/:bulan/bukti')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
   @UseInterceptors(
     FilesInterceptor('files', 5, {
       storage: diskStorage({
@@ -410,7 +410,7 @@ export class PembangunanController {
   }
 
   @Post(':id/realisasi/:bulan/:minggu/bukti')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
   @UseInterceptors(
     FilesInterceptor('files', 5, {
       storage: diskStorage({
@@ -453,9 +453,9 @@ export class PembangunanController {
     );
   }
 
-  // ─── Hapus Bukti Fisik ──────────────────────────────────────────────────
+  // ─── Hapus Bukti Fisik / Lampiran ───────────────────────────────────────
   @Delete('bukti/:buktiFisikId')
-  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK)
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.ADMIN_PPK, RoleEnum.BENDAHARA)
   @ApiOperation({
     summary: 'Hapus satu bukti fisik (foto/video) yang sudah diupload',
   })
@@ -464,6 +464,71 @@ export class PembangunanController {
     @CurrentUser() user: any,
   ) {
     return this.pembangunanService.deleteBuktiFisik(buktiFisikId, user);
+  }
+
+  // ─── Upload Bukti Dokumen Pencairan Keuangan oleh Bendahara ──────────────
+  @Post(':id/pencairan/:pencairanId/bukti')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  @UseInterceptors(
+    FilesInterceptor('files', 5, {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          const uploadDir = join(process.cwd(), 'uploads', 'bukti-pencairan');
+          if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+          cb(null, uploadDir);
+        },
+        filename: (_req, file, cb) => {
+          cb(null, `pencairan-${randomUUID()}${extname(file.originalname).toLowerCase()}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        const allowed = /\.(jpg|jpeg|png|webp|gif|mp4|pdf)$/i;
+        if (!allowed.test(extname(file.originalname))) {
+          return cb(
+            new Error(
+              'Hanya file gambar (JPG, PNG, WEBP), video (MP4), atau PDF yang diizinkan',
+            ),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Upload file bukti/dokumen pendukung pencairan keuangan (SP2D, Kuitansi, PDF) oleh Bendahara',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  uploadBuktiPencairan(
+    @Param('id') id: string,
+    @Param('pencairanId') pencairanId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('deskripsi') deskripsi: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.uploadBuktiPencairan(
+      id,
+      pencairanId,
+      files,
+      deskripsi,
+      user,
+    );
+  }
+
+  // ─── Hapus Bukti Dokumen Pencairan ──────────────────────────────────────
+  @Delete('pencairan-bukti/:buktiId')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.BENDAHARA)
+  @ApiOperation({
+    summary: 'Hapus satu file bukti pencairan keuangan',
+  })
+  deleteBuktiPencairan(
+    @Param('buktiId') buktiId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.deleteBuktiPencairan(buktiId, user);
   }
 
   @Delete(':id')

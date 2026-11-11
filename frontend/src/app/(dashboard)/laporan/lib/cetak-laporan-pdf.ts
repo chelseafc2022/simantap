@@ -27,6 +27,7 @@ interface CetakRfkSummary {
 }
 
 interface CetakLaporanParams {
+  polaMonitoring?: string;
   tahunAnggaran: number;
   bulan: number;
   namaBulan: string;
@@ -43,6 +44,7 @@ export function cetakLaporanPdf({
   items,
   summary,
   filterOpdNama,
+  polaMonitoring,
   printWindow: providedWindow,
 }: CetakLaporanParams) {
   const printWindow = providedWindow || window.open('', '_blank');
@@ -90,26 +92,28 @@ export function cetakLaporanPdf({
     year: 'numeric',
   });
 
+  const isFisik = polaMonitoring !== 'KEUANGAN';
   const rows = items.map((item, index) => {
     const unit = item.subUnit?.namaSubUnit || item.opd?.namaOpd || '-';
     const deviasi = `${(item.deviasiFisik || 0) >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(1)}%`;
-    const keterangan = [
+    const keterangan = isFisik ? [
       statusLabel(item.status),
       `Target ${(item.targetFisik || 0).toFixed(1)}%`,
       `Deviasi ${deviasi}`,
       item.catatanOperator,
-    ].filter(Boolean).join(' - ');
+    ].filter(Boolean).join(' - ') : item.catatanOperator || 'Keuangan saja';
 
     return `
       <tr>
         <td class="center">${index + 1}</td>
         <td class="wrap"><strong>${escapeHtml(item.namaPaket)}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
         <td class="money">${escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
-        <td class="money">${escapeHtml(formatRupiah(item.nilaiKontrak || 0))}</td>
+        ${isFisik ? `        <td class="money">${escapeHtml(formatRupiah(item.nilaiKontrak || 0))}</td>
         <td class="wrap">${escapeHtml(item.nomorKontrak || '-')}</td>
         <td class="center">${escapeHtml(formatTanggal(item.tanggalMulai))}</td>
         <td class="center">${escapeHtml(formatTanggal(item.tanggalSelesai))}</td>
         <td class="center bold">${(item.realisasiFisik || 0).toFixed(1)}%</td>
+` : ''}
         <td class="money">${escapeHtml(formatRupiah(item.realisasiKeuangan || 0))}</td>
         <td class="center bold">${(item.persenKeuangan || 0).toFixed(1)}%</td>
         <td class="center wrap">${escapeHtml(item.sumberDana || '-')}</td>
@@ -117,7 +121,7 @@ export function cetakLaporanPdf({
       </tr>`;
   }).join('');
 
-  const htmlContent = `
+  let htmlContent = `
     <!DOCTYPE html>
     <html lang="id">
       <head>
@@ -164,7 +168,7 @@ export function cetakLaporanPdf({
         <div class="summary">
           <span><strong>Paket:</strong> ${items.length}</span>
           <span><strong>Pagu:</strong> ${escapeHtml(formatRupiah(summary?.totalPagu || 0))}</span>
-          <span><strong>Kontrak:</strong> ${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</span>
+${isFisik ? `          <span><strong>Kontrak:</strong> ${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</span>` : ''}
           <span><strong>Realisasi:</strong> ${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))} (${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%)</span>
         </div>
         <table>
@@ -187,10 +191,10 @@ export function cetakLaporanPdf({
             <tr class="total">
               <td colspan="2" class="center">JUMLAH</td>
               <td class="money">${escapeHtml(formatRupiah(summary?.totalPagu || 0))}</td>
-              <td class="money">${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</td>
+${isFisik ? `              <td class="money">${escapeHtml(formatRupiah(summary?.totalKontrak || 0))}</td>
               <td colspan="3"></td>
               <td class="center">${(summary?.avgRealisasiFisik || 0).toFixed(1)}%</td>
-              <td class="money">${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))}</td>
+` : ''}              <td class="money">${escapeHtml(formatRupiah(summary?.totalRealisasiKeuangan || 0))}</td>
               <td class="center">${(summary?.persenSerapanKeuangan || 0).toFixed(2)}%</td>
               <td></td><td></td>
             </tr>
@@ -204,6 +208,14 @@ export function cetakLaporanPdf({
       </body>
     </html>`;
 
+  if (!isFisik) {
+    htmlContent = htmlContent
+      .replace('LAPORAN REALISASI FISIK DAN KEUANGAN', 'LAPORAN REALISASI KEUANGAN')
+      .replace(/<colgroup>[\s\S]*?<\/colgroup>/, '')
+      .replace('<th rowspan="2">Nilai Kontrak</th><th rowspan="2">Nomor Kontrak</th>', '')
+      .replace('<th colspan="2">Tanggal Kontrak</th><th colspan="3">Realisasi</th>', '<th colspan="2">Realisasi</th>')
+      .replace('<th>Mulai</th><th>Berakhir</th><th>Fisik (%)</th>', '');
+  }
   printWindow.document.open();
   printWindow.document.write(htmlContent);
   printWindow.document.close();

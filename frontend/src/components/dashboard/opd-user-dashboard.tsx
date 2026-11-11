@@ -92,6 +92,7 @@ export function OpdUserDashboard({
 }: OpdUserDashboardProps) {
   const [searchPaket, setSearchPaket] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("ALL")
+  const [filterMonitoring, setFilterMonitoring] = useState("ALL")
 
   const userOpdId = user?.opd?.id || user?.opdId
   const accessibleOpds: Array<{
@@ -161,8 +162,11 @@ export function OpdUserDashboard({
         basisAnggaran > 0 ? Number(((realisasiKeuangan / basisAnggaran) * 100).toFixed(2)) : 0
       )
 
-      let statusKinerja: "SELESAI" | "AMAN" | "PERHATIAN" | "KRITIS" | "BELUM_MULAI" = "BELUM_MULAI"
-      if (realisasiFisik >= 100) {
+      const keuanganSaja = p.polaMonitoring === "KEUANGAN"
+      let statusKinerja: "SELESAI" | "BERJALAN" | "AMAN" | "PERHATIAN" | "KRITIS" | "BELUM_MULAI" = "BELUM_MULAI"
+      if (keuanganSaja) {
+        statusKinerja = persenKeuangan >= 100 ? "SELESAI" : realisasiKeuangan > 0 ? "BERJALAN" : "BELUM_MULAI"
+      } else if (realisasiFisik >= 100) {
         statusKinerja = "SELESAI"
       } else if (p.status === "KRITIS") {
         statusKinerja = "KRITIS"
@@ -193,6 +197,7 @@ export function OpdUserDashboard({
         realisasiKeuangan,
         persenKeuangan,
         statusKinerja,
+        keuanganSaja,
       }
     })
   }, [rawPaketList])
@@ -222,31 +227,27 @@ export function OpdUserDashboard({
     )
     const sisaAnggaran = Math.max(0, basisAnggaran - totalRealisasiKeuangan)
 
+    const physicalPackages = processedPaketList.filter((p) => !p.keuanganSaja)
+    const physicalCount = physicalPackages.length
     const avgTarget = safeNum(
       summary?.avgTargetFisik,
-      count > 0 ? Number((processedPaketList.reduce((acc, cur) => acc + cur.targetFisik, 0) / count).toFixed(2)) : 0
+      physicalCount > 0 ? Number((physicalPackages.reduce((acc, cur) => acc + cur.targetFisik, 0) / physicalCount).toFixed(2)) : 0
     )
     const avgFisik = safeNum(
       summary?.avgRealisasiFisik,
-      count > 0 ? Number((processedPaketList.reduce((acc, cur) => acc + cur.realisasiFisik, 0) / count).toFixed(2)) : 0
+      physicalCount > 0 ? Number((physicalPackages.reduce((acc, cur) => acc + cur.realisasiFisik, 0) / physicalCount).toFixed(2)) : 0
     )
     const deviasi = safeNum(
       summary?.avgDeviasiFisik,
       Number((avgFisik - avgTarget).toFixed(2))
     )
 
-    let countAman = safeNum(summary?.countStatus?.aman)
-    let countPerhatian = safeNum(summary?.countStatus?.perhatian)
-    let countKritis = safeNum(summary?.countStatus?.kritis)
-    let countBelumMulai = safeNum(summary?.countStatus?.belumMulai)
-    let countSelesai = processedPaketList.filter((p) => p.statusKinerja === "SELESAI").length
-
-    if (!summary?.countStatus && count > 0) {
-      countAman = processedPaketList.filter((p) => p.statusKinerja === "AMAN" || p.statusKinerja === "SELESAI").length
-      countPerhatian = processedPaketList.filter((p) => p.statusKinerja === "PERHATIAN").length
-      countKritis = processedPaketList.filter((p) => p.statusKinerja === "KRITIS").length
-      countBelumMulai = processedPaketList.filter((p) => p.statusKinerja === "BELUM_MULAI").length
-    }
+    const countAman = processedPaketList.filter((p) => p.statusKinerja === "AMAN").length
+    const countPerhatian = processedPaketList.filter((p) => p.statusKinerja === "PERHATIAN").length
+    const countKritis = processedPaketList.filter((p) => p.statusKinerja === "KRITIS").length
+    const countBelumMulai = processedPaketList.filter((p) => p.statusKinerja === "BELUM_MULAI").length
+    const countSelesai = processedPaketList.filter((p) => p.statusKinerja === "SELESAI").length
+    const countBerjalan = processedPaketList.filter((p) => p.statusKinerja === "BERJALAN").length
 
     return {
       totalPaket: count,
@@ -263,6 +264,7 @@ export function OpdUserDashboard({
       countKritis,
       countBelumMulai,
       countSelesai,
+      countBerjalan,
     }
   }, [processedPaketList, summary])
 
@@ -279,15 +281,16 @@ export function OpdUserDashboard({
       // Status
       const matchStatus =
         filterStatus === "ALL" ||
+        (filterStatus === "BERJALAN" && p.statusKinerja === "BERJALAN") ||
         (filterStatus === "SELESAI" && p.statusKinerja === "SELESAI") ||
         (filterStatus === "AMAN" && p.statusKinerja === "AMAN") ||
         (filterStatus === "PERHATIAN" && p.statusKinerja === "PERHATIAN") ||
         (filterStatus === "KRITIS" && p.statusKinerja === "KRITIS") ||
         (filterStatus === "BELUM_MULAI" && p.statusKinerja === "BELUM_MULAI")
 
-      return matchSearch && matchStatus
+      return matchSearch && matchStatus && (filterMonitoring === "ALL" || (filterMonitoring === "KEUANGAN" ? p.keuanganSaja : !p.keuanganSaja))
     })
-  }, [processedPaketList, searchPaket, filterStatus])
+  }, [processedPaketList, searchPaket, filterStatus, filterMonitoring])
 
   // Paket yang membutuhkan percepatan (Kritis / Perhatian)
   const paketPerluPerhatian = useMemo(() => {
@@ -620,6 +623,15 @@ export function OpdUserDashboard({
             </Button>
           </div>
 
+          <p className="text-xs text-muted-foreground mt-2">Status Fisik &amp; Keuangan mengikuti capaian fisik. Keuangan Saja mengikuti serapan: 0% belum mulai, di atas 0% berjalan, dan 100% selesai.</p>
+          <Select value={filterMonitoring} onValueChange={setFilterMonitoring}>
+            <SelectTrigger className="h-8 w-full sm:w-56 text-xs mt-2"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Semua Pola Monitoring</SelectItem>
+              <SelectItem value="FISIK">Fisik &amp; Keuangan</SelectItem>
+              <SelectItem value="KEUANGAN">Keuangan Saja</SelectItem>
+            </SelectContent>
+          </Select>
           {/* Filter & Search Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-3">
             <div className="relative w-full sm:w-80">
@@ -636,7 +648,8 @@ export function OpdUserDashboard({
               {[
                 { key: "ALL", label: `Semua (${processedPaketList.length})` },
                 { key: "SELESAI", label: `Selesai (${opdStats.countSelesai})` },
-                { key: "AMAN", label: `Aman (${opdStats.countAman - opdStats.countSelesai})` },
+                { key: "BERJALAN", label: `Berjalan (${opdStats.countBerjalan})` },
+                { key: "AMAN", label: `Aman (${opdStats.countAman})` },
                 { key: "PERHATIAN", label: `Perhatian (${opdStats.countPerhatian})` },
                 { key: "KRITIS", label: `Kritis (${opdStats.countKritis})` },
                 { key: "BELUM_MULAI", label: `Belum Mulai (${opdStats.countBelumMulai})` },
@@ -708,6 +721,7 @@ export function OpdUserDashboard({
                         <div className="space-y-0.5">
                           <p className="font-semibold text-foreground text-xs leading-snug">{paket.namaPaket}</p>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                            <Badge variant="outline" className="text-[10px]">{paket.keuanganSaja ? "Keuangan Saja" : "Fisik & Keuangan"}</Badge>
                             {paket.kodeSirup && <span className="font-mono bg-muted px-1 rounded">SIRUP: {paket.kodeSirup}</span>}
                             {paket.lokasi && <span>Lokasi: {paket.lokasi}</span>}
                             {paket.sumberDana && <span className="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-1 rounded">{paket.sumberDana}</span>}
@@ -731,7 +745,7 @@ export function OpdUserDashboard({
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center border-r border-gray-200 dark:border-neutral-700 bg-amber-500/5">
-                        <div className="space-y-1">
+                        {paket.keuanganSaja ? <span className="text-[10px] text-muted-foreground">Tidak dipantau</span> : <div className="space-y-1">
                           <div className="flex items-center justify-between text-[10px] font-mono">
                             <span className="text-muted-foreground">T: {paket.targetFisik}%</span>
                             <span className={`font-bold ${pctColor(paket.realisasiFisik)}`}>
@@ -742,7 +756,7 @@ export function OpdUserDashboard({
                           <p className={`text-[10px] font-mono font-semibold text-right ${paket.deviasiFisik >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
                             {paket.deviasiFisik >= 0 ? "+" : ""}{paket.deviasiFisik.toFixed(1)}%
                           </p>
-                        </div>
+                        </div>}
                       </td>
                       <td className="py-2.5 px-3 text-right border-r border-gray-200 dark:border-neutral-700 font-mono bg-emerald-500/5">
                         <p className="font-semibold text-xs">{formatRupiah(paket.realisasiKeuangan)}</p>
@@ -751,6 +765,8 @@ export function OpdUserDashboard({
                       <td className="py-2.5 px-2 text-center border-r border-gray-200 dark:border-neutral-700">
                         {paket.statusKinerja === "SELESAI" ? (
                           <Badge className="bg-emerald-600 text-white text-[9px] py-0 px-1.5">Selesai</Badge>
+                        ) : paket.statusKinerja === "BERJALAN" ? (
+                          <Badge className="bg-blue-500/15 text-blue-700 text-[9px] py-0 px-1.5">Berjalan</Badge>
                         ) : paket.statusKinerja === "AMAN" ? (
                           <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 text-[9px] py-0 px-1.5">Aman</Badge>
                         ) : paket.statusKinerja === "PERHATIAN" ? (
@@ -763,7 +779,7 @@ export function OpdUserDashboard({
                       </td>
                       <td className="py-2.5 px-2 text-center">
                         <Button asChild size="sm" variant="ghost" className="h-7 text-xs px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40">
-                          <Link href={`/realisasi?search=${encodeURIComponent(paket.namaPaket || "")}`}>
+                          <Link href={`${paket.keuanganSaja ? "/realisasi/keuangan" : "/realisasi"}?search=${encodeURIComponent(paket.namaPaket || "")}`}>
                             Entri
                           </Link>
                         </Button>

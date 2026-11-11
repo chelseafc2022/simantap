@@ -90,7 +90,7 @@ export function NavUser({
       toast.info("Mengeluarkan akun...")
       await logout()
     } catch {
-      window.location.replace("/login")
+      window.location.replace("/")
     }
   }
 

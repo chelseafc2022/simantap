@@ -133,7 +133,8 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
 
     // Pembangunan & RFK
     { title: "Paket Pembangunan - Pagu & RUP", url: "/pembangunan", group: "Pembangunan & RFK", icon: Briefcase },
-    { title: "Realisasi Bulanan - Fisik & SP2D (RFK)", url: "/realisasi", group: "Pembangunan & RFK", icon: TrendingUp },
+    { title: "Realisasi Fisik & Keuangan", url: "/realisasi", group: "Pembangunan & RFK", icon: TrendingUp },
+    { title: "Realisasi Keuangan Saja", url: "/realisasi/keuangan", group: "Pembangunan & RFK", icon: TrendingUp },
     { title: "Laporan & Evaluasi - Deviasi & Rekap", url: "/laporan", group: "Pembangunan & RFK", icon: FileBarChart },
 
     // Sistem & Pengguna

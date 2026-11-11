@@ -63,10 +63,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           isActive: pathname.startsWith("/pembangunan"),
         },
         {
-          title: "Realisasi Fisik dan Keuangan",
+          title: "Realisasi",
           url: "/realisasi",
           icon: TrendingUp,
           isActive: pathname.startsWith("/realisasi"),
+          items: [
+            { title: "Fisik & Keuangan", url: "/realisasi" },
+            { title: "Keuangan", url: "/realisasi/keuangan" },
+          ],
         },
         {
           title: "Laporan & Evaluasi",

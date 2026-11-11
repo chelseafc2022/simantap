@@ -49,6 +49,7 @@ interface RekapOpdItem {
 }
 
 interface ExportExcelParams {
+  polaMonitoring?: string;
   tahunAnggaran: number;
   bulan: number;
   namaBulan: string;
@@ -64,6 +65,7 @@ export function exportLaporanToExcel({
   items,
   summary,
   rekapOpd = [],
+  polaMonitoring,
 }: ExportExcelParams) {
   const wb = XLSX.utils.book_new();
 
@@ -147,6 +149,16 @@ export function exportLaporanToExcel({
     `Aman ${summary?.countStatus?.aman || 0} | Waspada ${summary?.countStatus?.perhatian || 0} | Kritis ${summary?.countStatus?.kritis || 0}`,
   ]);
 
+  const isFisik = polaMonitoring !== 'KEUANGAN';
+  if (!isFisik) {
+    rfkRows[0] = ['LAPORAN REALISASI KEUANGAN'];
+    for (let row = 4; row < rfkRows.length; row += 1) {
+      rfkRows[row] = rfkRows[row].filter((_, col) => ![3, 4, 5, 6, 7].includes(col));
+    }
+    rfkRows[4][3] = 'REALISASI';
+    items.forEach((item, index) => { rfkRows[index + 6][6] = item.catatanOperator || 'Keuangan saja'; });
+    rfkRows[rfkRows.length - 1][6] = 'Keuangan saja';
+  }
   const wsRfk = XLSX.utils.aoa_to_sheet(rfkRows);
   wsRfk['!merges'] = [
     XLSX.utils.decode_range('A1:L1'),
@@ -194,6 +206,15 @@ export function exportLaporanToExcel({
     });
   }
 
+  if (!isFisik) {
+    wsRfk['!merges'] = ['A1:G1', 'A2:G2', 'A3:G3', 'A5:A6', 'B5:B6', 'C5:C6', 'D5:E5', 'F5:F6', 'G5:G6'].map(range => XLSX.utils.decode_range(range));
+    wsRfk['!cols'] = [5, 48, 20, 20, 12, 16, 38].map(wch => ({ wch }));
+    for (let row = 6; row < rfkRows.length; row += 1) {
+      for (const col of ['C', 'D']) { if (wsRfk[`${col}${row + 1}`]) wsRfk[`${col}${row + 1}`].z = '#,##0'; }
+      if (wsRfk[`E${row + 1}`]) wsRfk[`E${row + 1}`].z = '0.0%';
+      for (const col of ['F', 'G']) { if (wsRfk[`${col}${row + 1}`]) delete wsRfk[`${col}${row + 1}`].z; }
+    }
+  }
   XLSX.utils.book_append_sheet(wb, wsRfk, 'Laporan RFK');
 
   // ==========================================

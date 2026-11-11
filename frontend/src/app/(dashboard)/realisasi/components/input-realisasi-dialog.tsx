@@ -127,7 +127,7 @@ export function InputRealisasiDialog({
   const isAdmin = roles.includes("ADMINISTRATOR")
   const canEditFisik = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
   const canEditKeuangan = roles.some((role) => ["ADMINISTRATOR", "BENDAHARA"].includes(role))
-  const canUploadFoto = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
+  const canUploadFoto = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK", "BENDAHARA"].includes(role))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [weeklyState, setWeeklyState] = useState<WeeklyItem[]>([])
@@ -238,7 +238,7 @@ export function InputRealisasiDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!paketId || !current) throw new Error("Periode minggu tidak valid")
-      if (currentFisik > 0 && current.buktiFisik.length === 0 && pendingFiles.length === 0) {
+      if (canEditFisik && currentFisik > 0 && current.buktiFisik.length === 0 && pendingFiles.length === 0) {
         throw new Error("Realisasi fisik wajib disertai minimal satu foto bukti pada minggu ini")
       }
       if (pendingFiles.length > 0) await uploadFiles()

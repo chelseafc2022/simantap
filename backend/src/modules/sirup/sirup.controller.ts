@@ -213,7 +213,6 @@ export class SirupController {
       tahun: targetTahun,
       opdId: targetOpdId,
       userId: user?.id,
-      onlyPembangunan: dto.onlyPembangunan !== false,
       kodeRupList: dto.kodeRupList,
     });
   }

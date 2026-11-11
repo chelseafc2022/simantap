@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
 import { ApiResponse } from "@/types/api"
@@ -206,6 +207,12 @@ export default function LoginPage() {
       {/* ========== RIGHT / FORM PANEL ========== */}
       <div className="login-right">
         <div className="login-right-content">
+          <Link href="/" className="login-home-link">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m12 19-7-7 7-7M5 12h14" />
+            </svg>
+            <span>Kembali ke Beranda</span>
+          </Link>
           {/* Welcome Branding */}
           <div className="login-welcome">
             <div className="login-welcome-logo">
@@ -216,12 +223,13 @@ export default function LoginPage() {
                 height={639}
                 quality={100}
                 priority
-                style={{ objectFit: "contain", height: "auto", width: "100%", maxWidth: "120px" }}
+                sizes="(max-width: 767px) 460px, (min-width: 1440px) 440px, 380px"
+                style={{ objectFit: "contain", height: "auto", width: "100%" }}
               />
             </div>
-            <p className="login-welcome-subtitle">
+            {/* <p className="login-welcome-subtitle">
               Monitoring Realisasi Anggaran dan Fisik Data Pembangunan Konawe Selatan
-            </p>
+            </p> */}
           </div>
 
           {/* Login Form */}
@@ -740,7 +748,7 @@ export default function LoginPage() {
         }
 
         .login-welcome-logo :global(img) {
-          max-width: clamp(85px, 12vh, 115px) !important;
+          max-width: min(100%, clamp(300px, 44vh, 380px)) !important;
           height: auto !important;
         }
 
@@ -930,6 +938,37 @@ export default function LoginPage() {
           animation: spin 0.8s linear infinite;
         }
 
+        /* Back to homepage */
+        .login-right-content :global(.login-home-link) {
+          display: inline-flex;
+          align-items: center;
+          align-self: flex-start;
+          gap: 8px;
+          min-height: 36px;
+          padding: 8px 12px;
+          margin-bottom: 8px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          background: #f8fafc;
+          color: #52657d;
+          font-size: 11px;
+          font-weight: 500;
+          line-height: 1.4;
+          text-decoration: none;
+          transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .login-right-content :global(.login-home-link:hover) {
+          background: #edf4fc;
+          border-color: #bfcee0;
+          color: #1d4ed8;
+        }
+
+        .login-right-content :global(.login-home-link:focus-visible) {
+          outline: 2px solid #2563eb;
+          outline-offset: 3px;
+        }
+
         /* Divider */
         .login-divider {
           display: flex;
@@ -1044,7 +1083,7 @@ export default function LoginPage() {
             gap: 12px;
           }
           .login-welcome-logo :global(img) {
-            max-width: 135px !important;
+            max-width: min(100%, 440px) !important;
           }
         }
 
@@ -1231,7 +1270,7 @@ export default function LoginPage() {
           }
 
           .login-welcome-logo :global(img) {
-            max-width: 200px !important;
+            max-width: min(100%, 460px) !important;
           }
 
           .login-welcome-subtitle {

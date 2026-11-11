@@ -10,6 +10,7 @@ import {
 import { Prisma, StatusVerifikasi, type PencairanKeuangan } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
+import { join } from 'path';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService, isExcludedOpd } from '../../core/egov/egov.service';
@@ -1485,12 +1486,17 @@ export class PembangunanService {
 
     this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
 
-    let pencairan: PencairanKeuangan[] = [];
+    let pencairan: any[] = [];
     let pencairanTersedia = true;
     if (paket.polaMonitoring === 'KEUANGAN') {
       try {
         pencairan = await this.prisma.pencairanKeuangan.findMany({
           where: { paketId },
+          include: {
+            bukti: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
           orderBy: [{ bulan: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         });
       } catch (error) {
@@ -1575,6 +1581,15 @@ export class PembangunanService {
             nominal: Number(item.nominal),
             catatan: item.catatan,
             createdAt: item.createdAt,
+            bukti: ((item as any).bukti || []).map((b: any) => ({
+              id: b.id,
+              namaFile: b.namaFile,
+              pathFile: `/uploads/bukti-pencairan/${b.pathFile.split('/').pop()}`,
+              mimeType: b.mimeType,
+              ukuranBytes: b.ukuranBytes,
+              deskripsi: b.deskripsi,
+              createdAt: b.createdAt,
+            })),
           })),
         targetFisik,
         realisasiFisik,
@@ -2801,6 +2816,137 @@ export class PembangunanService {
 
     await this.prisma.buktiFisik.delete({ where: { id: buktiFisikId } });
     return { message: 'Bukti fisik berhasil dihapus.' };
+  }
+
+  /**
+   * Upload bukti/dokumen pendukung yang melekat pada record pencairan keuangan
+   */
+  async uploadBuktiPencairan(
+    paketId: string,
+    pencairanId: string,
+    files: Express.Multer.File[],
+    deskripsi?: string,
+    user?: any,
+  ) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    const pencairan = await this.prisma.pencairanKeuangan.findUnique({
+      where: { id: pencairanId },
+    });
+    if (!pencairan || pencairan.paketId !== paketId) {
+      throw new NotFoundException(
+        `Record pencairan '${pencairanId}' tidak ditemukan pada paket ini`,
+      );
+    }
+
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Tidak ada file yang diupload.');
+    }
+
+    const roles = this.getUserRoles(user);
+    const isAdmin = roles.includes(RoleEnum.ADMINISTRATOR);
+    if (!isAdmin) {
+      const lp = await this.prisma.lockingPeriod.findUnique({
+        where: {
+          tahun_bulan: {
+            tahun: paket.tahunAnggaran,
+            bulan: pencairan.bulan,
+          },
+        },
+      });
+      if (lp && (lp.isLocked || new Date() > new Date(lp.batasInput))) {
+        throw new ForbiddenException(
+          `Upload bukti pencairan Bulan ${pencairan.bulan} ditutup karena telah melewati batas waktu input.`,
+        );
+      }
+    }
+
+    const existingCount = await this.prisma.buktiPencairan.count({
+      where: { pencairanId },
+    });
+    if (existingCount + files.length > 5) {
+      for (const file of files) {
+        if (existsSync(file.path)) await unlink(file.path).catch(() => {});
+      }
+      throw new BadRequestException(
+        `Batas maksimal 5 bukti dokumen untuk pencairan ini sudah tercapai (saat ini: ${existingCount}).`,
+      );
+    }
+
+    const created = await Promise.all(
+      files.map((file) =>
+        this.prisma.buktiPencairan.create({
+          data: {
+            pencairanId,
+            namaFile: file.originalname,
+            pathFile: `/uploads/bukti-pencairan/${file.filename}`,
+            mimeType: file.mimetype,
+            ukuranBytes: file.size,
+            deskripsi: deskripsi?.trim() || null,
+            uploadOlehId: user?.id || null,
+          },
+        }),
+      ),
+    );
+
+    return {
+      message: `${created.length} bukti dokumen pencairan berhasil diupload`,
+      data: created,
+    };
+  }
+
+  /**
+   * Hapus file bukti/dokumen yang melekat pada record pencairan keuangan
+   */
+  async deleteBuktiPencairan(buktiId: string, user?: any) {
+    const bukti = await this.prisma.buktiPencairan.findUnique({
+      where: { id: buktiId },
+      include: { pencairan: { include: { paket: true } } },
+    });
+    if (!bukti) throw new NotFoundException('Bukti pencairan tidak ditemukan');
+
+    this.checkOpdAccess(
+      user,
+      bukti.pencairan.paket.opdId,
+      bukti.pencairan.paket.subUnitId,
+    );
+
+    const roles = this.getUserRoles(user);
+    const isAdmin = roles.includes(RoleEnum.ADMINISTRATOR);
+    if (!isAdmin) {
+      const lp = await this.prisma.lockingPeriod.findUnique({
+        where: {
+          tahun_bulan: {
+            tahun: bukti.pencairan.paket.tahunAnggaran,
+            bulan: bukti.pencairan.bulan,
+          },
+        },
+      });
+      if (lp && (lp.isLocked || new Date() > new Date(lp.batasInput))) {
+        throw new ForbiddenException(
+          `Hapus bukti pencairan Bulan ${bukti.pencairan.bulan} ditutup karena telah melewati batas waktu input.`,
+        );
+      }
+    }
+
+    const filename = bukti.pathFile.split('/').pop();
+    if (filename) {
+      const fullPath = join(
+        process.cwd(),
+        'uploads',
+        'bukti-pencairan',
+        filename,
+      );
+      if (existsSync(fullPath)) await unlink(fullPath).catch(() => {});
+    }
+
+    await this.prisma.buktiPencairan.delete({ where: { id: buktiId } });
+    return { message: 'Bukti pencairan berhasil dihapus' };
   }
 
   // ─── PERIODE & BATAS WAKTU INPUT (CUT-OFF) ──────────────────────────────

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -25,9 +24,7 @@ import {
   Database,
   Loader2,
   CheckCircle2,
-  Building2,
   Sparkles,
-  AlertCircle,
   RefreshCw,
   Globe2,
   Layers,
@@ -63,7 +60,6 @@ export function SirupBulkSyncDialog({
   opdList = [],
 }: SirupBulkSyncDialogProps) {
   const queryClient = useQueryClient()
-  const [onlyPembangunan, setOnlyPembangunan] = useState(true)
 
   // Mode cakupan: "ALL" (Semua OPD) atau "SINGLE" (Satu Sub Unit tertentu)
   const [syncScope, setSyncScope] = useState<"ALL" | "SINGLE">("SINGLE")
@@ -132,7 +128,7 @@ export function SirupBulkSyncDialog({
       return res.data?.data
     },
     enabled: open && !!effectiveTargetId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   })
 
   // Mutasi eksekusi sinkronisasi
@@ -141,11 +137,11 @@ export function SirupBulkSyncDialog({
       const res = await apiClient.post("/sirup/sync-opd", {
         tahun: tahunAnggaran,
         opdId: effectiveTargetId,
-        onlyPembangunan,
       })
       return res.data?.data
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["sirup-preview-opd"] })
       queryClient.invalidateQueries({ queryKey: ["paket-pembangunan"] })
       queryClient.invalidateQueries({ queryKey: ["pembangunan-summary"] })
       toast.success("Sinkronisasi RUP Berhasil!", {
@@ -160,14 +156,12 @@ export function SirupBulkSyncDialog({
         description:
           err.response?.data?.message ||
           err.message ||
-          "Terjadi kesalahan saat membaca tabel RUP Konsel Setara.",
+          "Terjadi kesalahan saat membaca tabel RUP.",
       })
     },
   })
 
-  const candidateCount = onlyPembangunan
-    ? previewData?.pembangunanCount ?? 0
-    : previewData?.total ?? 0
+  const candidateCount = previewData?.total ?? 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -179,7 +173,7 @@ export function SirupBulkSyncDialog({
             </div>
             <div>
               <DialogTitle className="text-base font-semibold">
-                Sinkronisasi Paket RUP Konsel Setara
+                Sinkronisasi Paket RUP
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 Tarik otomatis seluruh paket pengadaan ke database MONALISA
@@ -328,7 +322,7 @@ export function SirupBulkSyncDialog({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-medium text-xs">
                 <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                <span>Status Data RUP Konsel Setara:</span>
+                <span>Status Data RUP:</span>
               </div>
               <Button
                 variant="ghost"
@@ -348,20 +342,14 @@ export function SirupBulkSyncDialog({
             {isLoadingPreview ? (
               <div className="flex items-center gap-2 py-2 text-xs text-blue-700">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Memeriksa tabel RUP Konsel Setara...</span>
+                <span>Memeriksa tabel RUP...</span>
               </div>
             ) : previewData ? (
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span>Total Terdata di Tabel RUP:</span>
+                  <span>Paket Belum Tersinkron:</span>
                   <span className="font-bold">
                     {previewData.total.toLocaleString("id-ID")} Paket
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-emerald-800">
-                  <span>Paket Pembangunan & Belanja Modal:</span>
-                  <span className="font-bold">
-                    {previewData.pembangunanCount.toLocaleString("id-ID")} Paket
                   </span>
                 </div>
                 {previewData.satkerCode && previewData.satkerCode !== "-" && (
@@ -377,31 +365,9 @@ export function SirupBulkSyncDialog({
             )}
           </div>
 
-          {/* Opsi Filter Cerdas */}
-          <div className="flex items-start space-x-2.5 pt-1">
-            <Checkbox
-              id="onlyPembangunan"
-              checked={onlyPembangunan}
-              onCheckedChange={(checked) => setOnlyPembangunan(!!checked)}
-              className="mt-0.5"
-            />
-            <div className="grid gap-0.5 leading-none">
-              <label
-                htmlFor="onlyPembangunan"
-                className="text-xs font-medium cursor-pointer text-foreground"
-              >
-                Hanya Impor Paket Pembangunan & Belanja Modal
-              </label>
-              <p className="text-[11px] text-muted-foreground">
-                Mengabaikan belanja operasional rutin non-pembangunan (seperti ATK,
-                kertas, tagihan listrik).
-              </p>
-            </div>
-          </div>
-
           <div className="text-[11px] text-muted-foreground bg-muted/40 p-2.5 rounded-md border">
             💡 <strong>Keterangan:</strong> Sistem akan memasukkan nama paket,
-            pagu anggaran, metode, jenis pengadaan, dan nomor RUP. Paket pembangunan menggunakan pola fisik mingguan + keuangan. Paket lainnya menggunakan pola keuangan saja. Pola monitoring dapat diubah melalui Ubah Paket. Sinkronisasi ulang mempertahankan pola yang sudah disimpan.
+            pagu anggaran, metode, jenis pengadaan, dan nomor RUP. Paket pembangunan menggunakan pola fisik mingguan + keuangan. Paket lainnya menggunakan pola keuangan saja. Pola monitoring dapat diubah melalui Ubah Paket. Paket yang sudah tersinkron tidak ditampilkan dan tidak diproses kembali. Semua jenis pengadaan disertakan.
           </div>
         </div>
 

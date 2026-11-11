@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Book MONALISA KONSEL — Panduan PPK & Bendahara OPD</title>
+  <style>
+    :root {
+      --emerald-900: #064e3b;
+      --emerald-800: #065f46;
+      --emerald-700: #047857;
+      --emerald-600: #059669;
+      --emerald-100: #d1fae5;
+      --emerald-50: #ecfdf5;
+      --blue-700: #1d4ed8;
+      --blue-50: #eff6ff;
+      --amber-50: #fffbeb;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-300: #cbd5e1;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--slate-800);
+      background-color: #e2e8f0;
+      line-height: 1.6;
+      padding: 2rem 1rem 4rem;
+    }
+    .toolbar {
+      position: fixed; top: 16px; right: 16px; z-index: 999;
+      display: flex; gap: 10px; align-items: center;
+      background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(8px);
+      padding: 10px 14px; border-radius: 12px; color: #fff;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    .toolbar span { font-size: 12px; color: #cbd5e1; }
+    .btn-print {
+      background: var(--emerald-600); color: #fff; border: none;
+      padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer;
+    }
+    .btn-print:hover { background: var(--emerald-700); }
+    .book-container {
+      max-width: 210mm; margin: 0 auto; background: #fff;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12); border-radius: 8px; overflow: hidden;
+    }
+    .cover-page {
+      background: linear-gradient(145deg, var(--emerald-900) 0%, #022c22 65%, #0f172a 100%);
+      color: #fff; padding: 64px 48px; min-height: 270mm;
+      display: flex; flex-direction: column; justify-content: space-between;
+      page-break-after: always;
+    }
+    .cover-badge {
+      display: inline-block; background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(52, 211, 153, 0.4); color: #6ee7b7;
+      font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; padding: 6px 14px; border-radius: 999px; margin-bottom: 24px;
+    }
+    .cover-title { font-size: 36px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+    .cover-subtitle { font-size: 20px; font-weight: 500; color: #a7f3d0; margin-bottom: 28px; }
+    .cover-domain-box {
+      background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px; padding: 18px 22px; max-width: 520px; margin-top: 16px;
+    }
+    .cover-domain-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 4px; }
+    .cover-domain-url { font-family: monospace; font-size: 18px; font-weight: 700; color: #34d399; text-decoration: none; }
+    .cover-roles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 36px 0; }
+    .cover-role-card {
+      background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px; padding: 20px;
+    }
+    .cover-role-card h3 { font-size: 16px; color: #6ee7b7; margin-bottom: 8px; }
+    .cover-role-card ul { padding-left: 18px; font-size: 13px; color: #e2e8f0; }
+    .cover-role-card li { margin-bottom: 4px; }
+    .cover-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.15); padding-top: 24px;
+      display: flex; justify-content: space-between; font-size: 13px; color: #cbd5e1;
+    }
+    .content-page { padding: 42px 48px; }
+    .page-break { page-break-before: always; border-top: 2px solid var(--slate-100); padding-top: 36px; margin-top: 36px; }
+    .chapter-badge {
+      display: inline-block; background: var(--emerald-100); color: var(--emerald-800);
+      font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px;
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;
+    }
+    h2.chapter-title {
+      font-size: 24px; font-weight: 800; color: var(--slate-900);
+      margin-bottom: 16px; padding-bottom: 10px; border-bottom: 3px solid var(--emerald-600);
+    }
+    h3.section-title { font-size: 17px; font-weight: 700; color: var(--emerald-900); margin: 26px 0 10px; }
+    h4.step-title {
+      font-size: 14.5px; font-weight: 700; color: var(--slate-800); margin: 18px 0 8px;
+      background: var(--slate-100); padding: 7px 12px; border-left: 4px solid var(--emerald-600);
+      border-radius: 0 6px 6px 0;
+    }
+    p { font-size: 13.5px; color: var(--slate-700); margin-bottom: 10px; }
+    ol, ul { padding-left: 22px; margin-bottom: 14px; font-size: 13.5px; color: var(--slate-700); }
+    li { margin-bottom: 6px; }
+    code {
+      font-family: monospace; background: var(--slate-100); padding: 2px 6px;
+      border-radius: 4px; font-size: 12.5px; color: var(--emerald-800); font-weight: 600;
+    }
+    table.manual-table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; }
+    table.manual-table th, table.manual-table td { border: 1px solid var(--slate-300); padding: 9px 12px; text-align: left; vertical-align: top; }
+    table.manual-table th { background: var(--slate-100); color: var(--slate-900); font-weight: 700; }
+    table.manual-table tr:nth-child(even) td { background: var(--slate-50); }
+    .text-center { text-align: center !important; }
+    .badge-yes { display: inline-block; background: #dcfce7; color: #166534; font-weight: 700; font-size: 11.5px; padding: 2px 8px; border-radius: 99px; }
+    .badge-no { display: inline-block; background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 11.5px; padding: 2px 8px; border-radius: 99px; }
+    .callout { border-radius: 8px; padding: 12px 16px; margin: 14px 0; font-size: 13px; border-left: 4px solid; }
+    .callout-important { background: var(--emerald-50); border-color: var(--emerald-600); color: #064e3b; }
+    .callout-warning { background: var(--amber-50); border-color: #d97706; color: #78350f; }
+    .callout-info { background: var(--blue-50); border-color: var(--blue-700); color: #1e3a8a; }
+    .callout-title { font-weight: 700; margin-bottom: 4px; display: block; }
+    .ss-box {
+      border: 2px dashed #059669; background: #f8fafc; border-radius: 10px;
+      min-height: 220px; margin: 14px 0 24px; padding: 16px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; position: relative; cursor: pointer; page-break-inside: avoid;
+    }
+    .ss-box:hover { background: #f0fdf4; }
+    .ss-box.has-image { border-style: solid; border-color: var(--slate-300); background: #fff; padding: 8px; min-height: auto; }
+    .ss-badge {
+      background: var(--emerald-800); color: #fff; font-size: 11px; font-weight: 700;
+      padding: 4px 10px; border-radius: 99px; margin-bottom: 8px; text-transform: uppercase;
+    }
+    .ss-title { font-size: 14px; font-weight: 700; color: var(--slate-800); margin-bottom: 4px; }
+    .ss-desc { font-size: 12px; color: var(--slate-500); max-width: 520px; }
+    .ss-hint {
+      margin-top: 10px; font-size: 11px; color: var(--emerald-700);
+      background: var(--emerald-100); padding: 3px 10px; border-radius: 6px; font-weight: 600;
+    }
+    .ss-preview { max-width: 100%; height: auto; border-radius: 6px; display: none; }
+    .ss-caption { font-size: 11.5px; color: var(--slate-600); margin-top: 6px; font-style: italic; display: none; }
+    .ss-remove-btn {
+      position: absolute; top: 10px; right: 10px; background: rgba(220, 38, 38, 0.9);
+      color: #fff; border: none; border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; display: none;
+    }
+    .ss-box.has-image .ss-placeholder-content { display: none; }
+    .ss-box.has-image .ss-preview, .ss-box.has-image .ss-caption, .ss-box.has-image:hover .ss-remove-btn { display: block; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar, .ss-hint, .ss-remove-btn { display: none !important; }
+      .book-container { box-shadow: none; max-width: 100%; border-radius: 0; }
+      .cover-page, .callout, .chapter-badge, .badge-yes, .badge-no, table.manual-table th {
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>💡 Klik kotak screenshot untuk memilih gambar SS, lalu klik Cetak PDF:</span>
+    <button class="btn-print" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+  </div>
+
+  <div class="book-container">
+    <section class="cover-page">
+      <div>
+        <span class="cover-badge">Buku Panduan Resmi Pengguna OPD</span>
+        <h1 class="cover-title">MANUAL BOOK<br/>MONALISA KONSEL</h1>
+        <p class="cover-subtitle">Sistem Informasi Monitoring & Evaluasi Realisasi Fisik dan Keuangan</p>
+        <div class="cover-domain-box">
+          <div class="cover-domain-label">Alamat Portal Resmi</div>
+          <a class="cover-domain-url" href="https://monalisa.konaweselatankab.go.id" target="_blank" rel="noopener noreferrer">
+            https://monalisa.konaweselatankab.go.id
+          </a>
+        </div>
+        <div class="cover-roles-grid">
+          <div class="cover-role-card">
+            <h3>👷 Panduan PPK OPD</h3>
+            <ul>
+              <li>Input Data Kontrak & Jadwal Pelaksanaan</li>
+              <li>Penetapan Target Fisik Mingguan (Kurva-S)</li>
+              <li>Input Realisasi Fisik Mingguan (%)</li>
+              <li>Upload Foto / PDF Bukti Fisik Lapangan</li>
+              <li><em>(Kolom Realisasi Keuangan Terkunci)</em></li>
+            </ul>
+          </div>
+          <div class="cover-role-card">
+            <h3>💳 Panduan Bendahara OPD</h3>
+            <ul>
+              <li>Input Realisasi Keuangan (Rp) Paket Fisik</li>
+              <li>Input Pencairan Bertahap Paket Keuangan</li>
+              <li>Upload File Dokumen Bukti (PDF SP2D / Kuitansi / Foto)</li>
+              <li>Edit & Riwayat Transaksi Pencairan</li>
+              <li><em>(Kolom Target & Realisasi Fisik Terkunci)</em></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="cover-footer">
+        <div>
+          <strong>PEMERINTAH KABUPATEN KONAWE SELATAN</strong><br/>
+          Bagian Administrasi Pembangunan Sekretariat Daerah
+        </div>
+        <div style="text-align: right;">
+          <strong>Edisi Tahun Anggaran 2026</strong><br/>
+          monalisa.konaweselatankab.go.id
+        </div>
+      </div>
+    </section>
+
+    <div class="content-page">
+      <span class="chapter-badge">BAB I</span>
+      <h2 class="chapter-title">Pendahuluan & Pembagian Kewenangan</h2>
+      <p>
+        Sistem <strong>MONALISA KONSEL</strong> (<code>https://monalisa.konaweselatankab.go.id</code>) menerapkan pemisahan kewenangan (<em>segregation of duties</em>) antara <strong>Pejabat Pembuat Komitmen (PPK)</strong> dan <strong>Bendahara Pengeluaran OPD</strong>.
+      </p>
+
+      <h3 class="section-title">1.1 Matriks Hak Akses Akun PPK vs Bendahara OPD</h3>
+      <table class="manual-table">
+        <thead>
+          <tr>
+            <th class="text-center" style="width: 42px;">No</th>
+            <th>Fitur / Aktivitas pada Sistem</th>
+            <th class="text-center" style="width: 120px;">PPK OPD</th>
+            <th class="text-center" style="width: 130px;">Bendahara OPD</th>
+            <th>Keterangan Aturan Sistem</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="text-center">1</td>
+            <td>Login & Melihat Dashboard OPD</td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td>Sesuai lingkup OPD / Sub Unit Kerja masing-masing</td>
+          </tr>
+          <tr>
+            <td class="text-center">2</td>
+            <td>Melengkapi Info Kontrak Paket Pembangunan</td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-no">❌ Tidak Bisa</span></td>
+            <td>Nomor kontrak, nilai kontrak, rekanan, tanggal mulai & selesai</td>
+          </tr>
+          <tr>
+            <td class="text-center">3</td>
+            <td>Menetapkan <strong>Target Fisik Mingguan (Kurva-S)</strong></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-no">❌ Tidak Bisa</span></td>
+            <td>Target kumulatif 0% s.d. 100% sesuai jadwal kontrak</td>
+          </tr>
+          <tr>
+            <td class="text-center">4</td>
+            <td>Menginput <strong>Realisasi Fisik (%)</strong></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-no">🔒 Terkunci</span></td>
+            <td>Kolom fisik otomatis nonaktif (abu-abu) pada akun Bendahara</td>
+          </tr>
+          <tr>
+            <td class="text-center">5</td>
+            <td>Menginput <strong>Realisasi Keuangan (Rp)</strong></td>
+            <td class="text-center"><span class="badge-no">🔒 Terkunci</span></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td>Kolom keuangan otomatis nonaktif (abu-abu) pada akun PPK</td>
+          </tr>
+          <tr>
+            <td class="text-center">6</td>
+            <td><strong>Upload File Bukti / Dokumen (Foto, PDF, MP4)</strong></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td>PPK: Foto/PDF progres lapangan; Bendahara: PDF SP2D/Kuitansi/Foto</td>
+          </tr>
+          <tr>
+            <td class="text-center">7</td>
+            <td>Mencetak Laporan Rekapitulasi PDF</td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td class="text-center"><span class="badge-yes">✅ Bisa</span></td>
+            <td>Tersedia tombol Cetak PDF di halaman Realisasi</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-important">
+        <span class="callout-title">📌 Ringkasan Penting:</span>
+        • <strong>PPK OPD</strong> hanya menginput <strong>Target & Realisasi Fisik (%)</strong> serta bukti fisik lapangan (tidak bisa mengisi Realisasi Keuangan).<br/>
+        • <strong>Bendahara OPD</strong> hanya menginput <strong>Realisasi Keuangan (Rp)</strong> serta mengunggah file bukti dokumen pencairan seperti PDF SP2D/Kuitansi/Foto (tidak bisa mengisi Target maupun Realisasi Fisik).
+      </div>
+
+      <div class="page-break">
+        <span class="chapter-badge">BAB II</span>
+        <h2 class="chapter-title">Panduan Login & Navigasi Utama Sistem</h2>
+
+        <h3 class="section-title">2.1 Membuka Portal MONALISA KONSEL</h3>
+        <ol>
+          <li>Buka browser (Google Chrome / Edge / Safari) dan akses <code>https://monalisa.konaweselatankab.go.id</code></li>
+          <li>Klik tombol <strong>Masuk / Login</strong> di pojok kanan atas halaman utama.</li>
+        </ol>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 01</span>
+            <div class="ss-title">Halaman Utama (Landing Page) MONALISA KONSEL</div>
+            <div class="ss-desc">Ambil screenshot halaman depan <strong>https://monalisa.konaweselatankab.go.id</strong> beserta tombol Login.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 01" />
+          <div class="ss-caption">Gambar 2.1 — Halaman Utama monalisa.konaweselatankab.go.id</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h3 class="section-title">2.2 Login Menggunakan Akun PPK atau Bendahara</h3>
+        <ol>
+          <li>Pada halaman <code>https://monalisa.konaweselatankab.go.id/login</code>, masukkan <strong>NIP / Username / Email</strong> dan <strong>Password</strong>.</li>
+          <li>Klik tombol <strong>Masuk</strong>.</li>
+        </ol>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 02</span>
+            <div class="ss-title">Halaman Login MONALISA KONSEL</div>
+            <div class="ss-desc">Ambil screenshot halaman <strong>/login</strong> saat mengisi NIP/Username dan Password.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 02" />
+          <div class="ss-caption">Gambar 2.2 — Halaman Login Pengguna</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h3 class="section-title">2.3 Menu Navigasi (Sidebar Kiri)</h3>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 03</span>
+            <div class="ss-title">Dashboard OPD & Menu Sidebar Kiri</div>
+            <div class="ss-desc">Ambil screenshot Dashboard setelah login dengan menu <strong>Paket Pembangunan</strong> dan <strong>Realisasi (Fisik & Keuangan / Keuangan)</strong> terlihat jelas.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 03" />
+          <div class="ss-caption">Gambar 2.3 — Dashboard OPD & Navigasi Sidebar Kiri</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+      </div>
+
+      <div class="page-break">
+        <span class="chapter-badge">BAB III — KHUSUS PPK OPD</span>
+        <h2 class="chapter-title">Panduan Penggunaan untuk PPK OPD</h2>
+
+        <h3 class="section-title">3.1 Tahap 1 — Melengkapi Kontrak & Menetapkan Target Fisik Mingguan (Kurva-S)</h3>
+        <h4 class="step-title">Langkah 1: Buka Menu Paket Pembangunan & Klik Ubah Paket</h4>
+        <ol>
+          <li>Klik menu <strong>Paket Pembangunan</strong> di sidebar kiri.</li>
+          <li>Klik ikon <strong>Ubah Paket (Pensil)</strong> pada kolom Aksi di baris paket pekerjaan Anda.</li>
+        </ol>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 04</span>
+            <div class="ss-title">Daftar Paket Pembangunan (Akun PPK)</div>
+            <div class="ss-desc">Ambil screenshot halaman <strong>/pembangunan</strong> dan tandai tombol ikon pensil (Ubah Paket).</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 04" />
+          <div class="ss-caption">Gambar 3.1 — Halaman Daftar Paket Pembangunan</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 2: Isi Data Kontrak pada Tab 1</h4>
+        <ol>
+          <li>Pastikan Pola Monitoring terpilih <strong>Fisik & Keuangan</strong>.</li>
+          <li>Lengkapi Nomor Kontrak, Nilai Kontrak, Pemenang Rekanan, serta <strong>Tanggal Mulai & Selesai Kontrak</strong>.</li>
+          <li>Klik tombol <strong><code>Target Fisik Mingguan &rarr;</code></strong>.</li>
+        </ol>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 05</span>
+            <div class="ss-title">Dialog Ubah Paket — Tab 1: Informasi Paket & Kontrak</div>
+            <div class="ss-desc">Ambil screenshot Tab 1 pengisian kontrak dan tombol "Target Fisik Mingguan &rarr;".</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 05" />
+          <div class="ss-caption">Gambar 3.2 — Dialog Ubah Paket Tab 1</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 3: Isi Target Fisik Mingguan (Kurva-S) pada Tab 2 & Simpan</h4>
+        <ol>
+          <li>Isi <strong>Nama / Uraian Kegiatan Rencana</strong> dan <strong>Target Fisik Kumulatif (%)</strong> tiap minggu hingga mencapai <strong>100%</strong> di minggu akhir kontrak.</li>
+          <li>Klik <strong><code>Simpan Target Fisik & Perubahan</code></strong>.</li>
+        </ol>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 06</span>
+            <div class="ss-title">Dialog Ubah Paket — Tab 2: Target Fisik Mingguan (Kurva-S)</div>
+            <div class="ss-desc">Ambil screenshot Tab 2 pengisian target mingguan dan grafik Kurva-S.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 06" />
+          <div class="ss-caption">Gambar 3.3 — Penetapan Target Fisik Mingguan oleh PPK</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h3 class="section-title">3.2 Tahap 2 — Menginput Realisasi Fisik (%) & Upload Bukti oleh PPK</h3>
+        <h4 class="step-title">Langkah 1: Buka Menu Realisasi &rarr; Fisik & Keuangan</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 07</span>
+            <div class="ss-title">Halaman Realisasi &rarr; Fisik & Keuangan (Akun PPK)</div>
+            <div class="ss-desc">Ambil screenshot halaman <strong>/realisasi</strong> dan tombol "Input / Ubah" di kolom Aksi.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 07" />
+          <div class="ss-caption">Gambar 3.4 — Halaman Realisasi Fisik & Keuangan</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 2: Isi Realisasi Fisik (%) (Kolom Keuangan Terkunci)</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 08</span>
+            <div class="ss-title">Dialog Realisasi Mingguan — Tampilan Akun PPK</div>
+            <div class="ss-desc">Ambil screenshot yang memperlihatkan kolom <strong>Realisasi Fisik (%) AKTIF</strong> dan kolom <strong>Realisasi Keuangan (Rp) TERKUNCI</strong>.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 08" />
+          <div class="ss-caption">Gambar 3.5 — Input Realisasi Fisik oleh PPK</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 3: Upload Foto / PDF Bukti Lapangan & Klik Simpan Minggu Ini</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 09</span>
+            <div class="ss-title">Panel Upload Bukti Minggu Ini & Tombol Simpan Minggu Ini</div>
+            <div class="ss-desc">Ambil screenshot panel kanan "Bukti Minggu Ini" dan tombol hijau "Simpan Minggu Ini".</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 09" />
+          <div class="ss-caption">Gambar 3.6 — Upload Bukti Fisik & Kurva-S</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+      </div>
+
+      <div class="page-break">
+        <span class="chapter-badge">BAB IV — KHUSUS BENDAHARA OPD</span>
+        <h2 class="chapter-title">Panduan Penggunaan untuk Bendahara OPD</h2>
+
+        <h3 class="section-title">4.1 Skenario A — Input Realisasi Keuangan & Upload File pada Paket Konstruksi (Fisik & Keuangan)</h3>
+        <h4 class="step-title">Langkah 1: Buka Menu Realisasi &rarr; Fisik & Keuangan</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 10</span>
+            <div class="ss-title">Halaman Realisasi &rarr; Fisik & Keuangan (Akun Bendahara)</div>
+            <div class="ss-desc">Ambil screenshot halaman <strong>/realisasi</strong> saat login sebagai Bendahara OPD.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 10" />
+          <div class="ss-caption">Gambar 4.1 — Daftar Paket pada Akun Bendahara</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 2: Isi Kolom Realisasi Keuangan (Rp) (Kolom Fisik Terkunci)</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 11</span>
+            <div class="ss-title">Dialog Realisasi Mingguan — Tampilan Akun Bendahara</div>
+            <div class="ss-desc">Ambil screenshot yang menunjukkan kolom <strong>Realisasi Fisik (%) TERKUNCI</strong> dan kolom <strong>Realisasi Keuangan (Rp) AKTIF</strong>.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 11" />
+          <div class="ss-caption">Gambar 4.2 — Input Realisasi Keuangan oleh Bendahara</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 3: Upload File Dokumen / Bukti oleh Bendahara (PDF / Foto) & Simpan</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 12</span>
+            <div class="ss-title">Upload File Bukti (PDF SP2D / Kuitansi / Foto) oleh Bendahara</div>
+            <div class="ss-desc">Ambil screenshot kartu "Bukti Minggu Ini" saat Bendahara mengunggah file PDF/Foto beserta tombol "Simpan Minggu Ini".</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 12" />
+          <div class="ss-caption">Gambar 4.3 — Upload File Bukti pada Akun Bendahara</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h3 class="section-title">4.2 Skenario B — Input Pencairan Keuangan Bulanan & Upload File pada Paket Keuangan Saja</h3>
+        <h4 class="step-title">Langkah 1: Buka Menu Realisasi &rarr; Keuangan</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 13</span>
+            <div class="ss-title">Halaman Realisasi &rarr; Keuangan (/realisasi/keuangan)</div>
+            <div class="ss-desc">Ambil screenshot halaman <strong>/realisasi/keuangan</strong> beserta tombol Input / Ubah.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 13" />
+          <div class="ss-caption">Gambar 4.4 — Halaman Realisasi Keuangan</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 2: Isi Nominal Pencairan, Catatan SP2D, & Upload File Lampiran</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 14</span>
+            <div class="ss-title">Dialog Realisasi Keuangan Bulanan — Tab "Tambah Pencairan" & Upload File</div>
+            <div class="ss-desc">Ambil screenshot form Tambah Pencairan beserta bagian "Lampiran Dokumen / Bukti Pencairan (Pilih File PDF/Foto)" dan tombol "Catat Pencairan".</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 14" />
+          <div class="ss-caption">Gambar 4.5 — Input Pencairan & Lampiran Dokumen Bulanan</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+
+        <h4 class="step-title">Langkah 3: Tab Riwayat Pencairan (Edit & Hapus Transaksi)</h4>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 15</span>
+            <div class="ss-title">Dialog Realisasi Keuangan Bulanan — Tab "Riwayat"</div>
+            <div class="ss-desc">Ambil screenshot tab "Riwayat" beserta tombol Edit dan Hapus transaksi pencairan.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 15" />
+          <div class="ss-caption">Gambar 4.6 — Riwayat Transaksi Pencairan Bulanan</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+      </div>
+
+      <div class="page-break">
+        <span class="chapter-badge">BAB V</span>
+        <h2 class="chapter-title">Pencetakan Laporan PDF & Tanya Jawab (FAQ)</h2>
+        <div class="ss-box">
+          <div class="ss-placeholder-content">
+            <span class="ss-badge">KOTAK SCREENSHOT 16</span>
+            <div class="ss-title">Tombol Cetak PDF & Hasil Cetakan Laporan Realisasi</div>
+            <div class="ss-desc">Ambil screenshot tombol "Cetak PDF" di pojok kanan atas halaman Realisasi.</div>
+            <div class="ss-hint">Klik di sini untuk pilih file gambar SS</div>
+          </div>
+          <img class="ss-preview" alt="Screenshot 16" />
+          <div class="ss-caption">Gambar 5.1 — Fitur Cetak Laporan PDF</div>
+          <button type="button" class="ss-remove-btn">Hapus Gambar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="global-ss-input" accept="image/*" style="display: none;" />
+  <script>
+    (function () {
+      const fileInput = document.getElementById('global-ss-input');
+      let activeBox = null;
+      function setBoxImage(box, dataUrl) {
+        const img = box.querySelector('.ss-preview');
+        img.src = dataUrl;
+        box.classList.add('has-image');
+      }
+      document.querySelectorAll('.ss-box').forEach((box) => {
+        box.addEventListener('click', (e) => {
+          if (e.target.classList.contains('ss-remove-btn')) return;
+          activeBox = box;
+          fileInput.click();
+        });
+        const removeBtn = box.querySelector('.ss-remove-btn');
+        if (removeBtn) {
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            box.querySelector('.ss-preview').src = '';
+            box.classList.remove('has-image');
+          });
+        }
+      });
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file && activeBox) {
+          const reader = new FileReader();
+          reader.onload = (ev) => setBoxImage(activeBox, ev.target.result);
+          reader.readAsDataURL(file);
+        }
+        fileInput.value = '';
+      });
+    })();
+  </script>
+</body>
+</html>
+

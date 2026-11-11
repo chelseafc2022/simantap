@@ -96,6 +96,8 @@ export default function LaporanDanEvaluasiPage() {
   const [statusDeviasi, setStatusDeviasi] = useState<string>("ALL")
   const [page, setPage] = useState<number>(1)
   const [limit] = useState<number>(15)
+  const [polaMonitoring, setPolaMonitoring] = useState("FISIK_KEUANGAN")
+  const isFisik = polaMonitoring === "FISIK_KEUANGAN"
   const [activeTab, setActiveTab] = useState<string>("evaluasi")
   const [isExporting, setIsExporting] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -168,6 +170,7 @@ export default function LaporanDanEvaluasiPage() {
   } = useQuery({
     queryKey: [
       "laporan-rfk",
+      polaMonitoring,
       tahun,
       bulan,
       selectedOpd,
@@ -180,6 +183,7 @@ export default function LaporanDanEvaluasiPage() {
     queryFn: async () => {
       const params: any = {
         tahunAnggaran: tahun,
+        polaMonitoring,
         bulan,
         page,
         limit,
@@ -361,6 +365,7 @@ export default function LaporanDanEvaluasiPage() {
       tahunAnggaran: tahun,
       bulan,
       limit: pageSize,
+      polaMonitoring,
     }
 
     if (!canSelectOpd && userOpdId) {
@@ -443,6 +448,7 @@ export default function LaporanDanEvaluasiPage() {
         tahunAnggaran: tahun,
         bulan,
         namaBulan: BULAN_NAMES[bulan - 1],
+        polaMonitoring,
         items: report.items,
         summary: report.summary,
         rekapOpd: opdList,
@@ -471,6 +477,7 @@ export default function LaporanDanEvaluasiPage() {
         tahunAnggaran: tahun,
         bulan,
         namaBulan: BULAN_NAMES[bulan - 1],
+        polaMonitoring,
         items: report.items,
         summary: report.summary,
         filterOpdNama,
@@ -750,6 +757,10 @@ export default function LaporanDanEvaluasiPage() {
         {/* TAB 1: MATRIKS EVALUASI RFK                              */}
         {/* ======================================================== */}
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
+          <div className="flex flex-wrap gap-2" aria-label="Jenis evaluasi RFK">
+            <Button variant={isFisik ? "default" : "outline"} onClick={() => { setPolaMonitoring("FISIK_KEUANGAN"); setStatusDeviasi("ALL"); setPage(1) }}>Fisik & Keuangan</Button>
+            <Button variant={!isFisik ? "default" : "outline"} onClick={() => { setPolaMonitoring("KEUANGAN"); setStatusDeviasi("ALL"); setPage(1) }}>Keuangan Saja</Button>
+          </div>
           <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
             {/* Tampilan kartu untuk layar mobile (di bawah 768px) */}
             <div className="md:hidden divide-y divide-gray-200 dark:divide-neutral-700">
@@ -801,6 +812,7 @@ export default function LaporanDanEvaluasiPage() {
                           )}
                         </div>
                         <div>
+                          {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
                           {item.status === "AMAN" && (
                             <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
                               Aman
@@ -830,12 +842,12 @@ export default function LaporanDanEvaluasiPage() {
                           {item.namaPaket}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                          {item.nomorKontrak && (
+                          {isFisik && item.nomorKontrak && (
                             <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px]">
                               SPK: {item.nomorKontrak}
                             </span>
                           )}
-                          {item.pemenangRekanan && (
+                          {isFisik && item.pemenangRekanan && (
                             <span className="truncate max-w-[200px] text-[11px]">
                               Rekanan: {item.pemenangRekanan}
                             </span>
@@ -852,7 +864,8 @@ export default function LaporanDanEvaluasiPage() {
                       </div>
 
                       {/* Grid 2 Kolom: Kinerja Fisik & Realisasi Keuangan */}
-                      <div className="grid grid-cols-2 gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono">
+                      <div className={`grid ${isFisik ? "grid-cols-2" : "grid-cols-1"} gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono`}>
+                        {isFisik && (
                         <div className="space-y-1">
                           <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
                           <div className="flex items-center gap-1.5">
@@ -878,6 +891,7 @@ export default function LaporanDanEvaluasiPage() {
                             </span>
                           </div>
                         </div>
+                        )}
                         <div className="space-y-1">
                           <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
                           <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
@@ -892,7 +906,7 @@ export default function LaporanDanEvaluasiPage() {
                       {/* Nilai Pagu & Kontrak */}
                       <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
                         <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
-                        <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>
+                        {isFisik && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>}
                       </div>
                     </div>
                   )
@@ -905,29 +919,29 @@ export default function LaporanDanEvaluasiPage() {
               {/* Petunjuk Scroll untuk Layar Tablet / Laptop */}
               <div className="block 2xl:hidden px-4 py-2 text-[11px] text-muted-foreground bg-muted/30 border-b border-border/70 flex items-center justify-between">
                 <span className="flex items-center gap-1.5 font-medium">
-                  <span>←</span> Geser tabel secara horizontal untuk melihat semua kolom lengkap (Nilai Kontrak, Tanggal, Realisasi Fisik & Keuangan) <span>→</span>
+                  <span>←</span> Geser tabel secara horizontal untuk melihat semua kolom lengkap {isFisik ? "(Kontrak, Fisik & Keuangan)" : "(Anggaran & Realisasi Keuangan)"} <span>→</span>
                 </span>
-                <span className="text-[10px] font-mono text-muted-foreground/80 hidden sm:inline">12 Kolom RFK Standar</span>
+                <span className="text-[10px] font-mono text-muted-foreground/80 hidden sm:inline">{isFisik ? "12 Kolom RFK" : "7 Kolom Keuangan"}</span>
               </div>
 
               <div className="overflow-x-auto">
-                <Table className="w-full min-w-[1550px] border-collapse">
+                <Table className={`w-full ${isFisik ? "min-w-[1550px]" : "min-w-[950px]"} border-collapse`}>
                   <TableHeader className="bg-slate-100/95 dark:bg-neutral-800/90 sticky top-0 z-10">
                     <TableRow className="hover:bg-transparent border-b border-gray-300 dark:border-neutral-700">
                       <TableHead rowSpan={2} className="w-12 min-w-[48px] px-2 text-center align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">No</TableHead>
                       <TableHead rowSpan={2} className="min-w-[320px] max-w-[400px] px-3 align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Jenis Kegiatan & Rincian Paket</TableHead>
                       <TableHead rowSpan={2} className="w-[140px] min-w-[140px] px-3 text-right align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Anggaran (Rp)</TableHead>
-                      <TableHead rowSpan={2} className="w-[140px] min-w-[140px] px-3 text-right align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Nilai Kontrak (Rp)</TableHead>
-                      <TableHead rowSpan={2} className="w-[180px] min-w-[180px] px-3 align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Nomor Kontrak / SPK</TableHead>
-                      <TableHead colSpan={2} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95 py-2">Tanggal Kontrak</TableHead>
-                      <TableHead colSpan={3} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95 py-2">Realisasi Capaian</TableHead>
+                      {isFisik && (<TableHead rowSpan={2} className="w-[140px] min-w-[140px] px-3 text-right align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Nilai Kontrak (Rp)</TableHead>)}
+                      {isFisik && (<TableHead rowSpan={2} className="w-[180px] min-w-[180px] px-3 align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Nomor Kontrak / SPK</TableHead>)}
+                      {isFisik && (<TableHead colSpan={2} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95 py-2">Tanggal Kontrak</TableHead>)}
+                      <TableHead colSpan={isFisik ? 3 : 2} className="text-center text-xs font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95 py-2">Realisasi Capaian</TableHead>
                       <TableHead rowSpan={2} className="w-[90px] min-w-[90px] px-2 text-center align-middle text-[11px] font-bold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Sumber Dana</TableHead>
                       <TableHead rowSpan={2} className="min-w-[210px] px-3 align-middle text-[11px] font-bold border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Status & Keterangan</TableHead>
                     </TableRow>
                     <TableRow className="hover:bg-transparent border-b border-gray-300 dark:border-neutral-700">
-                      <TableHead className="w-[105px] min-w-[105px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Mulai</TableHead>
-                      <TableHead className="w-[105px] min-w-[105px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Berakhir</TableHead>
-                      <TableHead className="w-[85px] min-w-[85px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Fisik (%)</TableHead>
+                      {isFisik && (<TableHead className="w-[105px] min-w-[105px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Mulai</TableHead>)}
+                      {isFisik && (<TableHead className="w-[105px] min-w-[105px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Berakhir</TableHead>)}
+                      {isFisik && (<TableHead className="w-[85px] min-w-[85px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Fisik (%)</TableHead>)}
                       <TableHead className="w-[145px] min-w-[145px] px-3 text-right text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">Keuangan (Rp)</TableHead>
                       <TableHead className="w-[75px] min-w-[75px] px-2 text-center text-[10px] font-semibold border-r border-b border-gray-300 dark:border-neutral-700 bg-slate-100/95 dark:bg-neutral-800/95">% Keu</TableHead>
                     </TableRow>
@@ -935,7 +949,7 @@ export default function LaporanDanEvaluasiPage() {
                   <TableBody>
                     {isLoadingRfk ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                        <TableCell colSpan={isFisik ? 12 : 7} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
                             <span className="text-xs text-muted-foreground">Memuat laporan evaluasi realisasi pembangunan...</span>
@@ -944,7 +958,7 @@ export default function LaporanDanEvaluasiPage() {
                       </TableRow>
                     ) : items.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
+                        <TableCell colSpan={isFisik ? 12 : 7} className="h-56 text-center border-b border-gray-200 dark:border-neutral-700">
                           <div className="flex flex-col items-center justify-center gap-2">
                             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
                               <FileText className="h-5 w-5" />
@@ -982,27 +996,27 @@ export default function LaporanDanEvaluasiPage() {
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                                   <span className="font-medium text-foreground/80">{item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}</span>
                                   {item.metodePemilihan && <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-normal">{item.metodePemilihan}</Badge>}
-                                  {item.pemenangRekanan && <span className="truncate max-w-[180px]">• {item.pemenangRekanan}</span>}
+                                  {isFisik && item.pemenangRekanan && <span className="truncate max-w-[180px]">• {item.pemenangRekanan}</span>}
                                 </div>
                               </TableCell>
                               <TableCell className="px-3 text-right font-mono text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatRupiah(item.nilaiPagu)}
                               </TableCell>
-                              <TableCell className="px-3 text-right font-mono font-semibold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                              {isFisik && (<TableCell className="px-3 text-right font-mono font-semibold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatRupiah(item.nilaiKontrak)}
-                              </TableCell>
-                              <TableCell className="px-3 font-mono text-[11px] leading-snug py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                              </TableCell>)}
+                              {isFisik && (<TableCell className="px-3 font-mono text-[11px] leading-snug py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 <div className="max-w-[200px] break-words whitespace-normal">{item.nomorKontrak || "-"}</div>
-                              </TableCell>
-                              <TableCell className="px-2 text-center whitespace-nowrap text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                              </TableCell>)}
+                              {isFisik && (<TableCell className="px-2 text-center whitespace-nowrap text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatTanggal(item.tanggalMulai)}
-                              </TableCell>
-                              <TableCell className="px-2 text-center whitespace-nowrap text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                              </TableCell>)}
+                              {isFisik && (<TableCell className="px-2 text-center whitespace-nowrap text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatTanggal(item.tanggalSelesai)}
-                              </TableCell>
-                              <TableCell className="px-2 text-center font-mono font-bold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                              </TableCell>)}
+                              {isFisik && (<TableCell className="px-2 text-center font-mono font-bold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {item.realisasiFisik.toFixed(1)}%
-                              </TableCell>
+                              </TableCell>)}
                               <TableCell className="px-3 text-right font-mono font-semibold text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatRupiah(item.realisasiKeuangan)}
                               </TableCell>
@@ -1015,14 +1029,15 @@ export default function LaporanDanEvaluasiPage() {
                               <TableCell className="px-3 whitespace-normal py-3.5 border-b border-gray-200 dark:border-neutral-700">
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
+                                    {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
                                     {item.status === "AMAN" && <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[9px] py-0">Aman</Badge>}
                                     {item.status === "PERHATIAN" && <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[9px] py-0">Waspada</Badge>}
                                     {item.status === "KRITIS" && <Badge variant="destructive" className="text-[9px] py-0">Kritis</Badge>}
                                     {item.status === "BELUM_MULAI" && <Badge variant="outline" className="text-muted-foreground text-[9px] py-0">Belum Mulai</Badge>}
                                   </div>
-                                  <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap">
+{isFisik && (                                  <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap">
                                     Target {item.targetFisik.toFixed(1)}% · Deviasi {isDeviasiPositif ? "+" : ""}{item.deviasiFisik.toFixed(1)}%
-                                  </span>
+                                  </span>)}
                                   {item.catatanOperator && (
                                     <p className="line-clamp-2 whitespace-normal break-words text-[10px] leading-tight text-muted-foreground/90 italic" title={item.catatanOperator}>
                                       {item.catatanOperator}
@@ -1036,14 +1051,14 @@ export default function LaporanDanEvaluasiPage() {
                         <TableRow className="bg-slate-100/90 dark:bg-neutral-800/80 hover:bg-slate-100/90 font-bold text-xs">
                           <TableCell colSpan={2} className="px-3 py-3 text-center border-r border-t border-gray-300 dark:border-neutral-700">JUMLAH TOTAL</TableCell>
                           <TableCell className="px-3 py-3 text-right font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalPagu)}</TableCell>
-                          <TableCell className="px-3 py-3 text-right font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalKontrak)}</TableCell>
-                          <TableCell colSpan={3} className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
-                          <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.avgRealisasiFisik.toFixed(1)}%</TableCell>
+                          {isFisik && (<TableCell className="px-3 py-3 text-right font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalKontrak)}</TableCell>)}
+                          {isFisik && (<><TableCell colSpan={3} className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
+                          <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.avgRealisasiFisik.toFixed(1)}%</TableCell></>)}
                           <TableCell className="px-3 py-3 text-right font-mono whitespace-nowrap text-emerald-600 dark:text-emerald-400 border-r border-t border-gray-300 dark:border-neutral-700">{formatRupiah(summary.totalRealisasiKeuangan)}</TableCell>
                           <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.persenSerapanKeuangan.toFixed(2)}%</TableCell>
                           <TableCell className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
                           <TableCell className="px-3 py-3 text-[10px] font-medium border-t border-gray-300 dark:border-neutral-700 whitespace-nowrap">
-                            Aman {summary.countStatus.aman} · Waspada {summary.countStatus.perhatian} · Kritis {summary.countStatus.kritis}
+                            {isFisik ? `Aman ${summary.countStatus.aman} · Waspada ${summary.countStatus.perhatian} · Kritis ${summary.countStatus.kritis}` : "Keuangan saja"}
                           </TableCell>
                         </TableRow>
                       </>

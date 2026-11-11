@@ -603,6 +603,15 @@ export class SirupService {
     return result.sort((a, b) => a.nama.localeCompare(b.nama));
   }
 
+  private async getUnsyncedPackages(packages: SirupPaketItem[], tahun: number) {
+    const existing = await this.prisma.paketPembangunan.findMany({
+      where: { tahunAnggaran: tahun, kodeRupKontrak: { not: null } },
+      select: { kodeRupKontrak: true },
+    });
+    const syncedCodes = new Set(existing.map((paket) => paket.kodeRupKontrak));
+    return packages.filter((paket) => !syncedCodes.has(paket.kodeRup));
+  }
+
   /**
    * Ambil pratinjau daftar paket sumber RUP untuk OPD atau seluruh kabupaten.
    */
@@ -611,9 +620,10 @@ export class SirupService {
 
     // KASUS 1: Seluruh OPD se-Kabupaten Konawe Selatan (Pengecualian Administrator)
     if (params.opdId === 'ALL') {
-      const packages = await this.fetchAllPaketFromSource({
-        tahun: tahunStr,
-      });
+      const packages = await this.getUnsyncedPackages(
+        await this.fetchAllPaketFromSource({ tahun: tahunStr }),
+        params.tahun,
+      );
 
       return {
         tahun: params.tahun,
@@ -646,6 +656,8 @@ export class SirupService {
       });
       packages = searchRes.data || [];
     }
+
+    packages = await this.getUnsyncedPackages(packages, params.tahun);
 
     return {
       tahun: params.tahun,
@@ -714,11 +726,11 @@ export class SirupService {
       }
     }
 
-    // 2. Filter hanya paket yang relevan jika onlyPembangunan aktif
-    const candidatePackages =
-      options.onlyPembangunan !== false
-        ? allRawPackages.filter((p) => p.isPembangunan !== false)
-        : allRawPackages;
+    // Semua jenis pengadaan, hanya paket yang belum tersinkron pada tahun ini.
+    const candidatePackages = await this.getUnsyncedPackages(
+      allRawPackages,
+      options.tahun,
+    );
 
     const satkerNames = [
       ...new Set(candidatePackages.map((item) => item.satker)),
@@ -785,19 +797,6 @@ export class SirupService {
       sumberDana: string;
       createdById: string | null;
     }> = [];
-    const toUpdate: Array<{
-      id: string;
-      data: {
-        namaPaket: string;
-        nilaiPagu: number;
-        metodePemilihan: string;
-        jenisPengadaan: string;
-        sumberDana: string;
-        opdId: string;
-        subUnitId: string | null;
-      };
-    }> = [];
-
     for (const { item, targetOpdId, targetSubUnitId } of preparedPackages) {
       const existing = existingByKode.get(item.kodeRup);
       const commonData = {
@@ -811,7 +810,7 @@ export class SirupService {
       };
 
       if (existing) {
-        toUpdate.push({ id: existing.id, data: commonData });
+        continue;
       } else {
         toCreate.push({
           id: randomUUID(),
@@ -848,20 +847,8 @@ export class SirupService {
       });
     }
 
-    for (let index = 0; index < toUpdate.length; index += 50) {
-      const batch = toUpdate.slice(index, index + 50);
-      await this.prisma.$transaction(
-        batch.map((paket) =>
-          this.prisma.paketPembangunan.update({
-            where: { id: paket.id },
-            data: paket.data,
-          }),
-        ),
-      );
-    }
-
     const createdCount = toCreate.length;
-    const updatedCount = toUpdate.length;
+    const updatedCount = 0;
     const skippedCount = candidatePackages.length - preparedPackages.length;
 
     // Bersihkan cache Redis terkait paket agar query frontend langsung segar
@@ -879,8 +866,8 @@ export class SirupService {
       unmatchedSatkers: [...skippedSatkers].sort(),
       totalSynced: createdCount + updatedCount,
       message: isAll
-        ? `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP Konsel Setara untuk seluruh OPD se-Kabupaten Konawe Selatan.${skippedCount ? ` ${skippedCount} paket dilewati karena satker belum terpetakan.` : ''}`
-        : `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP Konsel Setara untuk ${targetNamaOpd}.`,
+        ? `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP untuk seluruh OPD se-Kabupaten Konawe Selatan.${skippedCount ? ` ${skippedCount} paket dilewati karena satker belum terpetakan.` : ''}`
+        : `Berhasil menyinkronkan ${createdCount + updatedCount} paket dari tabel RUP untuk ${targetNamaOpd}.`,
     };
   }
 

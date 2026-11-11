@@ -54,8 +54,9 @@ model User {
   paketCreated        PaketPembangunan[] @relation("UserPaketCreated")
   realisasiInput      RealisasiBulanan[] @relation("UserRealisasiInput")
   realisasiVerifikasi RealisasiBulanan[] @relation("UserRealisasiVerifikasi")
-  buktiFisikUpload    BuktiFisik[]       @relation("UserBuktiFisikUpload")
-  accessScopes        UserAccessScope[]
+  buktiFisikUpload     BuktiFisik[]       @relation("UserBuktiFisikUpload")
+  buktiPencairanUpload BuktiPencairan[]   @relation("UserBuktiPencairanUpload")
+  accessScopes         UserAccessScope[]
 
   @@index([opdId])
   @@index([subUnitId])
@@ -314,7 +315,26 @@ model PencairanKeuangan {
   createdAt   DateTime @default(now()) @map("created_at")
 
   paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  bukti BuktiPencairan[]
 
   @@index([paketId, bulan])
   @@map("pencairan_keuangan")
+}
+
+model BuktiPencairan {
+  id           String   @id @default(uuid())
+  pencairanId  String   @map("pencairan_id")
+  namaFile     String   @map("nama_file")
+  pathFile     String   @map("path_file")
+  mimeType     String?  @map("mime_type")
+  ukuranBytes  Int?     @map("ukuran_bytes")
+  deskripsi    String?
+  uploadOlehId String?  @map("upload_oleh_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  pencairan  PencairanKeuangan @relation(fields: [pencairanId], references: [id], onDelete: Cascade)
+  uploadOleh User?             @relation("UserBuktiPencairanUpload", fields: [uploadOlehId], references: [id], onDelete: SetNull)
+
+  @@index([pencairanId])
+  @@map("bukti_pencairan")
 }

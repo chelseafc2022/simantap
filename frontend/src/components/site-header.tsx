@@ -19,7 +19,8 @@ import {
 const routeMap: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/pembangunan": "Paket Pembangunan",
-  "/realisasi": "Rekap Realisasi",
+  "/realisasi/keuangan": "Realisasi Keuangan",
+  "/realisasi": "Realisasi Fisik & Keuangan",
   "/laporan": "Laporan & Evaluasi",
   "/users": "Manajemen Akun",
   "/roles": "Kelompok Pengguna",

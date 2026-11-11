@@ -5,6 +5,7 @@ import { AppProvider } from '../providers/app-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://monalisa.konaweselatankab.go.id'),
   title: `${siteConfig.name} - ${siteConfig.fullName}`,
   description: siteConfig.description,
   icons: {

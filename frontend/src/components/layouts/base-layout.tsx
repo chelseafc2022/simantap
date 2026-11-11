@@ -28,7 +28,7 @@ export function BaseLayout({ children, title, description }: BaseLayoutProps) {
 
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated && !tokenStorage.getAccessToken()) {
-      router.replace("/login")
+      router.replace("/")
     }
   }, [isLoading, isAuthenticated, router])
 
