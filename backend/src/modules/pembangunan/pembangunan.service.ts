@@ -339,7 +339,6 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
-          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -554,9 +553,6 @@ export class PembangunanService {
           opdId: assignedOpdId,
           subUnitId: assignedSubUnitId || null,
           kodeRupKontrak: dto.kodeRupKontrak || null,
-          subKegiatan: dto.subKegiatan ? dto.subKegiatan.trim() : null,
-          isGelondongan: dto.isGelondongan ?? false,
-          subPaket: dto.subPaket ?? [],
           kelompokPaket: dto.kelompokPaket || 'PEMBANGUNAN_MODAL',
           polaMonitoring: dto.polaMonitoring || 'FISIK_KEUANGAN',
           namaPaket: dto.namaPaket.trim(),
@@ -792,18 +788,6 @@ export class PembangunanService {
             dto.kodeRupKontrak !== undefined
               ? dto.kodeRupKontrak
               : existing.kodeRupKontrak,
-          subKegiatan:
-            dto.subKegiatan !== undefined
-              ? (dto.subKegiatan ? dto.subKegiatan.trim() : null)
-              : existing.subKegiatan,
-          isGelondongan:
-            dto.isGelondongan !== undefined
-              ? dto.isGelondongan
-              : existing.isGelondongan,
-          subPaket:
-            dto.subPaket !== undefined
-              ? (dto.subPaket as any)
-              : (existing.subPaket as any),
           namaPaket:
             dto.namaPaket !== undefined
               ? dto.namaPaket.trim()
@@ -1150,7 +1134,6 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
-          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -1259,11 +1242,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
-        isGelondongan: (paket as any).isGelondongan ?? false,
-        subPaket: (paket as any).subPaket ?? [],
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
-        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,
@@ -1687,11 +1667,8 @@ export class PembangunanService {
       pencairanTersedia,
       paket: {
         id: paket.id,
-        isGelondongan: (paket as any).isGelondongan ?? false,
-        subPaket: (paket as any).subPaket ?? [],
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
-        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         tahunAnggaran: paket.tahunAnggaran,
         kodeRupKontrak: paket.kodeRupKontrak,
@@ -2407,7 +2384,6 @@ export class PembangunanService {
       andConditions.push({
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
-          { subKegiatan: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
@@ -2500,11 +2476,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
-        isGelondongan: (paket as any).isGelondongan ?? false,
-        subPaket: (paket as any).subPaket ?? [],
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
-        subKegiatan: paket.subKegiatan,
         namaPaket: paket.namaPaket,
         kodeRupKontrak: paket.kodeRupKontrak,
         nomorKontrak: paket.nomorKontrak,

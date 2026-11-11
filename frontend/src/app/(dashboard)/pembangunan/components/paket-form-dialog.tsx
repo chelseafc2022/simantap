@@ -46,10 +46,6 @@ import {
   DownloadCloud,
   SlidersHorizontal,
   Info,
-  Boxes,
-  Plus,
-  Trash2,
-  Edit,
 } from "lucide-react"
 import { toast } from "sonner"
 import { SirupSearchDialog, SirupItem } from "./sirup-search-dialog"
@@ -86,28 +82,12 @@ export interface TargetMingguanItem {
   targetFisik: number
 }
 
-export interface SubPaketItem {
-  id: string
-  namaSubPaket: string
-  pagu: number
-  nilaiKontrak?: number
-  nomorKontrak?: string
-  tanggalMulai?: string
-  tanggalSelesai?: string
-  rekanan?: string
-  sumberDana?: string
-  keterangan?: string
-}
-
 export interface PaketItem {
   id: string
   tahunAnggaran: number
   opdId: string
   subUnitId?: string | null
   kodeRupKontrak?: string | null
-  subKegiatan?: string | null
-  isGelondongan?: boolean
-  subPaket?: SubPaketItem[] | any[]
   namaPaket: string
   lokasiKegiatan?: string | null
   metodePemilihan?: string | null
@@ -247,7 +227,6 @@ export function PaketFormDialog({
   const [tahunAnggaran, setTahunAnggaran] = useState<number>(2026)
   const [opdId, setOpdId] = useState<string>("")
   const [subUnitId, setSubUnitId] = useState<string>("")
-  const [subKegiatan, setSubKegiatan] = useState<string>("")
   const [namaPaket, setNamaPaket] = useState<string>("")
   const [kodeRupKontrak, setKodeRupKontrak] = useState<string>("")
   const [lokasiKegiatan, setLokasiKegiatan] = useState<string>("")
@@ -261,24 +240,6 @@ export function PaketFormDialog({
   const [tanggalSelesai, setTanggalSelesai] = useState<string>("")
   const [pemenangRekanan, setPemenangRekanan] = useState<string>("")
   const [keterangan, setKeterangan] = useState<string>("")
-
-  // State untuk Paket Gelondongan & Sub-Paket
-  const [isGelondongan, setIsGelondongan] = useState<boolean>(false)
-  const [subPaketList, setSubPaketList] = useState<SubPaketItem[]>([])
-  const [subPaketDialogOpen, setSubPaketDialogOpen] = useState<boolean>(false)
-  const [subPaketEditingIndex, setSubPaketEditingIndex] = useState<number | null>(null)
-  const [subPaketForm, setSubPaketForm] = useState<SubPaketItem>({
-    id: "",
-    namaSubPaket: "",
-    pagu: 0,
-    nilaiKontrak: 0,
-    nomorKontrak: "",
-    tanggalMulai: "",
-    tanggalSelesai: "",
-    rekanan: "",
-    sumberDana: "",
-    keterangan: "",
-  })
 
   // State untuk Integrasi SiRUP LKPP
   const [sirupDialogOpen, setSirupDialogOpen] = useState(false)
@@ -345,9 +306,6 @@ export function PaketFormDialog({
       setOpdId(initialData.opdId || "")
       setSubUnitId(initialData.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
       setPolaMonitoring(initialData.polaMonitoring || "FISIK_KEUANGAN")
-      setSubKegiatan((initialData as any).subKegiatan || "")
-      setIsGelondongan(Boolean((initialData as any).isGelondongan))
-      setSubPaketList(Array.isArray((initialData as any).subPaket) ? (initialData as any).subPaket : [])
       setNamaPaket(initialData.namaPaket || "")
       setKodeRupKontrak(initialData.kodeRupKontrak || "")
       setLokasiKegiatan(initialData.lokasiKegiatan || "")
@@ -375,9 +333,6 @@ export function PaketFormDialog({
       const defaultOpd = !isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")
       setOpdId(defaultOpd)
       setSubUnitId(!canSelectSubUnit && userSubUnitId ? userSubUnitId : "")
-      setSubKegiatan("")
-      setIsGelondongan(false)
-      setSubPaketList([])
       setNamaPaket("")
       setKodeRupKontrak("")
       setLokasiKegiatan("")
@@ -421,74 +376,6 @@ export function PaketFormDialog({
   const kontrakNum = parseFloat(nilaiKontrak) || 0
   const selisihEfisiensi = paguNum > kontrakNum ? paguNum - kontrakNum : 0
   const persenEfisiensi = paguNum > 0 ? ((selisihEfisiensi / paguNum) * 100).toFixed(2) : "0.00"
-
-  const totalSubPaketPagu = useMemo(() => {
-    return subPaketList.reduce((acc, item) => acc + (Number(item.pagu) || 0), 0)
-  }, [subPaketList])
-
-  const totalSubPaketKontrak = useMemo(() => {
-    return subPaketList.reduce((acc, item) => acc + (Number(item.nilaiKontrak) || Number(item.pagu) || 0), 0)
-  }, [subPaketList])
-
-  const handleOpenAddSubPaket = () => {
-    setSubPaketEditingIndex(null)
-    setSubPaketForm({
-      id: "sp-" + Date.now(),
-      namaSubPaket: "",
-      pagu: 0,
-      nilaiKontrak: 0,
-      nomorKontrak: "",
-      tanggalMulai: tanggalMulai || "",
-      tanggalSelesai: tanggalSelesai || "",
-      rekanan: "",
-      sumberDana: sumberDana || "",
-      keterangan: "",
-    })
-    setSubPaketDialogOpen(true)
-  }
-
-  const handleOpenEditSubPaket = (index: number) => {
-    setSubPaketEditingIndex(index)
-    setSubPaketForm({ ...subPaketList[index] })
-    setSubPaketDialogOpen(true)
-  }
-
-  const handleDeleteSubPaket = (index: number) => {
-    const updated = subPaketList.filter((_, i) => i !== index)
-    setSubPaketList(updated)
-  }
-
-  const handleSaveSubPaket = () => {
-    if (!subPaketForm.namaSubPaket.trim()) {
-      toast.error("Nama sub paket wajib diisi")
-      return
-    }
-    const paguValue = Number(subPaketForm.pagu) || 0
-    const kontrakValue = Number(subPaketForm.nilaiKontrak) || paguValue
-
-    if (subPaketEditingIndex !== null) {
-      const updated = [...subPaketList]
-      updated[subPaketEditingIndex] = {
-        ...subPaketForm,
-        namaSubPaket: subPaketForm.namaSubPaket.trim(),
-        pagu: paguValue,
-        nilaiKontrak: kontrakValue,
-      }
-      setSubPaketList(updated)
-    } else {
-      setSubPaketList([
-        ...subPaketList,
-        {
-          ...subPaketForm,
-          id: subPaketForm.id || "sp-" + Date.now(),
-          namaSubPaket: subPaketForm.namaSubPaket.trim(),
-          pagu: paguValue,
-          nilaiKontrak: kontrakValue,
-        },
-      ])
-    }
-    setSubPaketDialogOpen(false)
-  }
 
   const isKontrakActive = kontrakNum > 0
   const kontrakMissingFields = useMemo(() => {
@@ -687,9 +574,6 @@ export function PaketFormDialog({
         tahunAnggaran,
         opdId,
         subUnitId: !canSelectSubUnit && userSubUnitId ? userSubUnitId : (subUnitId || undefined),
-        subKegiatan: subKegiatan.trim() || undefined,
-        isGelondongan,
-        subPaket: isGelondongan ? subPaketList : [],
         namaPaket: namaPaket.trim(),
         kodeRupKontrak: kodeRupKontrak.trim() || undefined,
         lokasiKegiatan: lokasiKegiatan.trim() || undefined,
@@ -698,10 +582,7 @@ export function PaketFormDialog({
         sumberDana: sumberDana || undefined,
         nomorKontrak: nomorKontrak.trim() || undefined,
         nilaiPagu: parseFloat(nilaiPagu) || 0,
-        nilaiKontrak:
-          isGelondongan && subPaketList.length > 0 && (!nilaiKontrak || parseFloat(nilaiKontrak) === 0)
-            ? totalSubPaketKontrak
-            : (parseFloat(nilaiKontrak) || 0),
+        nilaiKontrak: parseFloat(nilaiKontrak) || 0,
         tanggalMulai: tanggalMulai || undefined,
         tanggalSelesai: tanggalSelesai || undefined,
         pemenangRekanan: pemenangRekanan.trim() || undefined,
@@ -952,7 +833,7 @@ export function PaketFormDialog({
                   </div>
                   <Input
                     id="namaPaket"
-                    placeholder="Contoh: Pengadaan Obat dan BMHP (DAU Bidang Kesehatan)"
+                    placeholder="Contoh: Peningkatan Jalan Ruas Punggaluku - Andoolo"
                     value={namaPaket}
                     onChange={(e) => setNamaPaket(e.target.value)}
                     disabled={!canEditInfo}
@@ -975,194 +856,6 @@ export function PaketFormDialog({
                     disabled={!canEditInfo}
                     className="text-sm h-9"
                   />
-                </div>
-
-                {/* Tombol & Pola Paket Gelondongan (Di bawah Nama Paket) */}
-                <div className="sm:col-span-12 space-y-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-lg border border-border/80 bg-muted/20">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <Boxes className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        <span className="text-xs font-semibold text-foreground">Paket Gelondongan / Pagu DPA Gabungan</span>
-                        {isGelondongan && (
-                          <Badge className="bg-emerald-600 text-white text-[10px] px-2 py-0 h-4.5">
-                            {subPaketList.length} Sub Paket Terdaftar
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Aktifkan jika 1 paket induk ini memayungi beberapa sub-paket (masing-masing punya rekanan, nomor kontrak & pagu tersendiri).
-                      </p>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant={isGelondongan ? "default" : "outline"}
-                      size="sm"
-                      disabled={!canEditInfo}
-                      onClick={() => {
-                        setIsGelondongan(!isGelondongan)
-                      }}
-                      className={`h-8 text-xs font-medium gap-1.5 shrink-0 ${
-                        isGelondongan
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                          : "hover:bg-muted"
-                      }`}
-                    >
-                      <Boxes className="h-3.5 w-3.5" />
-                      {isGelondongan ? "Gelondongan Aktif (Klik untuk Tutup)" : "+ Paket Gelondongan"}
-                    </Button>
-                  </div>
-
-                  {/* Sub Paket Builder ketika Gelondongan Aktif */}
-                  {isGelondongan && (
-                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-4">
-                      {/* Plafon Header */}
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-emerald-500/20 pb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <Boxes className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            <h4 className="text-sm font-semibold text-foreground">Rincian Sub Paket (Pecahan Pagu Gelondongan)</h4>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">
-                            Pagu Induk terkunci sebagai dasar perhitungan makro (tidak menduplikasi anggaran daerah).
-                          </p>
-                        </div>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleOpenAddSubPaket}
-                          disabled={!canEditInfo}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 gap-1.5 shadow-xs shrink-0"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Tambah Sub Paket Baru
-                        </Button>
-                      </div>
-
-                      {/* Ringkasan Alokasi Pagu */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                        <div className="rounded-lg border bg-background/80 p-2.5 space-y-0.5">
-                          <span className="text-[10px] text-muted-foreground uppercase font-medium">Pagu Induk Gelondongan (DPA)</span>
-                          <div className="text-sm font-bold font-mono text-foreground">{formatRupiah(paguNum)}</div>
-                          <span className="text-[10px] text-emerald-600 font-medium">Terkunci sebagai Plafon</span>
-                        </div>
-                        <div className="rounded-lg border bg-background/80 p-2.5 space-y-0.5">
-                          <span className="text-[10px] text-muted-foreground uppercase font-medium">Total Alokasi Sub Paket ({subPaketList.length})</span>
-                          <div className="text-sm font-bold font-mono text-blue-600 dark:text-blue-400">{formatRupiah(totalSubPaketPagu)}</div>
-                          <span className="text-[10px] text-muted-foreground">Akumulasi Kontrak: {formatRupiah(totalSubPaketKontrak)}</span>
-                        </div>
-                        <div className={`rounded-lg border p-2.5 space-y-0.5 ${
-                          paguNum - totalSubPaketPagu < 0
-                            ? "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-400"
-                            : "bg-background/80"
-                        }`}>
-                          <span className="text-[10px] text-muted-foreground uppercase font-medium">Sisa Pagu Induk Bebas</span>
-                          <div className="text-sm font-bold font-mono">
-                            {formatRupiah(paguNum - totalSubPaketPagu)}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {paguNum - totalSubPaketPagu < 0 ? "Melebihi pagu induk!" : "Sisa anggaran belum teralokasi"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Tabel Sub Paket */}
-                      {subPaketList.length === 0 ? (
-                        <div className="text-center py-6 border border-dashed rounded-lg bg-background/50 text-muted-foreground space-y-2">
-                          <Boxes className="h-8 w-8 mx-auto opacity-40 text-emerald-600" />
-                          <p className="text-xs">Belum ada rincian sub-paket.</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleOpenAddSubPaket}
-                            disabled={!canEditInfo}
-                            className="text-xs h-7.5 gap-1.5"
-                          >
-                            <Plus className="h-3 w-3" />
-                            Tambahkan Sub Paket Pertama
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto rounded-lg border bg-background shadow-2xs">
-                          <table className="w-full text-xs">
-                            <thead className="bg-muted/50 border-b text-muted-foreground font-medium text-left">
-                              <tr>
-                                <th className="py-2 px-3 w-10 text-center">No</th>
-                                <th className="py-2 px-3">Nama Sub Paket</th>
-                                <th className="py-2 px-3">Pagu (Rp)</th>
-                                <th className="py-2 px-3">No. Kontrak / SPK</th>
-                                <th className="py-2 px-3">Masa Kontrak</th>
-                                <th className="py-2 px-3">Rekanan / Penyedia</th>
-                                <th className="py-2 px-3">Sumber Dana</th>
-                                <th className="py-2 px-3 text-center w-20">Aksi</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/60">
-                              {subPaketList.map((sp, idx) => (
-                                <tr key={sp.id || idx} className="hover:bg-muted/30 transition-colors">
-                                  <td className="py-2 px-3 text-center text-muted-foreground font-mono">{idx + 1}</td>
-                                  <td className="py-2 px-3 font-medium text-foreground">
-                                    <div>{sp.namaSubPaket}</div>
-                                    {sp.keterangan && (
-                                      <div className="text-[10px] text-muted-foreground">{sp.keterangan}</div>
-                                    )}
-                                  </td>
-                                  <td className="py-2 px-3 font-mono font-semibold text-foreground whitespace-nowrap">
-                                    {formatRupiah(Number(sp.pagu) || 0)}
-                                  </td>
-                                  <td className="py-2 px-3 font-mono text-[11px] whitespace-nowrap text-muted-foreground">
-                                    {sp.nomorKontrak || "-"}
-                                  </td>
-                                  <td className="py-2 px-3 text-[11px] whitespace-nowrap text-muted-foreground">
-                                    {sp.tanggalMulai ? formatContractDate(sp.tanggalMulai) : "-"} s/d {sp.tanggalSelesai ? formatContractDate(sp.tanggalSelesai) : "-"}
-                                  </td>
-                                  <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
-                                    {sp.rekanan || "-"}
-                                  </td>
-                                  <td className="py-2 px-3 text-[11px] whitespace-nowrap">
-                                    {sp.sumberDana ? (
-                                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
-                                        {sp.sumberDana}
-                                      </Badge>
-                                    ) : "-"}
-                                  </td>
-                                  <td className="py-2 px-3 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleOpenEditSubPaket(idx)}
-                                        disabled={!canEditInfo}
-                                        className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                                        title="Edit Sub Paket"
-                                      >
-                                        <Edit className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDeleteSubPaket(idx)}
-                                        disabled={!canEditInfo}
-                                        className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                        title="Hapus Sub Paket"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1468,7 +1161,7 @@ export function PaketFormDialog({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between h-5">
                         <Label htmlFor="nilaiPagu" className="text-xs font-medium">
-                          {isGelondongan ? "Nilai Pagu Induk Gelondongan (Rp)" : "Nilai Pagu Anggaran (Rp)"} <span className="text-red-500">*</span>
+                          Nilai Pagu Anggaran (Rp) <span className="text-red-500">*</span>
                         </Label>
                       </div>
                       <Input
@@ -1481,7 +1174,7 @@ export function PaketFormDialog({
                         className="font-mono text-sm h-9"
                       />
                       <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
-                        {formatRupiah(paguNum)} {isGelondongan && "(Plafon Induk)"}
+                        {formatRupiah(paguNum)}
                       </div>
                     </div>
 
@@ -1921,157 +1614,6 @@ export function PaketFormDialog({
         onSelectPaket={applySirupData}
         currentTahun={tahunAnggaran}
       />
-
-      {/* Modal Tambah / Edit Sub Paket */}
-      <Dialog open={subPaketDialogOpen} onOpenChange={setSubPaketDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-base font-semibold flex items-center gap-2">
-              <Boxes className="h-4 w-4 text-emerald-600" />
-              {subPaketEditingIndex !== null ? "Edit Sub Paket" : "Tambah Sub Paket Baru"}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Masukkan rincian sub-paket pecahan pagu gelondongan (nomor kontrak, rekanan, dan alokasi pagu).
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2 text-xs">
-            {/* Nama Sub Paket */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">
-                Nama Sub Paket <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                placeholder="Contoh: Pengadaan Obat dan BMHP (DAU) Pkt 1 _ BHP PTM"
-                value={subPaketForm.namaSubPaket}
-                onChange={(e) => setSubPaketForm({ ...subPaketForm, namaSubPaket: e.target.value })}
-                className="text-xs h-8.5"
-              />
-            </div>
-
-            {/* Pagu & Nilai Kontrak */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">
-                  Pagu Sub Paket (Rp) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={subPaketForm.pagu || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, pagu: Number(e.target.value) || 0 })}
-                  className="text-xs font-mono h-8.5"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">
-                  Nilai Kontrak (Rp)
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="Sama dengan pagu"
-                  value={subPaketForm.nilaiKontrak || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, nilaiKontrak: Number(e.target.value) || 0 })}
-                  className="text-xs font-mono h-8.5"
-                />
-              </div>
-            </div>
-
-            {/* Nomor Kontrak / SPK / EP */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">
-                Nomor Kontrak / SPK / Kode EP
-              </Label>
-              <Input
-                placeholder="Contoh: EP-01KHH4FHV2ZTMT2ZHHEDVTMW76"
-                value={subPaketForm.nomorKontrak || ""}
-                onChange={(e) => setSubPaketForm({ ...subPaketForm, nomorKontrak: e.target.value })}
-                className="text-xs font-mono h-8.5"
-              />
-            </div>
-
-            {/* Masa Kontrak (Mulai - Selesai) */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Tanggal Mulai</Label>
-                <Input
-                  type="date"
-                  value={subPaketForm.tanggalMulai || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, tanggalMulai: e.target.value })}
-                  className="text-xs h-8.5"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Tanggal Selesai</Label>
-                <Input
-                  type="date"
-                  value={subPaketForm.tanggalSelesai || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, tanggalSelesai: e.target.value })}
-                  className="text-xs h-8.5"
-                />
-              </div>
-            </div>
-
-            {/* Rekanan & Sumber Dana */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Penyedia / Rekanan</Label>
-                <Input
-                  placeholder="Contoh: PT. Sumber Medika"
-                  value={subPaketForm.rekanan || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, rekanan: e.target.value })}
-                  className="text-xs h-8.5"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Sumber Dana</Label>
-                <Input
-                  placeholder="Contoh: DAU KESEHATAN / DAK"
-                  value={subPaketForm.sumberDana || ""}
-                  onChange={(e) => setSubPaketForm({ ...subPaketForm, sumberDana: e.target.value })}
-                  className="text-xs h-8.5"
-                />
-              </div>
-            </div>
-
-            {/* Keterangan */}
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Keterangan Tambahan</Label>
-              <Input
-                placeholder="Contoh: SUDAH DILAKSANAKAN"
-                value={subPaketForm.keterangan || ""}
-                onChange={(e) => setSubPaketForm({ ...subPaketForm, keterangan: e.target.value })}
-                className="text-xs h-8.5"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setSubPaketDialogOpen(false)}
-              className="text-xs h-8"
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSaveSubPaket}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8"
-            >
-              Simpan Sub Paket
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Dialog>
   )
 }

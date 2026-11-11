@@ -633,13 +633,6 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
                   {/* Nama Paket (Klik untuk buka modal input) */}
                   <div>
-                    {item.subKegiatan && (
-                      <div className="mb-1">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded">
-                          <span className="opacity-70">Sub Kegiatan:</span> {item.subKegiatan}
-                        </span>
-                      </div>
-                    )}
                     <button
                       type="button"
                       onClick={() => handleOpenInput(item.id)}
@@ -824,13 +817,6 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       {/* Identitas Paket & Sub Unit */}
                       <TableCell className="max-w-0 py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="w-full min-w-0 overflow-hidden space-y-1">
-                          {item.subKegiatan && (
-                            <div>
-                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/60 px-1.5 py-0.5 rounded truncate max-w-full">
-                                <span className="opacity-70 shrink-0">Sub Kegiatan:</span> <span className="truncate">{item.subKegiatan}</span>
-                              </span>
-                            </div>
-                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenInput(item.id)}

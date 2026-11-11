@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
   IsDateString,
   IsInt,
   IsIn,
@@ -53,15 +52,6 @@ export class CreatePaketDto {
   @IsOptional()
   @IsString()
   kodeRupKontrak?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Sub Kegiatan DPA / Induk Kegiatan (opsional, untuk paket pecahan dari pagu gelondongan)',
-    example: 'Pengadaan Obat dan BMHP (DAU) - Pagu Rp 3,5 M',
-  })
-  @IsOptional()
-  @IsString()
-  subKegiatan?: string;
 
   @ApiProperty({ description: 'Nama Paket Pekerjaan / Pembangunan' })
   @IsNotEmpty({ message: 'Nama paket wajib diisi' })
@@ -141,22 +131,6 @@ export class CreatePaketDto {
   @IsOptional()
   @IsString()
   pemenangRekanan?: string;
-
-  @ApiPropertyOptional({
-    description: 'Apakah paket merupakan paket gelondongan (memayungi beberapa sub-paket / multi-kontrak)',
-    example: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isGelondongan?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Daftar rincian sub-paket dari paket gelondongan',
-    example: [],
-  })
-  @IsOptional()
-  @IsArray()
-  subPaket?: any[];
 
   @ApiPropertyOptional({ description: 'Keterangan tambahan paket' })
   @IsOptional()
