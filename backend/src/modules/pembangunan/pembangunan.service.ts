@@ -333,7 +333,7 @@ export class PembangunanService {
       andConditions.push({ sumberDana });
     }
 
-    // Filter search text
+    // Filter search text (termasuk pencarian di dalam paket pecahan)
     if (search && search.trim()) {
       const q = search.trim();
       andConditions.push({
@@ -343,9 +343,24 @@ export class PembangunanService {
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
           { lokasiKegiatan: { contains: q, mode: 'insensitive' } },
+          {
+            pecahanPakets: {
+              some: {
+                OR: [
+                  { namaPaket: { contains: q, mode: 'insensitive' } },
+                  { nomorKontrak: { contains: q, mode: 'insensitive' } },
+                  { pemenangRekanan: { contains: q, mode: 'insensitive' } },
+                  { lokasiKegiatan: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+            },
+          },
         ],
       });
     }
+
+    // Hanya ambil paket tingkat atas pada pagination; pecahan dimuat bersama induknya
+    andConditions.push({ parentId: null });
 
     const where: Prisma.PaketPembangunanWhereInput =
       andConditions.length > 0 ? { AND: andConditions } : {};
@@ -360,6 +375,8 @@ export class PembangunanService {
     const started: Prisma.PaketPembangunanWhereInput = {
       OR: [
         { nilaiKontrak: { gt: 0 } },
+        { isIndukGelondongan: true },
+        { pecahanPakets: { some: {} } },
         { realisasiBulanan: { some: { OR: [
           { realisasiFisik: { gt: 0 } },
           { realisasiKeuangan: { gt: 0 } },
@@ -376,6 +393,14 @@ export class PembangunanService {
       targetBulanan: { orderBy: { bulan: 'asc' as const } },
       targetMingguan: { orderBy: [{ bulan: 'asc' as const }, { mingguKe: 'asc' as const }] },
       realisasiBulanan: { orderBy: { bulan: 'asc' as const } },
+      pecahanPakets: {
+        orderBy: { createdAt: 'asc' as const },
+        include: {
+          targetBulanan: { orderBy: { bulan: 'asc' as const } },
+          targetMingguan: { orderBy: [{ bulan: 'asc' as const }, { mingguKe: 'asc' as const }] },
+          realisasiBulanan: { orderBy: { bulan: 'asc' as const } },
+        },
+      },
     };
     const stableOrder = [orderBy, { id: 'asc' as const }];
     const startedTake = Math.min(limit, Math.max(0, startedTotal - skip));
@@ -400,6 +425,11 @@ export class PembangunanService {
       ...paket,
       opd: this.egovService.getOpdById(paket.opdId),
       subUnit: this.egovService.getSubUnitById(paket.subUnitId),
+      pecahanPakets: (paket.pecahanPakets || []).map((child) => ({
+        ...child,
+        opd: this.egovService.getOpdById(child.opdId),
+        subUnit: this.egovService.getSubUnitById(child.subUnitId),
+      })),
     }));
 
     return {
@@ -446,6 +476,21 @@ export class PembangunanService {
             role: true,
           },
         },
+        parentPaket: {
+          select: {
+            id: true,
+            namaPaket: true,
+            nilaiPagu: true,
+            kodeRupKontrak: true,
+          },
+        },
+        pecahanPakets: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            targetBulanan: { orderBy: { bulan: 'asc' } },
+            realisasiBulanan: { orderBy: { bulan: 'asc' } },
+          },
+        },
       },
     });
 
@@ -477,9 +522,34 @@ export class PembangunanService {
       ].includes(role),
     );
     const isKepalaOpd = userRoles.includes(RoleEnum.KEPALA_OPD);
-    const assignedOpdId = !isSuperRole && user?.opdId ? user.opdId : dto.opdId;
-    const assignedSubUnitId =
-      !isSuperRole && user?.subUnitId && !isKepalaOpd
+    let parentPaket: any = null;
+    if (dto.parentId) {
+      parentPaket = await this.prisma.paketPembangunan.findUnique({
+        where: { id: dto.parentId },
+      });
+      if (!parentPaket) {
+        throw new NotFoundException(
+          `Paket induk dengan ID '${dto.parentId}' tidak ditemukan`,
+        );
+      }
+      if (parentPaket.parentId) {
+        throw new BadRequestException(
+          'Paket pecahan tidak dapat dipecah kembali menjadi paket induk',
+        );
+      }
+      this.checkOpdAccess(user, parentPaket.opdId, parentPaket.subUnitId);
+    }
+
+    const assignedOpdId = parentPaket
+      ? parentPaket.opdId
+      : !isSuperRole && user?.opdId
+        ? user.opdId
+        : dto.opdId;
+    const assignedSubUnitId = parentPaket
+      ? dto.subUnitId !== undefined
+        ? dto.subUnitId
+        : parentPaket.subUnitId
+      : !isSuperRole && user?.subUnitId && !isKepalaOpd
         ? user.subUnitId
         : dto.subUnitId;
 
@@ -549,19 +619,30 @@ export class PembangunanService {
       // 1. Simpan data paket pembangunan
       const paket = await tx.paketPembangunan.create({
         data: {
-          tahunAnggaran: dto.tahunAnggaran || 2026,
+          parentId: parentPaket ? parentPaket.id : null,
+          isIndukGelondongan: false,
+          tahunAnggaran: parentPaket
+            ? parentPaket.tahunAnggaran
+            : dto.tahunAnggaran || 2026,
           opdId: assignedOpdId,
           subUnitId: assignedSubUnitId || null,
           kodeRupKontrak: dto.kodeRupKontrak || null,
-          kelompokPaket: dto.kelompokPaket || 'PEMBANGUNAN_MODAL',
-          polaMonitoring: dto.polaMonitoring || 'FISIK_KEUANGAN',
+          kelompokPaket:
+            dto.kelompokPaket ||
+            parentPaket?.kelompokPaket ||
+            'PEMBANGUNAN_MODAL',
+          polaMonitoring:
+            dto.polaMonitoring ||
+            parentPaket?.polaMonitoring ||
+            'FISIK_KEUANGAN',
           namaPaket: dto.namaPaket.trim(),
           lokasiKegiatan: dto.lokasiKegiatan || null,
           metodePemilihan: dto.metodePemilihan || null,
           jenisPengadaan: dto.jenisPengadaan || null,
-          nilaiPagu: dto.nilaiPagu,
+          // Paket pecahan WAJIB nilaiPagu = 0 agar total pagu OPD/Daerah tidak ganda
+          nilaiPagu: parentPaket ? 0 : dto.nilaiPagu,
           nilaiKontrak: dto.nilaiKontrak,
-          sumberDana: dto.sumberDana || null,
+          sumberDana: dto.sumberDana ?? parentPaket?.sumberDana ?? null,
           nomorKontrak: dto.nomorKontrak || null,
           tanggalMulai: dto.tanggalMulai ? new Date(dto.tanggalMulai) : null,
           tanggalSelesai: dto.tanggalSelesai
@@ -572,6 +653,13 @@ export class PembangunanService {
           createdById: user?.id || null,
         },
       });
+
+      if (parentPaket && !parentPaket.isIndukGelondongan) {
+        await tx.paketPembangunan.update({
+          where: { id: parentPaket.id },
+          data: { isIndukGelondongan: true },
+        });
+      }
 
       // 2. Buat otomatis 12 baris target bulanan (B01 - B12)
       // ADMINISTRATOR dan ADMIN_PPK berwenang menetapkan target kurva fisik.
@@ -804,8 +892,11 @@ export class PembangunanService {
             dto.jenisPengadaan !== undefined
               ? dto.jenisPengadaan
               : existing.jenisPengadaan,
-          nilaiPagu:
-            dto.nilaiPagu !== undefined ? dto.nilaiPagu : existing.nilaiPagu,
+          nilaiPagu: existing.parentId
+            ? 0
+            : dto.nilaiPagu !== undefined
+              ? dto.nilaiPagu
+              : existing.nilaiPagu,
           nilaiKontrak:
             dto.nilaiKontrak !== undefined
               ? dto.nilaiKontrak
@@ -943,6 +1034,18 @@ export class PembangunanService {
       await tx.paketPembangunan.delete({
         where: { id },
       });
+
+      if (existing.parentId) {
+        const remainingCount = await tx.paketPembangunan.count({
+          where: { parentId: existing.parentId },
+        });
+        if (remainingCount === 0) {
+          await tx.paketPembangunan.update({
+            where: { id: existing.parentId },
+            data: { isIndukGelondongan: false },
+          });
+        }
+      }
 
       if (user?.id) {
         await tx.auditLog.create({
@@ -1171,7 +1274,7 @@ export class PembangunanService {
     });
 
     // Proses kalkulasi target vs realisasi bulan berjalan
-    const processed = pakets.map((paket) => {
+    const processedBase = pakets.map((paket) => {
       const targetItem = paket.targetBulanan.find(
         (t) => t.bulan === activeBulan,
       );
@@ -1242,6 +1345,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
+        parentId: paket.parentId,
+        isIndukGelondongan: paket.isIndukGelondongan,
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
@@ -1270,27 +1375,94 @@ export class PembangunanService {
       };
     });
 
+    const childrenByParent = new Map<string, typeof processedBase>();
+    for (const item of processedBase) {
+      if (item.parentId) {
+        const list = childrenByParent.get(item.parentId) || [];
+        list.push(item);
+        childrenByParent.set(item.parentId, list);
+      }
+    }
+
+    const processed = processedBase.map((item) => {
+      const children = childrenByParent.get(item.id) || [];
+      const hasChildren = children.length > 0;
+      if (!hasChildren) {
+        return {
+          ...item,
+          hasChildren: false,
+          agregatPecahan: null as null | {
+            count: number;
+            berkontrakCount: number;
+            totalKontrak: number;
+            totalRealisasiKeuangan: number;
+            avgTargetFisik: number;
+            avgRealisasiFisik: number;
+            avgDeviasiFisik: number;
+          },
+        };
+      }
+      const physChildren = children.filter((c) => c.polaMonitoring !== 'KEUANGAN');
+      const avgTargetP =
+        physChildren.length > 0
+          ? parseFloat(
+              (
+                physChildren.reduce((a, c) => a + c.targetFisik, 0) /
+                physChildren.length
+              ).toFixed(2),
+            )
+          : 0;
+      const avgRealFisikP =
+        physChildren.length > 0
+          ? parseFloat(
+              (
+                physChildren.reduce((a, c) => a + c.realisasiFisik, 0) /
+                physChildren.length
+              ).toFixed(2),
+            )
+          : 0;
+      return {
+        ...item,
+        hasChildren: true,
+        agregatPecahan: {
+          count: children.length,
+          berkontrakCount: children.filter((c) => c.nilaiKontrak > 0).length,
+          totalKontrak: children.reduce((a, c) => a + c.nilaiKontrak, 0),
+          totalRealisasiKeuangan: children.reduce(
+            (a, c) => a + c.realisasiKeuangan,
+            0,
+          ),
+          avgTargetFisik: avgTargetP,
+          avgRealisasiFisik: avgRealFisikP,
+          avgDeviasiFisik: parseFloat((avgRealFisikP - avgTargetP).toFixed(2)),
+        },
+      };
+    });
+
     // Filter berdasarkan status deviasi jika dipilih
     const filtered =
       statusDeviasi && statusDeviasi !== 'ALL'
         ? processed.filter((item) => item.status === statusDeviasi)
         : processed;
 
+    // Paket induk yang sudah dipecah tidak ikut dihitung sebagai 1 paket fisik terpisah
+    const statItems = filtered.filter((i) => !i.hasChildren);
+
     // Perhitungan Ringkasan / Stat Cards (Aggregat)
     const totalPagu = filtered.reduce((acc, cur) => acc + cur.nilaiPagu, 0);
-    const totalKontrak = filtered.reduce(
+    const totalKontrak = statItems.reduce(
       (acc, cur) => acc + cur.nilaiKontrak,
       0,
     );
-    const totalRealisasiKeuangan = filtered.reduce(
+    const totalRealisasiKeuangan = statItems.reduce(
       (acc, cur) => acc + cur.realisasiKeuangan,
       0,
     );
     // Logika Seragam: Jika belum semua paket berkontrak, gunakan totalPagu.
     // Jika SELURUH paket sudah berkontrak (nilaiKontrak > 0), baru gunakan totalKontrak.
     const isAllBerkontrak =
-      filtered.length > 0 &&
-      filtered.every((cur) => Number(cur.nilaiKontrak) > 0);
+      statItems.length > 0 &&
+      statItems.every((cur) => Number(cur.nilaiKontrak) > 0);
     const basisAnggaran =
       isAllBerkontrak && totalKontrak > 0
         ? totalKontrak
@@ -1305,13 +1477,13 @@ export class PembangunanService {
         : 0;
 
     const countStatus = {
-      aman: filtered.filter((i) => i.status === 'AMAN').length,
-      perhatian: filtered.filter((i) => i.status === 'PERHATIAN').length,
-      kritis: filtered.filter((i) => i.status === 'KRITIS').length,
-      belumMulai: filtered.filter((i) => i.status === 'BELUM_MULAI').length,
+      aman: statItems.filter((i) => i.status === 'AMAN').length,
+      perhatian: statItems.filter((i) => i.status === 'PERHATIAN').length,
+      kritis: statItems.filter((i) => i.status === 'KRITIS').length,
+      belumMulai: statItems.filter((i) => i.status === 'BELUM_MULAI').length,
     };
 
-    const physicalPackages = filtered.filter(
+    const physicalPackages = statItems.filter(
       (p) => p.polaMonitoring !== 'KEUANGAN',
     );
     const avgTargetFisik =
@@ -1345,21 +1517,36 @@ export class PembangunanService {
     // 3. AMAN (sedang berjalan, deviasi >= 0%, realisasi < 100%)
     // 4. SELESAI (realisasi fisik >= 100%)
     // 5. BELUM DIISI / BELUM MULAI (target 0 & fisik 0) di paling bawah
-    const sorted = [...filtered].sort((a, b) => {
-      const hasRealisasiA = a.realisasiFisik > 0 || a.realisasiKeuangan > 0;
-      const hasRealisasiB = b.realisasiFisik > 0 || b.realisasiKeuangan > 0;
+    const sortedRaw = [...filtered].sort((a, b) => {
+      const hasRealisasiA =
+        a.realisasiFisik > 0 ||
+        a.realisasiKeuangan > 0 ||
+        (a.agregatPecahan?.totalRealisasiKeuangan ?? 0) > 0 ||
+        (a.agregatPecahan?.avgRealisasiFisik ?? 0) > 0;
+      const hasRealisasiB =
+        b.realisasiFisik > 0 ||
+        b.realisasiKeuangan > 0 ||
+        (b.agregatPecahan?.totalRealisasiKeuangan ?? 0) > 0 ||
+        (b.agregatPecahan?.avgRealisasiFisik ?? 0) > 0;
       if (hasRealisasiA !== hasRealisasiB) return hasRealisasiA ? -1 : 1;
 
       const getPriority = (item: typeof a) => {
+        const effTarget = item.agregatPecahan
+          ? item.agregatPecahan.avgTargetFisik
+          : item.targetFisik;
+        const effReal = item.agregatPecahan
+          ? item.agregatPecahan.avgRealisasiFisik
+          : item.realisasiFisik;
         if (
-          item.status === 'BELUM_MULAI' ||
-          (item.targetFisik === 0 && item.realisasiFisik === 0)
+          item.status === 'BELUM_MULAI' &&
+          effTarget === 0 &&
+          effReal === 0
         ) {
           return 5;
         }
         if (item.status === 'KRITIS') return 1;
         if (item.status === 'PERHATIAN') return 2;
-        if (item.realisasiFisik >= 100) return 4;
+        if (effReal >= 100) return 4;
         return 3; // AMAN (< 100%)
       };
 
@@ -1386,6 +1573,7 @@ export class PembangunanService {
       // Default / BELUM_MULAI
       return a.namaPaket.localeCompare(b.namaPaket);
     });
+    const sorted = this.orderPaketsByParent(sortedRaw);
 
     // Paginasi array hasil
     const skip = (Number(page) - 1) * Number(limit);
@@ -1418,7 +1606,7 @@ export class PembangunanService {
       data: paginatedData,
       summary: {
         activeBulan,
-        totalPaket: filtered.length,
+        totalPaket: statItems.length,
         totalPagu,
         totalKontrak,
         isAllBerkontrak,
@@ -1886,14 +2074,15 @@ export class PembangunanService {
         const cumulative = new Prisma.Decimal(
           current?.realisasiKeuangan ?? previous?.realisasiKeuangan ?? 0,
         ).plus(amount);
+        const ceiling = await this.getFinancialCeiling(tx, paket);
         if (
-          cumulative.gt(paket.nilaiPagu) ||
+          cumulative.gt(ceiling) ||
           rows.some(
             (row) =>
               row.bulan > dto.bulan &&
               new Prisma.Decimal(row.realisasiKeuangan)
                 .plus(amount)
-                .gt(paket.nilaiPagu),
+                .gt(ceiling),
           )
         )
           throw new BadRequestException('Realisasi melebihi pagu anggaran');
@@ -1997,8 +2186,9 @@ export class PembangunanService {
         .minus(previous?.realisasiKeuangan ?? 0).minus(ledger?._sum.nominal ?? 0);
       const newAmount = new Prisma.Decimal(dto?.nominal ?? 0);
       const delta = newAmount.minus(oldAmount);
+      const ceiling = await this.getFinancialCeiling(tx, paket);
       if (rows.some((row) => row.bulan >= bulan &&
-        (new Prisma.Decimal(row.realisasiKeuangan).plus(delta).lt(0) || new Prisma.Decimal(row.realisasiKeuangan).plus(delta).gt(paket.nilaiPagu))))
+        (new Prisma.Decimal(row.realisasiKeuangan).plus(delta).lt(0) || new Prisma.Decimal(row.realisasiKeuangan).plus(delta).gt(ceiling))))
         throw new BadRequestException('Perubahan membuat realisasi kumulatif negatif atau melebihi pagu');
       if (record) {
         if (dto) await tx.pencairanKeuangan.update({ where: { id: record.id }, data: { nominal: newAmount, catatan: dto.catatan.trim() } });
@@ -2132,7 +2322,8 @@ export class PembangunanService {
           'Paket ini tidak menggunakan realisasi fisik',
         );
       realisasiFisik = 0;
-      if (Number(realisasiKeuangan) > Number(paket.nilaiPagu))
+      const ceiling = await this.getFinancialCeiling(this.prisma, paket);
+      if (Number(realisasiKeuangan) > Number(ceiling))
         throw new BadRequestException('Realisasi melebihi pagu anggaran');
       throw new BadRequestException(
         'Gunakan tambah pencairan untuk mencatat realisasi keuangan bertahap',
@@ -2476,6 +2667,8 @@ export class PembangunanService {
 
       return {
         id: paket.id,
+        parentId: paket.parentId,
+        isIndukGelondongan: paket.isIndukGelondongan,
         polaMonitoring: paket.polaMonitoring,
         kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
@@ -2505,16 +2698,79 @@ export class PembangunanService {
       };
     });
 
+    const childMap = new Map<string, typeof items>();
+    for (const item of items) {
+      if (item.parentId) {
+        const list = childMap.get(item.parentId) || [];
+        list.push(item);
+        childMap.set(item.parentId, list);
+      }
+    }
+
+    const enrichedItems = items.map((item) => {
+      const children = childMap.get(item.id) || [];
+      const hasChildren = children.length > 0;
+      const physChildren = children.filter(
+        (c) => c.polaMonitoring !== 'KEUANGAN',
+      );
+      const avgTargetFisik =
+        physChildren.length > 0
+          ? parseFloat(
+              (
+                physChildren.reduce(
+                  (a, c) => a + c.posisiEvaluasi.targetFisik,
+                  0,
+                ) / physChildren.length
+              ).toFixed(2),
+            )
+          : 0;
+      const avgRealisasiFisik =
+        physChildren.length > 0
+          ? parseFloat(
+              (
+                physChildren.reduce(
+                  (a, c) => a + c.posisiEvaluasi.realisasiFisik,
+                  0,
+                ) / physChildren.length
+              ).toFixed(2),
+            )
+          : 0;
+      return {
+        ...item,
+        hasChildren,
+        pecahanCount: children.length,
+        agregatPecahan: hasChildren
+          ? {
+              count: children.length,
+              totalKontrak: children.reduce((a, c) => a + c.nilaiKontrak, 0),
+              totalRealisasiKeuangan: children.reduce(
+                (a, c) => a + c.posisiEvaluasi.realisasiKeuangan,
+                0,
+              ),
+              avgTargetFisik,
+              avgRealisasiFisik,
+              avgDeviasiFisik: parseFloat(
+                (avgRealisasiFisik - avgTargetFisik).toFixed(2),
+              ),
+            }
+          : null,
+      };
+    });
+
     const filtered =
       statusDeviasi && statusDeviasi !== 'ALL'
-        ? items.filter((item) => item.posisiEvaluasi.status === statusDeviasi)
-        : items;
+        ? enrichedItems.filter(
+            (item) => item.posisiEvaluasi.status === statusDeviasi,
+          )
+        : enrichedItems;
+
+    const ordered = this.orderPaketsByParent(filtered);
 
     return {
       tahunAnggaran: activeTahun,
       bulanEvaluasi: activeBulan,
-      totalPaket: filtered.length,
-      items: filtered,
+      totalPaket: ordered.filter((i) => !i.hasChildren).length,
+      items: ordered,
     };
   }
 
@@ -2566,12 +2822,20 @@ export class PembangunanService {
       .map(([opdId, groupPakets]) => {
         const opdInfo = this.egovService.getOpdById(opdId);
         if (isExcludedOpd(opdInfo?.namaOpd)) return null;
-      const totalPaket = groupPakets.length;
+      const parentIdsWithChildren = new Set(
+        groupPakets
+          .map((p) => p.parentId)
+          .filter((pid): pid is string => Boolean(pid)),
+      );
+      const executablePakets = groupPakets.filter(
+        (p) => !parentIdsWithChildren.has(p.id),
+      );
+      const totalPaket = executablePakets.length;
       const totalPagu = groupPakets.reduce(
         (acc, p) => acc + (Number(p.nilaiPagu) || 0),
         0,
       );
-      const totalKontrak = groupPakets.reduce(
+      const totalKontrak = executablePakets.reduce(
         (acc, p) => acc + (Number(p.nilaiKontrak) || 0),
         0,
       );
@@ -2584,7 +2848,7 @@ export class PembangunanService {
       let countKritis = 0;
       let countBelumMulai = 0;
 
-      for (const p of groupPakets) {
+      for (const p of executablePakets) {
         const target = p.targetBulanan[0]
           ? Number(p.targetBulanan[0].targetFisik)
           : 0;
@@ -2632,8 +2896,8 @@ export class PembangunanService {
       }
 
         const physicalCount =
-          groupPakets.filter((p) => p.polaMonitoring !== 'KEUANGAN').length ||
-          1;
+          executablePakets.filter((p) => p.polaMonitoring !== 'KEUANGAN')
+            .length || 1;
         const avgTargetFisik = parseFloat(
           (sumTarget / physicalCount).toFixed(2),
         );
@@ -2647,7 +2911,7 @@ export class PembangunanService {
       // Jika SELURUH paket sudah berkontrak (nilaiKontrak > 0), baru gunakan totalKontrak.
       const isAllBerkontrak =
         totalPaket > 0 &&
-        groupPakets.every((p) => (Number(p.nilaiKontrak) || 0) > 0);
+        executablePakets.every((p) => (Number(p.nilaiKontrak) || 0) > 0);
       const basisAnggaran =
         isAllBerkontrak && totalKontrak > 0
           ? totalKontrak
@@ -3213,5 +3477,59 @@ export class PembangunanService {
     }
 
     return this.getLockingPeriods(targetTahun);
+  }
+
+  /**
+   * Batas pagu pencairan keuangan untuk validasi:
+   * - Paket normal: nilaiPagu
+   * - Paket pecahan (parentId != null): nilaiKontrak jika > 0, fallback ke nilaiPagu induk
+   */
+  private async getFinancialCeiling(
+    client: Prisma.TransactionClient | PrismaService,
+    paket: { parentId?: string | null; nilaiPagu: any; nilaiKontrak: any },
+  ): Promise<Prisma.Decimal> {
+    if (!paket.parentId) {
+      return new Prisma.Decimal(paket.nilaiPagu ?? 0);
+    }
+    if (Number(paket.nilaiKontrak) > 0) {
+      return new Prisma.Decimal(paket.nilaiKontrak);
+    }
+    const parent = await client.paketPembangunan.findUnique({
+      where: { id: paket.parentId },
+      select: { nilaiPagu: true },
+    });
+    return new Prisma.Decimal(parent?.nilaiPagu ?? 0);
+  }
+
+  /**
+   * Mengelompokkan baris pecahan tepat di bawah paket induknya masing-masing
+   * sambil mempertahankan urutan item lain atau pecahan yatim (saat filter aktif).
+   */
+  private orderPaketsByParent<T extends { id: string; parentId?: string | null }>(
+    items: T[],
+  ): T[] {
+    const idSet = new Set(items.map((item) => item.id));
+    const childrenByParent = new Map<string, T[]>();
+    const roots: T[] = [];
+
+    for (const item of items) {
+      if (item.parentId && idSet.has(item.parentId)) {
+        const list = childrenByParent.get(item.parentId) || [];
+        list.push(item);
+        childrenByParent.set(item.parentId, list);
+      } else {
+        roots.push(item);
+      }
+    }
+
+    const ordered: T[] = [];
+    for (const root of roots) {
+      ordered.push(root);
+      const children = childrenByParent.get(root.id);
+      if (children?.length) {
+        ordered.push(...children);
+      }
+    }
+    return ordered;
   }
 }

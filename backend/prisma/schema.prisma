@@ -171,7 +171,9 @@ model PaketPembangunan {
   tahunAnggaran   Int       @default(2026) @map("tahun_anggaran")
   opdId           String    @map("opd_id")
   subUnitId       String?   @map("sub_unit_id")
-  kodeRupKontrak  String?   @map("kode_rup_kontrak")
+  parentId           String?   @map("parent_id")
+  isIndukGelondongan Boolean   @default(false) @map("is_induk_gelondongan")
+  kodeRupKontrak     String?   @map("kode_rup_kontrak")
   namaPaket       String    @map("nama_paket")
   lokasiKegiatan  String?   @map("lokasi_kegiatan")
   metodePemilihan String?   @map("metode_pemilihan")
@@ -191,6 +193,8 @@ model PaketPembangunan {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   createdBy         User?               @relation("UserPaketCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  parentPaket       PaketPembangunan?   @relation("PaketPecahan", fields: [parentId], references: [id], onDelete: Cascade)
+  pecahanPakets     PaketPembangunan[]  @relation("PaketPecahan")
   targetBulanan     TargetBulanan[]
   targetMingguan    TargetMingguan[]
   pencairanKeuangan PencairanKeuangan[]
@@ -199,6 +203,7 @@ model PaketPembangunan {
 
   @@index([tahunAnggaran, opdId])
   @@index([subUnitId])
+  @@index([parentId])
   @@map("paket_pembangunan")
 }
 

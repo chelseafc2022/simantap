@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Building2, Calendar, FileText, MapPin, User, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Building2, Calendar, FileText, MapPin, User, CheckCircle2, AlertTriangle, GitBranch } from "lucide-react"
 import { PaketItem } from "./paket-form-dialog"
 
 interface PaketDetailDialogProps {
@@ -102,10 +102,27 @@ export function PaketDetailDialog({
                     {paket.metodePemilihan}
                   </Badge>
                 )}
+                {(paket.isIndukGelondongan || (paket.pecahanPakets?.length ?? 0) > 0) && (
+                  <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/25 text-xs gap-1">
+                    <GitBranch className="h-3 w-3" />
+                    Induk Gelondongan ({paket.pecahanPakets?.length || 0} Kontrak)
+                  </Badge>
+                )}
+                {paket.parentId && (
+                  <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/25 text-xs gap-1">
+                    <GitBranch className="h-3 w-3" />
+                    Pecahan Kontrak
+                  </Badge>
+                )}
               </div>
               <DialogTitle className="text-xl font-bold text-foreground">
                 {paket.namaPaket}
               </DialogTitle>
+              {paket.parentPaket && (
+                <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 font-medium">
+                  Bagian dari Paket Induk: {paket.parentPaket.namaPaket}
+                </div>
+              )}
               <DialogDescription className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5" />
@@ -126,7 +143,9 @@ export function PaketDetailDialog({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-3 text-sm">
           <div className="space-y-1">
             <span className="text-xs text-muted-foreground uppercase font-medium">Pagu Anggaran</span>
-            <div className="font-semibold text-foreground">{formatRupiah(paguNum)}</div>
+            <div className="font-semibold text-foreground">
+              {paket.parentId ? "Rp 0 (Ikut Induk)" : formatRupiah(paguNum)}
+            </div>
             <span className="text-xs text-muted-foreground">{paket.sumberDana || "Sumber Dana: -"}</span>
           </div>
 
@@ -172,6 +191,42 @@ export function PaketDetailDialog({
         </div>
 
         <Separator />
+
+        {paket.pecahanPakets && paket.pecahanPakets.length > 0 && (
+          <div className="space-y-2 py-2">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-indigo-600" />
+              Rincian Kontrak Pecahan ({paket.pecahanPakets.length} Kontrak)
+            </h3>
+            <div className="rounded-lg border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40">
+                    <TableHead className="w-10 text-center">No</TableHead>
+                    <TableHead>Nama Kontrak Pecahan</TableHead>
+                    <TableHead>Nomor Kontrak & Penyedia</TableHead>
+                    <TableHead className="text-right">Nilai Kontrak</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paket.pecahanPakets.map((child, idx) => (
+                    <TableRow key={child.id}>
+                      <TableCell className="text-center font-mono text-xs">{idx + 1}</TableCell>
+                      <TableCell className="text-xs font-medium">{child.namaPaket}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        <div className="font-mono">{child.nomorKontrak || "-"}</div>
+                        <div>{child.pemenangRekanan || "-"}</div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatRupiah(child.nilaiKontrak)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
 
         {/* Rekap bulanan untuk kebutuhan dashboard dan TEPRA */}
         <div className="space-y-3 pt-2">

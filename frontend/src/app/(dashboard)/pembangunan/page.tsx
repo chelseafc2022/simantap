@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { Fragment, useState, useEffect, useMemo } from "react"
 import { useQuery, keepPreviousData } from "@tanstack/react-query"
 import { useDebounce } from "use-debounce"
 import { apiClient } from "@/lib/api-client"
@@ -62,6 +62,7 @@ import {
   Database,
   RotateCcw,
   MoreHorizontal,
+  GitBranch,
 } from "lucide-react"
 
 export default function PaketPembangunanPage() {
@@ -114,6 +115,7 @@ export default function PaketPembangunanPage() {
   const [bulkSyncOpen, setBulkSyncOpen] = useState<boolean>(false)
   const [resetOpen, setResetOpen] = useState<boolean>(false)
   const [selectedPaket, setSelectedPaket] = useState<PaketItem | null>(null)
+  const [parentPaketTarget, setParentPaketTarget] = useState<PaketItem | null>(null)
 
   // 1. Fetch OPD list (from real SIMPEG instansi)
   const { data: opdResponse } = useQuery({
@@ -244,10 +246,20 @@ export default function PaketPembangunanPage() {
     (acc, cur) => acc + (typeof cur.nilaiPagu === "string" ? parseFloat(cur.nilaiPagu) : cur.nilaiPagu || 0),
     0,
   )
-  const totalKontrak = paketList.reduce(
-    (acc, cur) => acc + (typeof cur.nilaiKontrak === "string" ? parseFloat(cur.nilaiKontrak) : cur.nilaiKontrak || 0),
-    0,
-  )
+  const totalKontrak = paketList.reduce((acc, cur) => {
+    const children = cur.pecahanPakets || []
+    if (children.length > 0) {
+      return (
+        acc +
+        children.reduce(
+          (sum, child) =>
+            sum + (typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0),
+          0,
+        )
+      )
+    }
+    return acc + (typeof cur.nilaiKontrak === "string" ? parseFloat(cur.nilaiKontrak) : cur.nilaiKontrak || 0)
+  }, 0)
 
   const formatRupiah = (val: number | string | undefined | null) => {
     const num = typeof val === "string" ? parseFloat(val) : val || 0
@@ -260,17 +272,27 @@ export default function PaketPembangunanPage() {
 
   const handleOpenCreate = () => {
     setSelectedPaket(null)
+    setParentPaketTarget(null)
+    setFormDefaultTab("info")
+    setFormOpen(true)
+  }
+
+  const handleOpenCreatePecahan = (parent: PaketItem) => {
+    setSelectedPaket(null)
+    setParentPaketTarget(parent)
     setFormDefaultTab("info")
     setFormOpen(true)
   }
 
   const handleOpenEdit = (paket: PaketItem) => {
+    setParentPaketTarget(null)
     setSelectedPaket(paket)
     setFormDefaultTab("info")
     setFormOpen(true)
   }
 
   const handleOpenTarget = (paket: PaketItem) => {
+    setParentPaketTarget(null)
     setSelectedPaket(paket)
     setFormDefaultTab("targets")
     setFormOpen(true)
@@ -561,7 +583,15 @@ export default function PaketPembangunanPage() {
             paketList.map((paket, index) => {
               const no = (page - 1) * limit + index + 1
               const paguNum = typeof paket.nilaiPagu === "string" ? parseFloat(paket.nilaiPagu) : paket.nilaiPagu || 0
-              const kontrakNum = typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0
+              const pecahanList = paket.pecahanPakets || []
+              const hasPecahan = pecahanList.length > 0 || !!paket.isIndukGelondongan
+              const kontrakNum = pecahanList.length > 0
+                ? pecahanList.reduce(
+                    (sum, child) =>
+                      sum + (typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0),
+                    0,
+                  )
+                : (typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0)
               const sudahIsiTarget = (paket.targetMingguan?.length ?? 0) > 0
               const targetAkhir = sudahIsiTarget
                 ? paket.targetMingguan?.at(-1)?.targetFisik ?? 0
@@ -575,6 +605,12 @@ export default function PaketPembangunanPage() {
                       <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
                         #{no}
                       </span>
+                      {hasPecahan && (
+                        <Badge className="text-[10px] gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">
+                          <GitBranch className="h-3 w-3" />
+                          Induk ({pecahanList.length} Kontrak)
+                        </Badge>
+                      )}
                       <Badge variant="secondary" className="text-[11px] font-normal">
                         {paket.metodePemilihan || "PBJ"}
                       </Badge>
@@ -584,7 +620,7 @@ export default function PaketPembangunanPage() {
                         </span>
                       )}
                     </div>
-                    {paket.polaMonitoring !== "KEUANGAN" && (
+                    {paket.polaMonitoring !== "KEUANGAN" && !hasPecahan && (
                     <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-mono font-medium shrink-0 ${
                       sudahIsiTarget
                         ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -636,7 +672,9 @@ export default function PaketPembangunanPage() {
                   {/* Nilai Pagu & Kontrak */}
                   <div className="grid grid-cols-2 gap-2 p-2.5 rounded-md bg-muted/40 text-xs font-mono">
                     <div>
-                      <div className="text-[10px] text-muted-foreground font-sans">Nilai Kontrak</div>
+                      <div className="text-[10px] text-muted-foreground font-sans">
+                        {hasPecahan ? "Total Kontrak Pecahan" : "Nilai Kontrak"}
+                      </div>
                       <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
                         {formatRupiah(kontrakNum)}
                       </div>
@@ -650,7 +688,19 @@ export default function PaketPembangunanPage() {
                   </div>
 
                   {/* Tombol Aksi di Mobile */}
-                  <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                    {(isSuperRole || hasRole("ADMIN_PPK")) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1 text-indigo-600 border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
+                        onClick={() => handleOpenCreatePecahan(paket)}
+                      >
+                        <GitBranch className="h-3.5 w-3.5" />
+                        <span>Pecah Kontrak</span>
+                      </Button>
+                    )}
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -661,7 +711,7 @@ export default function PaketPembangunanPage() {
                       <span>Detail</span>
                     </Button>
 
-                    {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
+                    {!hasPecahan && paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -697,6 +747,53 @@ export default function PaketPembangunanPage() {
                       </Button>
                     )}
                   </div>
+
+                  {pecahanList.length > 0 && (
+                    <div className="mt-2 pl-3 border-l-2 border-indigo-400/50 space-y-2">
+                      {pecahanList.map((child, idx) => {
+                        const childKontrak = typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0
+                        const childTargetReady = (child.targetMingguan?.length ?? 0) > 0
+                        const childWithParent = { ...child, parentPaket: paket }
+                        return (
+                          <div key={child.id} className="rounded-lg border bg-indigo-500/5 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="outline" className="font-mono text-[10px] border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                ↳ Pecahan #{idx + 1}
+                              </Badge>
+                              {child.polaMonitoring !== "KEUANGAN" && (
+                                <span className={`text-[10px] font-semibold ${childTargetReady ? "text-emerald-600" : "text-amber-600"}`}>
+                                  {childTargetReady ? `Target ${(child.targetMingguan?.at(-1)?.targetFisik ?? 0).toFixed(1)}%` : "Target belum diisi"}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(childWithParent)}
+                              className="text-left text-xs font-semibold text-foreground hover:text-emerald-600 block"
+                            >
+                              {child.namaPaket}
+                            </button>
+                            <div className="flex items-center justify-between text-[11px] font-mono">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{formatRupiah(childKontrak)}</span>
+                              <span className="text-muted-foreground">Pagu: Ikut Induk</span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1 pt-1">
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => handleOpenDetail(childWithParent)}>Detail</Button>
+                              {child.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-amber-600" onClick={() => handleOpenTarget(childWithParent)}>Target</Button>
+                              )}
+                              {(isSuperRole || hasRole("ADMIN_PPK")) && (
+                                <>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-blue-600" onClick={() => handleOpenEdit(childWithParent)}>Ubah</Button>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] text-red-600" onClick={() => handleOpenDelete(child)}>Hapus</Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })
@@ -780,162 +877,303 @@ export default function PaketPembangunanPage() {
                 paketList.map((paket, index) => {
                   const no = (page - 1) * limit + index + 1
                   const paguNum = typeof paket.nilaiPagu === "string" ? parseFloat(paket.nilaiPagu) : paket.nilaiPagu || 0
-                  const kontrakNum = typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0
+                  const pecahanList = paket.pecahanPakets || []
+                  const hasPecahan = pecahanList.length > 0 || !!paket.isIndukGelondongan
+                  const kontrakNum = pecahanList.length > 0
+                    ? pecahanList.reduce(
+                        (sum, child) =>
+                          sum + (typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0),
+                        0,
+                      )
+                    : (typeof paket.nilaiKontrak === "string" ? parseFloat(paket.nilaiKontrak) : paket.nilaiKontrak || 0)
                   const sudahIsiTarget = (paket.targetMingguan?.length ?? 0) > 0
                   const targetAkhir = sudahIsiTarget
                     ? paket.targetMingguan?.at(-1)?.targetFisik ?? 0
                     : 0
 
                   return (
-                    <TableRow key={paket.id} className="border-b border-border/60 transition-colors hover:bg-muted/25">
-                      {/* No */}
-                      <TableCell className="px-3 py-4 text-center align-top">
-                        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-muted px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
-                          {no}
-                        </span>
-                      </TableCell>
+                    <Fragment key={paket.id}>
+                      <TableRow className={`border-b border-border/60 transition-colors hover:bg-muted/25 ${hasPecahan ? "bg-indigo-500/[0.03]" : ""}`}>
+                        {/* No */}
+                        <TableCell className="px-3 py-4 text-center align-top">
+                          <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md bg-muted px-1.5 font-mono text-[11px] font-semibold text-muted-foreground">
+                            {no}
+                          </span>
+                        </TableCell>
 
-                      {/* Identitas Paket */}
-                      <TableCell className="whitespace-normal px-4 py-4 align-top">
-                        <div className="min-w-0 space-y-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDetail(paket)}
-                            className="line-clamp-3 block w-full cursor-pointer whitespace-normal break-words text-left text-sm font-semibold leading-5 text-foreground transition-colors [overflow-wrap:anywhere] hover:text-emerald-600"
-                            title={paket.namaPaket}
-                          >
-                            {paket.namaPaket}
-                            <span className="block text-[10px] font-normal text-muted-foreground mt-1">
-                              {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
-                            </span>
-                          </button>
-                          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
-                            {paket.kodeRupKontrak && (
-                              <span className="shrink-0 rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[10px]" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
-                                RUP: {paket.kodeRupKontrak}
-                              </span>
+                        {/* Identitas Paket */}
+                        <TableCell className="whitespace-normal px-4 py-4 align-top">
+                          <div className="min-w-0 space-y-1.5">
+                            {hasPecahan && (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <Badge className="gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 text-[10px] font-semibold">
+                                  <GitBranch className="h-3 w-3" />
+                                  Paket Induk Gelondongan ({pecahanList.length} Kontrak)
+                                </Badge>
+                              </div>
                             )}
-                            {paket.lokasiKegiatan && (
-                              <span className="flex items-center gap-1 truncate shrink min-w-0 text-[11px]" title={paket.lokasiKegiatan}>
-                                <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                                <span className="truncate">{paket.lokasiKegiatan}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Sub Unit Kerja */}
-                      <TableCell className="whitespace-normal px-4 py-4 align-top">
-                        <div className="flex min-w-0 items-start gap-2">
-                          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
-                            <Building2 className="h-3.5 w-3.5" />
-                          </span>
-                          <span
-                            className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-5 text-foreground"
-                            title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
-                          >
-                            {paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
-                          </span>
-                        </div>
-                      </TableCell>
-
-                      {/* Metode & Sumber */}
-                      <TableCell className="whitespace-normal px-4 py-4 align-top">
-                        <div className="min-w-0 space-y-1.5">
-                          <div className="overflow-hidden">
-                            <Badge variant="secondary" className="block max-w-full truncate px-2 py-1 text-center text-[10px] font-medium" title={paket.metodePemilihan || "PBJ"}>
-                              {paket.metodePemilihan || "PBJ"}
-                            </Badge>
-                          </div>
-                          <div className="block w-full truncate text-[11px] text-muted-foreground" title={paket.sumberDana || "-"}>
-                            {paket.sumberDana || "-"}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Nilai Pagu & Kontrak */}
-                      <TableCell className="px-4 py-4 text-right align-top font-mono">
-                        <div className="min-w-0 space-y-1">
-                          <div className="truncate text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                            {formatRupiah(kontrakNum)}
-                          </div>
-                          <div className="flex items-center justify-end gap-1 truncate text-[10px] text-muted-foreground">
-                            <span className="font-sans">Pagu</span>
-                            <span>{formatRupiah(paguNum)}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      {/* Target Akhir Kontrak */}
-                      <TableCell className="px-3 py-4 text-center align-top">
-                        {paket.polaMonitoring === "KEUANGAN" ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                        <div className={`inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                          sudahIsiTarget
-                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                            : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                        }`}>
-                          {sudahIsiTarget ? (
-                            <TrendingUp className="h-3 w-3 shrink-0" />
-                          ) : (
-                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
-                          )}
-                          <span>
-                            {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
-                          </span>
-                        </div>
-                        )}
-                      </TableCell>
-
-                      {/* Aksi */}
-                      <TableCell className="px-2 py-4 text-center align-top">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg"
-                              title="Buka menu aksi"
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(paket)}
+                              className="line-clamp-3 block w-full cursor-pointer whitespace-normal break-words text-left text-sm font-semibold leading-5 text-foreground transition-colors [overflow-wrap:anywhere] hover:text-emerald-600"
+                              title={paket.namaPaket}
                             >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Buka menu aksi paket</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem onSelect={() => handleOpenDetail(paket)}>
-                              <Eye className="text-emerald-600" />
-                              Detail & Rekap Bulanan
-                            </DropdownMenuItem>
+                              {paket.namaPaket}
+                              <span className="block text-[10px] font-normal text-muted-foreground mt-1">
+                                {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
+                              </span>
+                            </button>
+                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
+                              {paket.kodeRupKontrak && (
+                                <span className="shrink-0 rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[10px]" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
+                                  RUP: {paket.kodeRupKontrak}
+                                </span>
+                              )}
+                              {paket.lokasiKegiatan && (
+                                <span className="flex items-center gap-1 truncate shrink min-w-0 text-[11px]" title={paket.lokasiKegiatan}>
+                                  <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                                  <span className="truncate">{paket.lokasiKegiatan}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
 
-                            {paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
-                              <DropdownMenuItem onSelect={() => handleOpenTarget(paket)}>
-                                <TrendingUp className="text-amber-600" />
-                                Tetapkan Target Mingguan
+                        {/* Sub Unit Kerja */}
+                        <TableCell className="whitespace-normal px-4 py-4 align-top">
+                          <div className="flex min-w-0 items-start gap-2">
+                            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
+                              <Building2 className="h-3.5 w-3.5" />
+                            </span>
+                            <span
+                              className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-5 text-foreground"
+                              title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
+                            >
+                              {paket.subUnit?.namaSubUnit || paket.opd?.namaOpd || paket.opd?.singkatan || "-"}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Metode & Sumber */}
+                        <TableCell className="whitespace-normal px-4 py-4 align-top">
+                          <div className="min-w-0 space-y-1.5">
+                            <div className="overflow-hidden">
+                              <Badge variant="secondary" className="block max-w-full truncate px-2 py-1 text-center text-[10px] font-medium" title={paket.metodePemilihan || "PBJ"}>
+                                {paket.metodePemilihan || "PBJ"}
+                              </Badge>
+                            </div>
+                            <div className="block w-full truncate text-[11px] text-muted-foreground" title={paket.sumberDana || "-"}>
+                              {paket.sumberDana || "-"}
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* Nilai Pagu & Kontrak */}
+                        <TableCell className="px-4 py-4 text-right align-top font-mono">
+                          <div className="min-w-0 space-y-1">
+                            <div className="truncate text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                              {formatRupiah(kontrakNum)}
+                            </div>
+                            {hasPecahan && (
+                              <div className="text-[10px] font-sans text-indigo-600 dark:text-indigo-400">
+                                Akumulasi {pecahanList.length} kontrak
+                              </div>
+                            )}
+                            <div className="flex items-center justify-end gap-1 truncate text-[10px] text-muted-foreground">
+                              <span className="font-sans">Pagu</span>
+                              <span>{formatRupiah(paguNum)}</span>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        {/* Target Akhir Kontrak */}
+                        <TableCell className="px-3 py-4 text-center align-top">
+                          {paket.polaMonitoring === "KEUANGAN" ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : hasPecahan ? (
+                            <Badge variant="outline" className="border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[10px]">
+                              Ikut Pecahan
+                            </Badge>
+                          ) : (
+                          <div className={`inline-flex min-h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                            sudahIsiTarget
+                              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                              : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          }`}>
+                            {sudahIsiTarget ? (
+                              <TrendingUp className="h-3 w-3 shrink-0" />
+                            ) : (
+                              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+                            )}
+                            <span>
+                              {sudahIsiTarget ? `${targetAkhir.toFixed(1)}%` : "Belum diisi"}
+                            </span>
+                          </div>
+                          )}
+                        </TableCell>
+
+                        {/* Aksi */}
+                        <TableCell className="px-2 py-4 text-center align-top">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg"
+                                title="Buka menu aksi"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Buka menu aksi paket</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuItem onSelect={() => handleOpenDetail(paket)}>
+                                <Eye className="text-emerald-600" />
+                                Detail & Rekap Bulanan
                               </DropdownMenuItem>
-                            )}
 
-                            {(isSuperRole || hasRole("ADMIN_PPK")) && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onSelect={() => handleOpenEdit(paket)}>
-                                  <Edit3 className="text-blue-600" />
-                                  Ubah Rincian Paket
+                              {(isSuperRole || hasRole("ADMIN_PPK")) && (
+                                <DropdownMenuItem onSelect={() => handleOpenCreatePecahan(paket)}>
+                                  <GitBranch className="text-indigo-600" />
+                                  Pecah Paket Kontrak
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  onSelect={() => handleOpenDelete(paket)}
+                              )}
+
+                              {!hasPecahan && paket.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
+                                <DropdownMenuItem onSelect={() => handleOpenTarget(paket)}>
+                                  <TrendingUp className="text-amber-600" />
+                                  Tetapkan Target Mingguan
+                                </DropdownMenuItem>
+                              )}
+
+                              {(isSuperRole || hasRole("ADMIN_PPK")) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onSelect={() => handleOpenEdit(paket)}>
+                                    <Edit3 className="text-blue-600" />
+                                    Ubah Rincian Paket
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={() => handleOpenDelete(paket)}
+                                  >
+                                    <Trash2 />
+                                    Hapus Paket
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+
+                      {pecahanList.map((child, idx) => {
+                        const childKontrak = typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0
+                        const childSudahTarget = (child.targetMingguan?.length ?? 0) > 0
+                        const childTargetAkhir = childSudahTarget ? child.targetMingguan?.at(-1)?.targetFisik ?? 0 : 0
+                        const childWithParent: PaketItem = { ...child, parentPaket: paket }
+                        return (
+                          <TableRow key={child.id} className="border-b border-border/50 bg-indigo-500/[0.02] hover:bg-indigo-500/[0.05]">
+                            <TableCell className="px-3 py-3 text-center align-top">
+                              <span className="inline-flex h-6 min-w-8 items-center justify-center rounded bg-indigo-500/10 px-1.5 font-mono text-[10px] font-semibold text-indigo-700 dark:text-indigo-300">
+                                {no}.{idx + 1}
+                              </span>
+                            </TableCell>
+                            <TableCell className="whitespace-normal px-4 py-3 align-top">
+                              <div className="min-w-0 space-y-1 pl-4 border-l-2 border-indigo-400/50">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                    ↳ Pecahan #{idx + 1}
+                                  </Badge>
+                                  {child.nomorKontrak && (
+                                    <span className="font-mono text-[10px] text-muted-foreground truncate">
+                                      No: {child.nomorKontrak}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDetail(childWithParent)}
+                                  className="line-clamp-2 block w-full cursor-pointer whitespace-normal break-words text-left text-xs font-semibold leading-5 text-foreground hover:text-emerald-600"
                                 >
-                                  <Trash2 />
-                                  Hapus Paket
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                                  {child.namaPaket}
+                                </button>
+                                {child.pemenangRekanan && (
+                                  <div className="text-[11px] text-muted-foreground truncate">
+                                    Penyedia: {child.pemenangRekanan}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="whitespace-normal px-4 py-3 align-top text-xs text-muted-foreground">
+                              {child.subUnit?.namaSubUnit || paket.subUnit?.namaSubUnit || paket.opd?.singkatan || "-"}
+                            </TableCell>
+                            <TableCell className="whitespace-normal px-4 py-3 align-top">
+                              <Badge variant="secondary" className="text-[10px] font-normal">
+                                {child.metodePemilihan || paket.metodePemilihan || "PBJ"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-4 py-3 text-right align-top font-mono">
+                              <div className="space-y-0.5">
+                                <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  {formatRupiah(childKontrak)}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground font-sans">
+                                  Pagu: Ikut Induk
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-3 text-center align-top">
+                              {child.polaMonitoring === "KEUANGAN" ? (
+                                <span className="text-muted-foreground">—</span>
+                              ) : (
+                                <div className={`inline-flex min-h-6 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                                  childSudahTarget
+                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                                    : "border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                }`}>
+                                  <span>{childSudahTarget ? `${childTargetAkhir.toFixed(1)}%` : "Belum diisi"}</span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-2 py-3 text-center align-top">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-md" title="Aksi pecahan">
+                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuItem onSelect={() => handleOpenDetail(childWithParent)}>
+                                    <Eye className="text-emerald-600" />
+                                    Detail Pecahan
+                                  </DropdownMenuItem>
+                                  {child.polaMonitoring !== "KEUANGAN" && (isSuperRole || hasRole("ADMIN_PPK")) && (
+                                    <DropdownMenuItem onSelect={() => handleOpenTarget(childWithParent)}>
+                                      <TrendingUp className="text-amber-600" />
+                                      Tetapkan Target Mingguan
+                                    </DropdownMenuItem>
+                                  )}
+                                  {(isSuperRole || hasRole("ADMIN_PPK")) && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onSelect={() => handleOpenEdit(childWithParent)}>
+                                        <Edit3 className="text-blue-600" />
+                                        Ubah Kontrak Pecahan
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem variant="destructive" onSelect={() => handleOpenDelete(child)}>
+                                        <Trash2 />
+                                        Hapus Pecahan
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </Fragment>
                   )
                 })
               )}
@@ -982,8 +1220,12 @@ export default function PaketPembangunanPage() {
       {/* Dialogs */}
       <PaketFormDialog
         open={formOpen}
-        onOpenChange={setFormOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open)
+          if (!open) setParentPaketTarget(null)
+        }}
         initialData={selectedPaket}
+        parentPaket={parentPaketTarget}
         opdList={opdList}
         constants={constantsResponse}
         defaultTab={formDefaultTab}

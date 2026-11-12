@@ -1,5 +1,17 @@
 export interface CetakRealisasiItem {
   id: string
+  parentId?: string | null
+  isIndukGelondongan?: boolean
+  hasChildren?: boolean
+  agregatPecahan?: {
+    count: number
+    berkontrakCount: number
+    totalKontrak: number
+    totalRealisasiKeuangan: number
+    avgTargetFisik: number
+    avgRealisasiFisik: number
+    avgDeviasiFisik: number
+  } | null
   polaMonitoring?: string
   kelompokPaket?: string
   namaPaket: string
@@ -88,30 +100,39 @@ export function cetakLaporanRealisasiPDF({
     }
 
     counter++
-    const isDeviasiPositif = item.deviasiFisik >= 0
+    const isInduk = !!(item.hasChildren && item.agregatPecahan)
+    const isPecahan = !!item.parentId
+    const displayKontrak = isInduk && item.agregatPecahan ? item.agregatPecahan.totalKontrak : item.nilaiKontrak
+    const displayTarget = isInduk && item.agregatPecahan ? item.agregatPecahan.avgTargetFisik : item.targetFisik
+    const displayRealFisik = isInduk && item.agregatPecahan ? item.agregatPecahan.avgRealisasiFisik : item.realisasiFisik
+    const displayDeviasi = isInduk && item.agregatPecahan ? item.agregatPecahan.avgDeviasiFisik : item.deviasiFisik
+    const displayRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
+    const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : displayKontrak
+    const displayPersenKeu = isInduk && basisInduk > 0 ? Number(((displayRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
+    const isDeviasiPositif = displayDeviasi >= 0
     const deviasiColor = isDeviasiPositif ? "#166534" : "#991b1b"
     const tglMulaiStr = item.tanggalMulai ? item.tanggalMulai.substring(0, 10) : "-"
     const tglSelesaiStr = item.tanggalSelesai ? item.tanggalSelesai.substring(0, 10) : "-"
 
     rowsHtml += `
-      <tr>
+      <tr style="${isInduk ? "background-color: #eef2ff;" : ""}">
         <td style="border: 1px solid #000; text-align: center; padding: 4px;">${counter}</td>
-        <td style="border: 1px solid #000; padding: 4px; text-align: left;">
-          <div style="font-weight: bold;">${item.namaPaket}</div>
+        <td style="border: 1px solid #000; padding: 4px; ${isPecahan ? "padding-left: 16px;" : ""} text-align: left;">
+          <div style="font-weight: bold;">${isPecahan ? "↳ " : ""}${item.namaPaket}${isInduk && item.agregatPecahan ? ` <span style="font-size: 7pt; color: #3730a3;">[Induk - ${item.agregatPecahan.count} Kontrak]</span>` : ""}</div>
           <div style="font-size: 7.5pt; color: #555;">${item.opd?.namaOpd || ""}${item.subUnit ? ` - ${item.subUnit.namaSubUnit}` : ""}</div>
         </td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">Rp ${formatRupiah(item.nilaiPagu)}</td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">Rp ${formatRupiah(item.nilaiKontrak)}</td>
-        <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt; font-family: monospace;">${item.nomorKontrak || "-"}</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${isPecahan ? '<span style="font-family: sans-serif; color: #64748b; font-style: italic;">Ikut Induk</span>' : `Rp ${formatRupiah(item.nilaiPagu)}`}</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">Rp ${formatRupiah(displayKontrak)}</td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt; font-family: monospace;">${isInduk ? `${item.agregatPecahan?.count || 0} Kontrak` : (item.nomorKontrak || "-")}</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt;">${tglMulaiStr}</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt;">${tglSelesaiStr}</td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.realisasiFisik}%`}</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${displayTarget}%`}</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">${item.polaMonitoring === "KEUANGAN" ? "—" : `${displayRealFisik}%`}</td>
         <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold; color: ${deviasiColor};">
-          ${item.polaMonitoring === "KEUANGAN" ? "—" : `${item.deviasiFisik > 0 ? "+" : ""}${item.deviasiFisik}%`}
+          ${item.polaMonitoring === "KEUANGAN" ? "—" : `${displayDeviasi > 0 ? "+" : ""}${displayDeviasi}%`}
         </td>
-        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">Rp ${formatRupiah(item.realisasiKeuangan)}</td>
-        <td style="border: 1px solid #000; text-align: center; padding: 4px; font-family: monospace;">${item.persenKeuangan}%</td>
+        <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">Rp ${formatRupiah(displayRealKeu)}</td>
+        <td style="border: 1px solid #000; text-align: center; padding: 4px; font-family: monospace;">${displayPersenKeu}%</td>
         <td style="border: 1px solid #000; text-align: center; padding: 4px; font-size: 7.5pt;">${item.sumberDana || "-"}</td>
       </tr>
     `

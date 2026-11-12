@@ -43,6 +43,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FilterX,
+  GitBranch,
   FileText,
   BarChart3,
   Flame,
@@ -784,22 +785,42 @@ export default function LaporanDanEvaluasiPage() {
               ) : (
                 items.map((item: any, idx: number) => {
                   const rowNo = (page - 1) * limit + idx + 1
-                  const isDeviasiPositif = item.deviasiFisik >= 0
-                  const isKritis = item.status === "KRITIS"
+                  const isInduk = !!(item.hasChildren && item.agregatPecahan)
+                  const isPecahan = !!item.parentId
+                  const dispTarget = isInduk ? item.agregatPecahan.avgTargetFisik : item.targetFisik
+                  const dispRealFisik = isInduk ? item.agregatPecahan.avgRealisasiFisik : item.realisasiFisik
+                  const dispDeviasi = isInduk ? item.agregatPecahan.avgDeviasiFisik : item.deviasiFisik
+                  const dispKontrak = isInduk ? item.agregatPecahan.totalKontrak : item.nilaiKontrak
+                  const dispRealKeu = isInduk ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
+                  const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
+                  const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
+                  const isDeviasiPositif = dispDeviasi >= 0
+                  const isKritis = !isInduk && item.status === "KRITIS"
 
                   return (
                     <div
                       key={item.id}
                       className={`p-4 space-y-3 hover:bg-muted/30 transition-colors ${
-                        isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
+                        isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : isPecahan ? "pl-6 bg-indigo-500/[0.03] border-l-2 border-indigo-400/50" : isInduk ? "bg-indigo-500/[0.04]" : ""
                       }`}
                     >
                       {/* Header Card: No & Status Badge */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                            #{rowNo}
+                            {isPecahan ? `↳ #${rowNo}` : `#${rowNo}`}
                           </span>
+                          {isInduk && (
+                            <Badge className="text-[10px] gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">
+                              <GitBranch className="h-3 w-3" />
+                              Induk ({item.agregatPecahan.count} Kontrak)
+                            </Badge>
+                          )}
+                          {isPecahan && (
+                            <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                              ↳ Pecahan
+                            </Badge>
+                          )}
                           {item.metodePemilihan && (
                             <Badge variant="secondary" className="text-[11px] font-normal">
                               {item.metodePemilihan}
@@ -812,26 +833,34 @@ export default function LaporanDanEvaluasiPage() {
                           )}
                         </div>
                         <div>
-                          {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
-                          {item.status === "AMAN" && (
-                            <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
-                              Aman
+                          {isInduk ? (
+                            <Badge variant="outline" className="text-[10px] border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                              Rekap Otomatis
                             </Badge>
-                          )}
-                          {item.status === "PERHATIAN" && (
-                            <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px]">
-                              Waspada
-                            </Badge>
-                          )}
-                          {item.status === "KRITIS" && (
-                            <Badge variant="destructive" className="text-[10px] animate-pulse">
-                              Kritis (SCM)
-                            </Badge>
-                          )}
-                          {item.status === "BELUM_MULAI" && (
-                            <Badge variant="outline" className="text-muted-foreground text-[10px]">
-                              Belum Mulai
-                            </Badge>
+                          ) : (
+                            <>
+                              {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
+                              {item.status === "AMAN" && (
+                                <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px]">
+                                  Aman
+                                </Badge>
+                              )}
+                              {item.status === "PERHATIAN" && (
+                                <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px]">
+                                  Waspada
+                                </Badge>
+                              )}
+                              {item.status === "KRITIS" && (
+                                <Badge variant="destructive" className="text-[10px] animate-pulse">
+                                  Kritis (SCM)
+                                </Badge>
+                              )}
+                              {item.status === "BELUM_MULAI" && (
+                                <Badge variant="outline" className="text-muted-foreground text-[10px]">
+                                  Belum Mulai
+                                </Badge>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -870,10 +899,10 @@ export default function LaporanDanEvaluasiPage() {
                           <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
                           <div className="flex items-center gap-1.5">
                             <span className="font-bold text-foreground">
-                              {item.realisasiFisik.toFixed(1)}%
+                              {dispRealFisik.toFixed(1)}%
                             </span>
                             <span className="text-[10px] text-muted-foreground">
-                              (Tgt: {item.targetFisik.toFixed(1)}%)
+                              (Tgt: {dispTarget.toFixed(1)}%)
                             </span>
                           </div>
                           <div className="text-[10px]">
@@ -882,12 +911,12 @@ export default function LaporanDanEvaluasiPage() {
                               className={`font-semibold ${
                                 isDeviasiPositif
                                   ? "text-emerald-600 dark:text-emerald-400"
-                                  : item.deviasiFisik >= -10
+                                  : dispDeviasi >= -10
                                   ? "text-amber-600 dark:text-amber-400"
                                   : "text-rose-600 dark:text-rose-400 font-bold"
                               }`}
                             >
-                              {isDeviasiPositif ? `+${item.deviasiFisik.toFixed(1)}` : item.deviasiFisik.toFixed(1)}%
+                              {isDeviasiPositif ? `+${dispDeviasi.toFixed(1)}` : dispDeviasi.toFixed(1)}%
                             </span>
                           </div>
                         </div>
@@ -895,18 +924,18 @@ export default function LaporanDanEvaluasiPage() {
                         <div className="space-y-1">
                           <div className="text-[10px] text-muted-foreground font-sans">Realisasi Keuangan</div>
                           <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
-                            {formatRupiah(item.realisasiKeuangan)}
+                            {formatRupiah(dispRealKeu)}
                           </div>
                           <div className="text-[10px] text-muted-foreground">
-                            Serapan: <span className="font-semibold text-foreground">{item.persenKeuangan.toFixed(1)}%</span>
+                            Serapan: <span className="font-semibold text-foreground">{dispPersenKeu.toFixed(1)}%</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Nilai Pagu & Kontrak */}
                       <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
-                        <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
-                        {isFisik && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>}
+                        <span>{isPecahan ? "Pagu: Ikut Induk" : `Pagu: ${formatRupiah(item.nilaiPagu)}`}</span>
+                        {isFisik && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(dispKontrak)}</span>}
                       </div>
                     </div>
                   )
@@ -976,37 +1005,69 @@ export default function LaporanDanEvaluasiPage() {
                       <>
                         {items.map((item: any, idx: number) => {
                           const rowNo = (page - 1) * limit + idx + 1
-                          const isDeviasiPositif = item.deviasiFisik >= 0
-                          const isKritis = item.status === "KRITIS"
+                          const isInduk = !!(item.hasChildren && item.agregatPecahan)
+                          const isPecahan = !!item.parentId
+                          const dispTarget = isInduk ? item.agregatPecahan.avgTargetFisik : item.targetFisik
+                          const dispRealFisik = isInduk ? item.agregatPecahan.avgRealisasiFisik : item.realisasiFisik
+                          const dispDeviasi = isInduk ? item.agregatPecahan.avgDeviasiFisik : item.deviasiFisik
+                          const dispKontrak = isInduk ? item.agregatPecahan.totalKontrak : item.nilaiKontrak
+                          const dispRealKeu = isInduk ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
+                          const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
+                          const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
+                          const isDeviasiPositif = dispDeviasi >= 0
+                          const isKritis = !isInduk && item.status === "KRITIS"
 
                           return (
                             <TableRow
                               key={item.id}
                               className={`hover:bg-muted/40 transition-colors text-xs border-b border-gray-200 dark:border-neutral-700 ${
-                                isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : ""
+                                isKritis ? "bg-rose-500/5 dark:bg-rose-950/20" : isPecahan ? "bg-indigo-500/[0.025]" : isInduk ? "bg-indigo-500/[0.04]" : ""
                               }`}
                             >
                               <TableCell className="px-2 text-center font-mono text-[11px] text-muted-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700 whitespace-nowrap">
-                                {rowNo}
+                                {isPecahan ? <span className="text-indigo-600 dark:text-indigo-400">↳ {rowNo}</span> : rowNo}
                               </TableCell>
                               <TableCell className="px-3 py-3.5 whitespace-normal border-r border-b border-gray-200 dark:border-neutral-700">
-                                <div className="line-clamp-2 whitespace-normal break-words font-semibold text-xs text-foreground leading-snug" title={item.namaPaket}>
-                                  {item.namaPaket}
-                                </div>
-                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                                  <span className="font-medium text-foreground/80">{item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}</span>
-                                  {item.metodePemilihan && <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-normal">{item.metodePemilihan}</Badge>}
-                                  {isFisik && item.pemenangRekanan && <span className="truncate max-w-[180px]">• {item.pemenangRekanan}</span>}
+                                <div className={isPecahan ? "pl-3 border-l-2 border-indigo-400/50" : ""}>
+                                  {(isInduk || isPecahan) && (
+                                    <div className="mb-1 flex flex-wrap gap-1">
+                                      {isInduk && (
+                                        <Badge className="gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 text-[9px]">
+                                          <GitBranch className="h-2.5 w-2.5" />
+                                          Induk ({item.agregatPecahan.count} Kontrak)
+                                        </Badge>
+                                      )}
+                                      {isPecahan && (
+                                        <Badge variant="outline" className="text-[9px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                          ↳ Pecahan
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="line-clamp-2 whitespace-normal break-words font-semibold text-xs text-foreground leading-snug" title={item.namaPaket}>
+                                    {item.namaPaket}
+                                  </div>
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <span className="font-medium text-foreground/80">{item.subUnit?.namaSubUnit || item.opd?.singkatan || item.opd?.namaOpd || "-"}</span>
+                                    {item.metodePemilihan && <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-normal">{item.metodePemilihan}</Badge>}
+                                    {isFisik && item.pemenangRekanan && <span className="truncate max-w-[180px]">• {item.pemenangRekanan}</span>}
+                                  </div>
                                 </div>
                               </TableCell>
                               <TableCell className="px-3 text-right font-mono text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                {formatRupiah(item.nilaiPagu)}
+                                {isPecahan ? (
+                                  <span className="font-sans italic text-[11px] text-muted-foreground">Ikut Induk</span>
+                                ) : (
+                                  formatRupiah(item.nilaiPagu)
+                                )}
                               </TableCell>
                               {isFisik && (<TableCell className="px-3 text-right font-mono font-semibold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                {formatRupiah(item.nilaiKontrak)}
+                                {formatRupiah(dispKontrak)}
                               </TableCell>)}
                               {isFisik && (<TableCell className="px-3 font-mono text-[11px] leading-snug py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                <div className="max-w-[200px] break-words whitespace-normal">{item.nomorKontrak || "-"}</div>
+                                <div className="max-w-[200px] break-words whitespace-normal">
+                                  {isInduk ? `${item.agregatPecahan.count} Kontrak Pecahan` : (item.nomorKontrak || "-")}
+                                </div>
                               </TableCell>)}
                               {isFisik && (<TableCell className="px-2 text-center whitespace-nowrap text-xs py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {formatTanggal(item.tanggalMulai)}
@@ -1015,13 +1076,13 @@ export default function LaporanDanEvaluasiPage() {
                                 {formatTanggal(item.tanggalSelesai)}
                               </TableCell>)}
                               {isFisik && (<TableCell className="px-2 text-center font-mono font-bold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                {item.realisasiFisik.toFixed(1)}%
+                                {dispRealFisik.toFixed(1)}%
                               </TableCell>)}
                               <TableCell className="px-3 text-right font-mono font-semibold text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                {formatRupiah(item.realisasiKeuangan)}
+                                {formatRupiah(dispRealKeu)}
                               </TableCell>
                               <TableCell className="px-2 text-center font-mono font-bold text-xs whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                                {item.persenKeuangan.toFixed(1)}%
+                                {dispPersenKeu.toFixed(1)}%
                               </TableCell>
                               <TableCell className="px-2 text-center text-[10.5px] font-medium whitespace-nowrap py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                                 {item.sumberDana || "-"}
@@ -1029,14 +1090,22 @@ export default function LaporanDanEvaluasiPage() {
                               <TableCell className="px-3 whitespace-normal py-3.5 border-b border-gray-200 dark:border-neutral-700">
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
-                                    {item.status === "AMAN" && <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[9px] py-0">Aman</Badge>}
-                                    {item.status === "PERHATIAN" && <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[9px] py-0">Waspada</Badge>}
-                                    {item.status === "KRITIS" && <Badge variant="destructive" className="text-[9px] py-0">Kritis</Badge>}
-                                    {item.status === "BELUM_MULAI" && <Badge variant="outline" className="text-muted-foreground text-[9px] py-0">Belum Mulai</Badge>}
+                                    {isInduk ? (
+                                      <Badge variant="outline" className="text-[9px] py-0 border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                        Rekap Otomatis
+                                      </Badge>
+                                    ) : (
+                                      <>
+                                        {item.status === "KEUANGAN" && <Badge variant="secondary">Keuangan</Badge>}
+                                        {item.status === "AMAN" && <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[9px] py-0">Aman</Badge>}
+                                        {item.status === "PERHATIAN" && <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[9px] py-0">Waspada</Badge>}
+                                        {item.status === "KRITIS" && <Badge variant="destructive" className="text-[9px] py-0">Kritis</Badge>}
+                                        {item.status === "BELUM_MULAI" && <Badge variant="outline" className="text-muted-foreground text-[9px] py-0">Belum Mulai</Badge>}
+                                      </>
+                                    )}
                                   </div>
 {isFisik && (                                  <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap">
-                                    Target {item.targetFisik.toFixed(1)}% · Deviasi {isDeviasiPositif ? "+" : ""}{item.deviasiFisik.toFixed(1)}%
+                                    Target {dispTarget.toFixed(1)}% · Deviasi {isDeviasiPositif ? "+" : ""}{dispDeviasi.toFixed(1)}%
                                   </span>)}
                                   {item.catatanOperator && (
                                     <p className="line-clamp-2 whitespace-normal break-words text-[10px] leading-tight text-muted-foreground/90 italic" title={item.catatanOperator}>
@@ -1154,21 +1223,36 @@ export default function LaporanDanEvaluasiPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    matriksData.items.map((paket: any, pIdx: number) => (
-                      <TableRow key={paket.id} className="hover:bg-muted/30 text-xs border-b border-gray-200 dark:border-neutral-700">
+                    matriksData.items.map((paket: any, pIdx: number) => {
+                      const isIndukMat = !!(paket.hasChildren && paket.agregatPecahan)
+                      const isPecahanMat = !!paket.parentId
+                      return (
+                      <TableRow key={paket.id} className={`hover:bg-muted/30 text-xs border-b border-gray-200 dark:border-neutral-700 ${isPecahanMat ? "bg-indigo-500/[0.025]" : isIndukMat ? "bg-indigo-500/[0.04]" : ""}`}>
                         <TableCell className="text-center font-mono text-muted-foreground py-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                          {pIdx + 1}
+                          {isPecahanMat ? `↳ ${pIdx + 1}` : pIdx + 1}
                         </TableCell>
                         <TableCell className="py-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                          <div className="font-semibold text-foreground truncate max-w-[240px]">
-                            {paket.namaPaket}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate max-w-[240px]" title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd}>
-                            {paket.subUnit?.namaSubUnit || paket.opd?.singkatan || paket.opd?.namaOpd}
+                          <div className={isPecahanMat ? "pl-3 border-l-2 border-indigo-400/50" : ""}>
+                            {isIndukMat && (
+                              <Badge className="mb-1 text-[9px] bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">
+                                Induk ({paket.agregatPecahan.count} Kontrak)
+                              </Badge>
+                            )}
+                            {isPecahanMat && (
+                              <Badge variant="outline" className="mb-1 text-[9px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                ↳ Pecahan
+                              </Badge>
+                            )}
+                            <div className="font-semibold text-foreground truncate max-w-[240px]">
+                              {paket.namaPaket}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate max-w-[240px]" title={paket.subUnit?.namaSubUnit || paket.opd?.namaOpd}>
+                              {paket.subUnit?.namaSubUnit || paket.opd?.singkatan || paket.opd?.namaOpd}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium py-3 border-r border-b border-gray-200 dark:border-neutral-700">
-                          {formatRupiah(paket.nilaiKontrak)}
+                          {formatRupiah(isIndukMat ? paket.agregatPecahan.totalKontrak : paket.nilaiKontrak)}
                         </TableCell>
                         {paket.timeline.map((m: any, mIdx: number) => {
                           const isActive = m.bulan === bulan
@@ -1207,7 +1291,8 @@ export default function LaporanDanEvaluasiPage() {
                           )
                         })}
                       </TableRow>
-                    ))
+                      )
+                    })
                   )}
                 </TableBody>
               </Table>

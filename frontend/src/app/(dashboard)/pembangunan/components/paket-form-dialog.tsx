@@ -46,6 +46,8 @@ import {
   DownloadCloud,
   SlidersHorizontal,
   Info,
+  GitBranch,
+  Lock,
 } from "lucide-react"
 import { toast } from "sonner"
 import { SirupSearchDialog, SirupItem } from "./sirup-search-dialog"
@@ -102,6 +104,15 @@ export interface PaketItem {
   tanggalSelesai?: string | null
   pemenangRekanan?: string | null
   keterangan?: string | null
+  parentId?: string | null
+  isIndukGelondongan?: boolean
+  parentPaket?: {
+    id: string
+    namaPaket: string
+    nilaiPagu: number | string
+    kodeRupKontrak?: string | null
+  } | null
+  pecahanPakets?: PaketItem[]
   targetBulanan?: TargetBulananItem[]
   targetMingguan?: TargetMingguanItem[]
   opd?: {
@@ -120,6 +131,7 @@ interface PaketFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: PaketItem | null
+  parentPaket?: PaketItem | null
   opdList: OpdOption[]
   constants?: {
     metodePemilihan: string[]
@@ -190,6 +202,7 @@ export function PaketFormDialog({
   open,
   onOpenChange,
   initialData,
+  parentPaket,
   opdList,
   constants,
   defaultTab,
@@ -214,6 +227,8 @@ export function PaketFormDialog({
   const userSubUnitId = user?.subUnit?.id
   const userSubUnitNama = user?.subUnit?.namaSubUnit
   const isEdit = !!initialData
+  const activeParent = parentPaket || initialData?.parentPaket || null
+  const isPecahan = !!parentPaket || !!initialData?.parentId
 
   const canSelectOpd = isSuperRole || !userOpdId
   const canSelectSubUnit = isSuperRole || isKepalaOpd || !userSubUnitId
@@ -313,7 +328,7 @@ export function PaketFormDialog({
       setJenisPengadaan(initialData.jenisPengadaan || "")
       setSumberDana(initialData.sumberDana || "")
       setNomorKontrak(initialData.nomorKontrak || "")
-      setNilaiPagu(initialData.nilaiPagu ? String(initialData.nilaiPagu) : "")
+      setNilaiPagu(initialData.parentId ? "0" : initialData.nilaiPagu ? String(initialData.nilaiPagu) : "")
       setNilaiKontrak(initialData.nilaiKontrak ? String(initialData.nilaiKontrak) : "")
       setTanggalMulai(initialData.tanggalMulai ? initialData.tanggalMulai.substring(0, 10) : "")
       setTanggalSelesai(initialData.tanggalSelesai ? initialData.tanggalSelesai.substring(0, 10) : "")
@@ -326,6 +341,25 @@ export function PaketFormDialog({
         initialData.targetMingguan,
         initialData.targetBulanan
       ))
+    } else if (parentPaket) {
+      setPolaMonitoring(parentPaket.polaMonitoring || "FISIK_KEUANGAN")
+      setTahunAnggaran(parentPaket.tahunAnggaran || 2026)
+      setOpdId(parentPaket.opdId || (!isSuperRole && userOpdId ? userOpdId : (opdList[0]?.id || "")))
+      setSubUnitId(parentPaket.subUnitId || (!canSelectSubUnit && userSubUnitId ? userSubUnitId : ""))
+      setNamaPaket("")
+      setKodeRupKontrak("")
+      setLokasiKegiatan(parentPaket.lokasiKegiatan || "")
+      setMetodePemilihan(parentPaket.metodePemilihan || constants?.metodePemilihan?.[0] || "Tender")
+      setJenisPengadaan(parentPaket.jenisPengadaan || constants?.jenisPengadaan?.[0] || "Pengadaan Barang")
+      setSumberDana(parentPaket.sumberDana || constants?.sumberDana?.[0] || "APBD")
+      setNomorKontrak("")
+      setNilaiPagu("0")
+      setNilaiKontrak("")
+      setTanggalMulai("")
+      setTanggalSelesai("")
+      setPemenangRekanan("")
+      setKeterangan("")
+      setWeeklyTargets([])
     } else {
       setPolaMonitoring("FISIK_KEUANGAN")
       // Reset form
@@ -348,14 +382,14 @@ export function PaketFormDialog({
       setKeterangan("")
       setWeeklyTargets([])
     }
-    if (initialData?.polaMonitoring === "KEUANGAN") {
+    if ((initialData?.polaMonitoring || parentPaket?.polaMonitoring) === "KEUANGAN") {
       setActiveTab("info")
     } else if (defaultTab) {
       setActiveTab(defaultTab)
     } else {
       setActiveTab("info")
     }
-  }, [initialData, open, defaultTab, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
+  }, [initialData, parentPaket, open, defaultTab, isSuperRole, canSelectSubUnit, userOpdId, userSubUnitId, opdList, constants])
 
   const reconcileWeeklyPeriods = (start: string, end: string) => {
     const periods = generateContractWeeks(start, end)
@@ -570,6 +604,7 @@ export function PaketFormDialog({
       })
 
       const payload = {
+        parentId: parentPaket ? parentPaket.id : initialData?.parentId || undefined,
         polaMonitoring,
         tahunAnggaran,
         opdId,
@@ -581,7 +616,7 @@ export function PaketFormDialog({
         jenisPengadaan: jenisPengadaan || undefined,
         sumberDana: sumberDana || undefined,
         nomorKontrak: nomorKontrak.trim() || undefined,
-        nilaiPagu: parseFloat(nilaiPagu) || 0,
+        nilaiPagu: isPecahan ? 0 : (parseFloat(nilaiPagu) || 0),
         nilaiKontrak: parseFloat(nilaiKontrak) || 0,
         tanggalMulai: tanggalMulai || undefined,
         tanggalSelesai: tanggalSelesai || undefined,
@@ -632,12 +667,20 @@ export function PaketFormDialog({
               </div>
               <div>
                 <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight">
-                  {isEdit ? "Ubah Data Paket Pembangunan" : "Tambah Paket Pembangunan Baru"}
+                  {isEdit
+                    ? isPecahan
+                      ? "Ubah Kontrak Pecahan"
+                      : "Ubah Data Paket Pembangunan"
+                    : isPecahan
+                      ? "Tambah Kontrak Pecahan (Paket Gelondongan)"
+                      : "Tambah Paket Pembangunan Baru"}
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm mt-0.5 text-muted-foreground">
-                  {isEdit
-                    ? "Perbarui rincian teknis pengadaan dan kalibrasi target fisik mingguan masa kontrak"
-                    : "Formulir standar 16 atribut pengadaan dan kurva kumulatif rencana fisik Pemkab Konawe Selatan"}
+                  {isPecahan
+                    ? "Pecahan kontrak berada di bawah Pagu Paket Induk (Rp 0 di kolom pagu agar total anggaran OPD tidak ganda)"
+                    : isEdit
+                      ? "Perbarui rincian teknis pengadaan dan kalibrasi target fisik mingguan masa kontrak"
+                      : "Formulir standar 16 atribut pengadaan dan kurva kumulatif rencana fisik Pemkab Konawe Selatan"}
                 </DialogDescription>
               </div>
             </div>
@@ -681,6 +724,33 @@ export function PaketFormDialog({
 
           {/* TAB 1: IDENTITAS & KONTRAK */}
           <TabsContent value="info" className="flex-1 overflow-y-auto p-6 space-y-6 m-0">
+            {isPecahan && (
+              <div className="flex items-start gap-3 p-3.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-950 dark:text-indigo-200 text-xs">
+                <GitBranch className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <div className="font-semibold flex flex-wrap items-center gap-2">
+                    <span>Paket Pecahan Kontrak dari Induk Gelondongan</span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                      Pagu Dikunci Rp 0 (Ikut Induk)
+                    </Badge>
+                  </div>
+                  {activeParent && (
+                    <p className="text-muted-foreground leading-relaxed">
+                      Induk: <strong className="text-foreground">{activeParent.namaPaket}</strong> • Pagu Induk:{" "}
+                      <strong className="font-mono text-foreground">
+                        {formatRupiah(
+                          typeof activeParent.nilaiPagu === "string"
+                            ? parseFloat(activeParent.nilaiPagu) || 0
+                            : activeParent.nilaiPagu || 0,
+                        )}
+                      </strong>
+                      . Total pagu OPD tetap mengikuti Paket Induk; isi rincian kontrak, penyedia, nilai kontrak, dan target fisik khusus untuk kontrak ini.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Informasi wewenang Admin SiRUP */}
             {!canEditInfo && (
               <div className="flex items-start gap-2.5 p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-200 text-xs">
@@ -752,7 +822,7 @@ export function PaketFormDialog({
                     type="number"
                     value={tahunAnggaran}
                     onChange={(e) => setTahunAnggaran(parseInt(e.target.value) || 2026)}
-                    disabled={!canEditInfo}
+                    disabled={!canEditInfo || isPecahan}
                     className="font-mono text-sm h-9"
                   />
                 </div>
@@ -778,7 +848,7 @@ export function PaketFormDialog({
                       searchPlaceholder="Ketik nama Unit Kerja / OPD..."
                       emptyText="Unit Kerja tidak ditemukan."
                       icon={<Building2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
-                      disabled={!canEditInfo}
+                      disabled={!canEditInfo || isPecahan}
                     />
                   ) : (
                     <div className="flex items-center justify-between h-9 px-2.5 rounded-md border bg-muted/40 text-xs font-medium">
@@ -885,14 +955,14 @@ export function PaketFormDialog({
                       id="nilaiPaguKeuangan"
                       type="number"
                       min={0}
-                      value={nilaiPagu}
+                      value={isPecahan ? "0" : nilaiPagu}
                       onChange={(e) => setNilaiPagu(e.target.value)}
-                      disabled={!canEditInfo}
+                      disabled={!canEditInfo || isPecahan}
                       className="font-mono text-sm h-9"
                       placeholder="0"
                     />
                     <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
-                      {formatRupiah(paguNum)}
+                      {isPecahan ? "Rp 0 (Ikut Pagu Induk)" : formatRupiah(paguNum)}
                     </div>
                   </div>
 
@@ -1160,21 +1230,29 @@ export function PaketFormDialog({
                     {/* Nilai Pagu */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between h-5">
-                        <Label htmlFor="nilaiPagu" className="text-xs font-medium">
-                          Nilai Pagu Anggaran (Rp) <span className="text-red-500">*</span>
+                        <Label htmlFor="nilaiPagu" className="text-xs font-medium flex items-center gap-1.5">
+                          <span>Nilai Pagu Anggaran (Rp)</span>
+                          {isPecahan ? (
+                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-indigo-400/50 text-indigo-600 dark:text-indigo-400 gap-1">
+                              <Lock className="h-2.5 w-2.5" />
+                              Ikut Induk
+                            </Badge>
+                          ) : (
+                            <span className="text-red-500">*</span>
+                          )}
                         </Label>
                       </div>
                       <Input
                         id="nilaiPagu"
                         type="number"
                         placeholder="0"
-                        value={nilaiPagu}
+                        value={isPecahan ? "0" : nilaiPagu}
                         onChange={(e) => setNilaiPagu(e.target.value)}
-                        disabled={!canEditInfo}
+                        disabled={!canEditInfo || isPecahan}
                         className="font-mono text-sm h-9"
                       />
                       <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
-                        {formatRupiah(paguNum)}
+                        {isPecahan ? "Rp 0 (Tercatat pada Induk)" : formatRupiah(paguNum)}
                       </div>
                     </div>
 
@@ -1215,11 +1293,13 @@ export function PaketFormDialog({
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground font-mono h-4 truncate">
-                        {kontrakNum > 0
-                          ? selisihEfisiensi >= 0
-                            ? "Penghematan dari nilai pagu"
-                            : "Melebihi nilai pagu"
-                          : "Belum ada nilai kontrak"}
+                        {isPecahan
+                          ? "Pagu ikut Induk Gelondongan"
+                          : kontrakNum > 0
+                            ? selisihEfisiensi >= 0
+                              ? "Penghematan dari nilai pagu"
+                              : "Melebihi nilai pagu"
+                            : "Belum ada nilai kontrak"}
                       </div>
                     </div>
                   </div>

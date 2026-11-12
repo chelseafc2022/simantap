@@ -46,6 +46,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
+  GitBranch,
+  Lock,
 } from "lucide-react"
 
 export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KEUANGAN" | "KEUANGAN" }) {
@@ -203,21 +205,24 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
   // Dahulukan paket dengan realisasi fisik atau keuangan, lalu urutkan berdasarkan status.
   const items: CetakRealisasiItem[] = useMemo(() => {
-    return [...rawItems].sort((a, b) => {
-      const hasRealisasiA = Number(a.realisasiFisik || 0) > 0 || Number(a.realisasiKeuangan || 0) > 0
-      const hasRealisasiB = Number(b.realisasiFisik || 0) > 0 || Number(b.realisasiKeuangan || 0) > 0
+    const sorted = [...rawItems].sort((a, b) => {
+      const aKeu = a.agregatPecahan ? a.agregatPecahan.totalRealisasiKeuangan : Number(a.realisasiKeuangan || 0)
+      const aFisik = a.agregatPecahan ? a.agregatPecahan.avgRealisasiFisik : Number(a.realisasiFisik || 0)
+      const bKeu = b.agregatPecahan ? b.agregatPecahan.totalRealisasiKeuangan : Number(b.realisasiKeuangan || 0)
+      const bFisik = b.agregatPecahan ? b.agregatPecahan.avgRealisasiFisik : Number(b.realisasiFisik || 0)
+      const hasRealisasiA = aFisik > 0 || aKeu > 0
+      const hasRealisasiB = bFisik > 0 || bKeu > 0
       if (hasRealisasiA !== hasRealisasiB) return hasRealisasiA ? -1 : 1
 
-      const getPriority = (item: any) => {
-        if (
-          item.status === "BELUM_MULAI" ||
-          (Number(item.targetFisik || 0) === 0 && Number(item.realisasiFisik || 0) === 0)
-        ) {
+      const getPriority = (item: CetakRealisasiItem) => {
+        const tgt = item.agregatPecahan ? item.agregatPecahan.avgTargetFisik : Number(item.targetFisik || 0)
+        const real = item.agregatPecahan ? item.agregatPecahan.avgRealisasiFisik : Number(item.realisasiFisik || 0)
+        if (item.status === "BELUM_MULAI" && tgt === 0 && real === 0) {
           return 5
         }
         if (item.status === "KRITIS") return 1
         if (item.status === "PERHATIAN") return 2
-        if (Number(item.realisasiFisik || 0) >= 100) return 4
+        if (real >= 100) return 4
         return 3 // AMAN (< 100%)
       }
 
@@ -233,16 +238,33 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
       // Jika sama-sama AMAN: progres fisik terendah ke tertinggi
       if (pA === 3) {
-        return Number(a.realisasiFisik || 0) - Number(b.realisasiFisik || 0)
-      }
-
-      // Jika sama-sama SELESAI (100%): urutkan nama
-      if (pA === 4) {
-        return (a.namaPaket || "").localeCompare(b.namaPaket || "")
+        return aFisik - bFisik
       }
 
       return (a.namaPaket || "").localeCompare(b.namaPaket || "")
     })
+
+    const idSet = new Set(sorted.map((item) => item.id))
+    const childrenByParent = new Map<string, CetakRealisasiItem[]>()
+    const roots: CetakRealisasiItem[] = []
+    for (const item of sorted) {
+      if (item.parentId && idSet.has(item.parentId)) {
+        const list = childrenByParent.get(item.parentId) || []
+        list.push(item)
+        childrenByParent.set(item.parentId, list)
+      } else {
+        roots.push(item)
+      }
+    }
+    const ordered: CetakRealisasiItem[] = []
+    for (const root of roots) {
+      ordered.push(root)
+      const children = childrenByParent.get(root.id)
+      if (children?.length) {
+        ordered.push(...children)
+      }
+    }
+    return ordered
   }, [rawItems])
   const summary = realisasiResponse?.summary
   const meta = realisasiResponse?.meta || { total: 0, totalPages: 1, page: 1 }
@@ -596,15 +618,41 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
           ) : (
             items.map((item, idx) => {
               const no = (meta.page - 1) * limit + idx + 1
+              const isInduk = !!(item.hasChildren && item.agregatPecahan)
+              const isPecahan = !!item.parentId
+              const dispTarget = isInduk && item.agregatPecahan ? item.agregatPecahan.avgTargetFisik : item.targetFisik
+              const dispRealFisik = isInduk && item.agregatPecahan ? item.agregatPecahan.avgRealisasiFisik : item.realisasiFisik
+              const dispDeviasi = isInduk && item.agregatPecahan ? item.agregatPecahan.avgDeviasiFisik : item.deviasiFisik
+              const dispKontrak = isInduk && item.agregatPecahan ? item.agregatPecahan.totalKontrak : item.nilaiKontrak
+              const dispRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
+              const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
+              const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
               return (
-                <div key={item.id} className="p-4 space-y-3 hover:bg-muted/30 transition-colors">
+                <div key={item.id} className={`p-4 space-y-3 hover:bg-muted/30 transition-colors ${isPecahan ? "pl-6 bg-indigo-500/[0.03] border-l-2 border-indigo-400/50" : isInduk ? "bg-indigo-500/[0.04]" : ""}`}>
                   {/* Header Card: No & Status Badge */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                      #{no}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                        #{no}
+                      </span>
+                      {isInduk && (
+                        <Badge className="text-[10px] gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">
+                          <GitBranch className="h-3 w-3" />
+                          Induk ({item.agregatPecahan?.count || 0} Kontrak)
+                        </Badge>
+                      )}
+                      {isPecahan && (
+                        <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                          ↳ Pecahan
+                        </Badge>
+                      )}
+                    </div>
                     <div>
-                      {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                      {isInduk ? (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                          Rekap Otomatis
+                        </Badge>
+                      ) : item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : dispTarget === 0 && dispRealFisik === 0 ? (
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                           Belum Mulai
                         </Badge>
@@ -625,7 +673,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                           ) : (
                             <AlertCircle className="h-2.5 w-2.5 mr-1" />
                           )}
-                          Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+                          Dev: {dispDeviasi > 0 ? `+${dispDeviasi}` : dispDeviasi}%
                         </Badge>
                       )}
                     </div>
@@ -635,8 +683,9 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                   <div>
                     <button
                       type="button"
-                      onClick={() => handleOpenInput(item.id)}
-                      className="font-semibold text-sm text-foreground hover:text-emerald-600 text-left transition-colors cursor-pointer leading-snug line-clamp-2"
+                      disabled={isInduk}
+                      onClick={() => !isInduk && handleOpenInput(item.id)}
+                      className={`font-semibold text-sm text-foreground text-left transition-colors leading-snug line-clamp-2 ${isInduk ? "cursor-default" : "hover:text-emerald-600 cursor-pointer"}`}
                     >
                       {item.namaPaket}
                     </button>
@@ -667,7 +716,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                     <div className="flex items-center gap-2 min-w-0">
                       {item.polaMonitoring !== "KEUANGAN" && (
                         <MiniDonut
-                          value={item.realisasiFisik}
+                          value={dispRealFisik}
                           size={34}
                           strokeWidth={3.5}
                           color={
@@ -675,7 +724,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                               ? "#059669"
                               : item.status === "PERHATIAN"
                               ? "#d97706"
-                              : item.realisasiFisik > 0
+                              : dispRealFisik > 0
                               ? "#e11d48"
                               : "#94a3b8"
                           }
@@ -685,16 +734,16 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       <div className="space-y-0.5 min-w-0 flex-1">
                         <div className="text-[10px] text-muted-foreground font-sans">Kinerja Fisik</div>
                         <div className="font-bold text-foreground">
-                          {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                          {item.polaMonitoring === "KEUANGAN" ? "—" : dispRealFisik > 0 ? `${dispRealFisik}%` : "-"}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-sans truncate">
-                          Target: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}
+                          Target: {item.polaMonitoring === "KEUANGAN" ? "—" : `${dispTarget}%`}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 min-w-0">
                       <MiniDonut
-                        value={item.persenKeuangan}
+                        value={dispPersenKeu}
                         size={34}
                         strokeWidth={3.5}
                         color="#2563eb"
@@ -703,10 +752,10 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       <div className="space-y-0.5 min-w-0 flex-1">
                         <div className="text-[10px] text-muted-foreground font-sans">Keuangan</div>
                         <div className="font-semibold text-emerald-600 dark:text-emerald-400 truncate">
-                          {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                          {dispRealKeu > 0 ? formatRupiah(dispRealKeu) : "-"}
                         </div>
                         <div className="text-[10px] text-muted-foreground font-sans truncate">
-                          {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                          {dispPersenKeu > 0 ? `${dispPersenKeu}% Serap` : "0% Serap"}
                         </div>
                       </div>
                     </div>
@@ -714,12 +763,18 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
                   {/* Nilai Pagu & Kontrak */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground font-mono px-1">
-                    <span>Pagu: {formatRupiah(item.nilaiPagu)}</span>
-                    {item.polaMonitoring !== "KEUANGAN" && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(item.nilaiKontrak)}</span>}
+                    <span>{isPecahan ? "Pagu: Ikut Induk" : `Pagu: ${formatRupiah(item.nilaiPagu)}`}</span>
+                    {item.polaMonitoring !== "KEUANGAN" && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(dispKontrak)}</span>}
                   </div>
 
                   {/* Tombol Input / Ubah */}
                   <div className="pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
+                    {isInduk ? (
+                      <Button variant="outline" size="sm" disabled className="w-full h-8 text-xs gap-1.5 opacity-80">
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Input pada Baris Pecahan</span>
+                      </Button>
+                    ) : (
                     <Button
                       variant="outline"
                       size="sm"
@@ -737,6 +792,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                           : "Input Realisasi"}
                       </span>
                     </Button>
+                    )}
                   </div>
                 </div>
               )
@@ -806,21 +862,46 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
               ) : (
                 items.map((item, idx) => {
                   const no = (meta.page - 1) * limit + idx + 1
+                  const isInduk = !!(item.hasChildren && item.agregatPecahan)
+                  const isPecahan = !!item.parentId
+                  const dispTarget = isInduk && item.agregatPecahan ? item.agregatPecahan.avgTargetFisik : item.targetFisik
+                  const dispRealFisik = isInduk && item.agregatPecahan ? item.agregatPecahan.avgRealisasiFisik : item.realisasiFisik
+                  const dispDeviasi = isInduk && item.agregatPecahan ? item.agregatPecahan.avgDeviasiFisik : item.deviasiFisik
+                  const dispKontrak = isInduk && item.agregatPecahan ? item.agregatPecahan.totalKontrak : item.nilaiKontrak
+                  const dispRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
+                  const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
+                  const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
 
                   return (
-                    <TableRow key={item.id} className="hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700">
+                    <TableRow key={item.id} className={`hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700 ${isPecahan ? "bg-indigo-500/[0.025]" : isInduk ? "bg-indigo-500/[0.04]" : ""}`}>
                       {/* No */}
                       <TableCell className="text-center font-mono text-xs text-muted-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                        {no}
+                        {isPecahan ? <span className="text-indigo-600 dark:text-indigo-400">↳ {no}</span> : no}
                       </TableCell>
 
                       {/* Identitas Paket & Sub Unit */}
                       <TableCell className="max-w-0 py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
-                        <div className="w-full min-w-0 overflow-hidden space-y-1">
+                        <div className={`w-full min-w-0 overflow-hidden space-y-1 ${isPecahan ? "pl-3 border-l-2 border-indigo-400/50" : ""}`}>
+                          {(isInduk || isPecahan) && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {isInduk && (
+                                <Badge className="gap-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 text-[10px]">
+                                  <GitBranch className="h-3 w-3" />
+                                  Induk Gelondongan ({item.agregatPecahan?.count || 0} Kontrak)
+                                </Badge>
+                              )}
+                              {isPecahan && (
+                                <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                  ↳ Pecahan Kontrak
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                           <button
                             type="button"
-                            onClick={() => handleOpenInput(item.id)}
-                            className="font-semibold text-foreground hover:text-emerald-600 text-left truncate block w-full transition-colors cursor-pointer text-sm leading-snug"
+                            disabled={isInduk}
+                            onClick={() => !isInduk && handleOpenInput(item.id)}
+                            className={`font-semibold text-foreground text-left truncate block w-full transition-colors text-sm leading-snug ${isInduk ? "cursor-default" : "hover:text-emerald-600 cursor-pointer"}`}
                             title={item.namaPaket}
                           >
                             {item.namaPaket}
@@ -850,10 +931,14 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       <TableCell className="max-w-0 text-right py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="w-full min-w-0 overflow-hidden space-y-0.5">
                           <div className="font-semibold text-xs text-foreground truncate">
-                            {formatRupiah(item.polaMonitoring === "KEUANGAN" ? item.nilaiPagu : item.nilaiKontrak)}
+                            {formatRupiah(item.polaMonitoring === "KEUANGAN" && !isInduk ? (isPecahan ? dispKontrak : item.nilaiPagu) : dispKontrak)}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate">
-                            {item.polaMonitoring === "KEUANGAN" ? "Pagu anggaran" : `Pagu: ${formatRupiah(item.nilaiPagu)}`}
+                            {isPecahan
+                              ? "Pagu: Ikut Induk"
+                              : item.polaMonitoring === "KEUANGAN"
+                                ? "Pagu anggaran"
+                                : `Pagu: ${formatRupiah(item.nilaiPagu)}`}
                           </div>
                         </div>
                       </TableCell>
@@ -864,15 +949,17 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                         <div className="flex items-center justify-end gap-2.5">
                           {item.polaMonitoring !== "KEUANGAN" && (
                             <MiniDonut
-                              value={item.realisasiFisik}
+                              value={dispRealFisik}
                               size={38}
                               strokeWidth={3.8}
                               color={
-                                item.status === "AMAN"
+                                isInduk
+                                  ? "#6366f1"
+                                  : item.status === "AMAN"
                                   ? "#059669"
                                   : item.status === "PERHATIAN"
                                   ? "#d97706"
-                                  : item.realisasiFisik > 0
+                                  : dispRealFisik > 0
                                   ? "#e11d48"
                                   : "#94a3b8"
                               }
@@ -881,14 +968,18 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                           )}
                           <div className="min-w-0 text-right space-y-1">
                             <div className="flex items-center justify-end gap-1.5 text-xs truncate">
-                              <span className="text-muted-foreground text-[11px]">Tgt: {item.polaMonitoring === "KEUANGAN" ? "—" : `${item.targetFisik}%`}</span>
+                              <span className="text-muted-foreground text-[11px]">Tgt: {item.polaMonitoring === "KEUANGAN" ? "—" : `${dispTarget}%`}</span>
                               <span className="text-muted-foreground">•</span>
                               <span className="font-bold text-foreground">
-                                Real: {item.polaMonitoring === "KEUANGAN" ? "—" : item.realisasiFisik > 0 ? `${item.realisasiFisik}%` : "-"}
+                                Real: {item.polaMonitoring === "KEUANGAN" ? "—" : dispRealFisik > 0 ? `${dispRealFisik}%` : "-"}
                               </span>
                             </div>
                             <div className="flex items-center justify-end gap-1">
-                              {item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : item.targetFisik === 0 && item.realisasiFisik === 0 ? (
+                              {isInduk ? (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-indigo-500/30 text-indigo-700 dark:text-indigo-300">
+                                  Rekap Otomatis ({dispDeviasi > 0 ? `+${dispDeviasi}` : dispDeviasi}%)
+                                </Badge>
+                              ) : item.polaMonitoring === "KEUANGAN" ? <Badge variant="outline">Keuangan</Badge> : dispTarget === 0 && dispRealFisik === 0 ? (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
                                   Belum Mulai
                                 </Badge>
@@ -909,7 +1000,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                                   ) : (
                                     <AlertCircle className="h-2.5 w-2.5 mr-1" />
                                   )}
-                                  Dev: {item.deviasiFisik > 0 ? `+${item.deviasiFisik}` : item.deviasiFisik}%
+                                  Dev: {dispDeviasi > 0 ? `+${dispDeviasi}` : dispDeviasi}%
                                 </Badge>
                               )}
                             </div>
@@ -922,7 +1013,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       <TableCell className="max-w-0 py-3.5 font-mono border-r border-b border-gray-200 dark:border-neutral-700">
                         <div className="flex items-center justify-end gap-2.5">
                           <MiniDonut
-                            value={item.persenKeuangan}
+                            value={dispPersenKeu}
                             size={38}
                             strokeWidth={3.8}
                             color="#2563eb"
@@ -930,10 +1021,10 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                           />
                           <div className="min-w-0 text-right space-y-0.5">
                             <div className="font-semibold text-xs text-emerald-600 dark:text-emerald-400 truncate">
-                              {item.realisasiKeuangan > 0 ? formatRupiah(item.realisasiKeuangan) : "-"}
+                              {dispRealKeu > 0 ? formatRupiah(dispRealKeu) : "-"}
                             </div>
                             <div className="text-[11px] text-muted-foreground truncate">
-                              {item.persenKeuangan > 0 ? `${item.persenKeuangan}% Serap` : "0% Serap"}
+                              {dispPersenKeu > 0 ? `${dispPersenKeu}% Serap` : "0% Serap"}
                             </div>
                           </div>
                         </div>
@@ -941,6 +1032,12 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
                       {/* Aksi */}
                       <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
+                        {isInduk ? (
+                          <Button variant="outline" size="sm" disabled className="h-8 px-2.5 text-[11px] gap-1 opacity-75">
+                            <Lock className="h-3 w-3" />
+                            <span>Di Pecahan</span>
+                          </Button>
+                        ) : (
                         <Button
                           variant="outline"
                           size="sm"
@@ -958,6 +1055,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                               : "Input"}
                           </span>
                         </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

@@ -49,7 +49,14 @@ export interface Month {
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  paket: { id: string; namaPaket: string; nilaiPagu: number; tahunAnggaran: number }
+  paket: {
+    id: string
+    namaPaket: string
+    nilaiPagu: number
+    nilaiKontrak?: number
+    parentId?: string | null
+    tahunAnggaran: number
+  }
   pencairanTersedia: boolean
   timeline: Month[]
   activeBulan: number
@@ -103,6 +110,11 @@ export function InputKeuanganDialog({
   const records = row?.pencairan || []
   const legacyTotal = monthTotal - records.reduce((sum, item) => sum + Number(item.nominal), 0)
   const dirty = !!nominal || !!catatan || !!editingId || pendingFiles.length > 0
+  const isPecahan = !!paket.parentId
+  const ceilingBudget =
+    isPecahan && Number(paket.nilaiKontrak || 0) > 0
+      ? Number(paket.nilaiKontrak)
+      : Number(paket.nilaiPagu || 0)
   const isAdmin = roles.includes("ADMINISTRATOR")
   const canEdit = isAdmin || roles.includes("BENDAHARA")
   const locked = !isAdmin && lockedMonths.includes(bulan)
@@ -138,7 +150,11 @@ export function InputKeuanganDialog({
       if (allMonths) throw new Error("Pilih bulan pelaporan terlebih dahulu")
       if (!Number.isFinite(amount) || amount <= 0) throw new Error("Nominal pencairan harus lebih dari nol")
       if (!catatan.trim()) throw new Error("Isi catatan / referensi dokumen pencairan terlebih dahulu")
-      if (cumulative + amount > Number(paket.nilaiPagu)) throw new Error("Realisasi melebihi pagu anggaran")
+      if (cumulative + amount > ceilingBudget) {
+        throw new Error(
+          isPecahan ? "Realisasi melebihi plafon kontrak pecahan" : "Realisasi melebihi pagu anggaran",
+        )
+      }
 
       // 1. Catat record pencairan
       await apiClient.post(`/pembangunan/${paket.id}/pencairan`, {
@@ -301,10 +317,13 @@ export function InputKeuanganDialog({
   const financialSummary = (
     <>
       <div className="grid grid-cols-1 gap-3 rounded-lg border p-3 text-sm min-[400px]:grid-cols-2 [&_strong]:break-words">
-        <div>Pagu Anggaran<strong className="block">{rupiah(Number(paket.nilaiPagu))}</strong></div>
+        <div>
+          {isPecahan ? "Plafon Kontrak Pecahan" : "Pagu Anggaran"}
+          <strong className="block">{rupiah(ceilingBudget)}</strong>
+        </div>
         <div>Total Pencairan {allMonths ? "Tahun Anggaran" : months[bulan - 1]}<strong className="block">{rupiah(allMonths ? cumulative : monthTotal)}</strong></div>
         <div>Kumulatif {allMonths ? `TA ${paket.tahunAnggaran}` : `sampai ${months[bulan - 1]}`}<strong className="block text-emerald-600 dark:text-emerald-400">{rupiah(cumulative)}</strong></div>
-        <div>Sisa Anggaran<strong className="block">{rupiah(Number(paket.nilaiPagu) - cumulative)}</strong></div>
+        <div>Sisa Anggaran<strong className="block">{rupiah(ceilingBudget - cumulative)}</strong></div>
       </div>
 
       {!pencairanTersedia && (
@@ -837,7 +856,7 @@ export function InputKeuanganDialog({
         {/* Footer Serapan Anggaran */}
         <div className="shrink-0 border-t px-4 py-3 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Serapan Anggaran: <strong className="text-foreground">{Number(paket.nilaiPagu) > 0 ? ((cumulative / Number(paket.nilaiPagu)) * 100).toFixed(2) : "0"}%</strong></span>
+            <span>Serapan Anggaran: <strong className="text-foreground">{ceilingBudget > 0 ? ((cumulative / ceilingBudget) * 100).toFixed(2) : "0"}%</strong></span>
             {!isAdmin && lockedMonths.includes(bulan) && (
               <span className="text-amber-700 dark:text-amber-400 font-medium">⚠️ Periode input bulan ini telah ditutup</span>
             )}

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsInt,
   IsIn,
@@ -52,6 +53,16 @@ export class CreatePaketDto {
   @IsOptional()
   @IsString()
   kodeRupKontrak?: string;
+
+  @ApiPropertyOptional({ description: 'ID Paket Induk jika merupakan pecahan kontrak dari pagu gelondongan' })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
+  @ApiPropertyOptional({ description: 'Penanda apakah paket adalah Induk Pagu Gelondongan' })
+  @IsOptional()
+  @IsBoolean()
+  isIndukGelondongan?: boolean;
 
   @ApiProperty({ description: 'Nama Paket Pekerjaan / Pembangunan' })
   @IsNotEmpty({ message: 'Nama paket wajib diisi' })

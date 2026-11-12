@@ -1,4 +1,14 @@
 interface CetakRfkItem {
+  parentId?: string | null;
+  hasChildren?: boolean;
+  agregatPecahan?: {
+    count: number;
+    totalKontrak: number;
+    totalRealisasiKeuangan: number;
+    avgTargetFisik: number;
+    avgRealisasiFisik: number;
+    avgDeviasiFisik: number;
+  } | null;
   namaPaket: string;
   metodePemilihan?: string | null;
   sumberDana?: string | null;
@@ -95,27 +105,38 @@ export function cetakLaporanPdf({
   const isFisik = polaMonitoring !== 'KEUANGAN';
   const rows = items.map((item, index) => {
     const unit = item.subUnit?.namaSubUnit || item.opd?.namaOpd || '-';
-    const deviasi = `${(item.deviasiFisik || 0) >= 0 ? '+' : ''}${(item.deviasiFisik || 0).toFixed(1)}%`;
-    const keterangan = isFisik ? [
-      statusLabel(item.status),
-      `Target ${(item.targetFisik || 0).toFixed(1)}%`,
-      `Deviasi ${deviasi}`,
-      item.catatanOperator,
-    ].filter(Boolean).join(' - ') : item.catatanOperator || 'Keuangan saja';
+    const isInduk = !!(item.hasChildren && item.agregatPecahan);
+    const isPecahan = !!item.parentId;
+    const dispTarget = isInduk && item.agregatPecahan ? item.agregatPecahan.avgTargetFisik : (item.targetFisik || 0);
+    const dispRealFisik = isInduk && item.agregatPecahan ? item.agregatPecahan.avgRealisasiFisik : (item.realisasiFisik || 0);
+    const dispDeviasi = isInduk && item.agregatPecahan ? item.agregatPecahan.avgDeviasiFisik : (item.deviasiFisik || 0);
+    const dispKontrak = isInduk && item.agregatPecahan ? item.agregatPecahan.totalKontrak : (item.nilaiKontrak || 0);
+    const dispRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : (item.realisasiKeuangan || 0);
+    const basisInduk = (item.nilaiPagu || 0) > 0 ? (item.nilaiPagu || 0) : dispKontrak;
+    const dispPersenKeu = isInduk && basisInduk > 0 ? Number(((dispRealKeu / basisInduk) * 100).toFixed(2)) : (item.persenKeuangan || 0);
+    const deviasi = `${dispDeviasi >= 0 ? '+' : ''}${dispDeviasi.toFixed(1)}%`;
+    const keterangan = isInduk
+      ? `Rekap Otomatis (${item.agregatPecahan?.count || 0} Kontrak Pecahan) - Target ${dispTarget.toFixed(1)}% - Deviasi ${deviasi}`
+      : isFisik ? [
+          statusLabel(item.status),
+          `Target ${dispTarget.toFixed(1)}%`,
+          `Deviasi ${deviasi}`,
+          item.catatanOperator,
+        ].filter(Boolean).join(' - ') : item.catatanOperator || 'Keuangan saja';
 
     return `
-      <tr>
-        <td class="center">${index + 1}</td>
-        <td class="wrap"><strong>${escapeHtml(item.namaPaket)}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
-        <td class="money">${escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
-        ${isFisik ? `        <td class="money">${escapeHtml(formatRupiah(item.nilaiKontrak || 0))}</td>
-        <td class="wrap">${escapeHtml(item.nomorKontrak || '-')}</td>
+      <tr style="${isInduk ? 'background:#eef2ff;' : ''}">
+        <td class="center">${isPecahan ? '↳ ' : ''}${index + 1}</td>
+        <td class="wrap" style="${isPecahan ? 'padding-left:14px;' : ''}"><strong>${isPecahan ? '↳ ' : ''}${escapeHtml(item.namaPaket)}${isInduk ? ` [Induk - ${item.agregatPecahan?.count || 0} Kontrak]` : ''}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
+        <td class="money">${isPecahan ? '<em>Ikut Induk</em>' : escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
+        ${isFisik ? `        <td class="money">${escapeHtml(formatRupiah(dispKontrak))}</td>
+        <td class="wrap">${escapeHtml(isInduk ? `${item.agregatPecahan?.count || 0} Kontrak` : (item.nomorKontrak || '-'))}</td>
         <td class="center">${escapeHtml(formatTanggal(item.tanggalMulai))}</td>
         <td class="center">${escapeHtml(formatTanggal(item.tanggalSelesai))}</td>
-        <td class="center bold">${(item.realisasiFisik || 0).toFixed(1)}%</td>
+        <td class="center bold">${dispRealFisik.toFixed(1)}%</td>
 ` : ''}
-        <td class="money">${escapeHtml(formatRupiah(item.realisasiKeuangan || 0))}</td>
-        <td class="center bold">${(item.persenKeuangan || 0).toFixed(1)}%</td>
+        <td class="money">${escapeHtml(formatRupiah(dispRealKeu))}</td>
+        <td class="center bold">${dispPersenKeu.toFixed(1)}%</td>
         <td class="center wrap">${escapeHtml(item.sumberDana || '-')}</td>
         <td class="wrap">${escapeHtml(keterangan)}</td>
       </tr>`;
