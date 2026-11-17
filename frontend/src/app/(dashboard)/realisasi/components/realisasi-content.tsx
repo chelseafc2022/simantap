@@ -775,23 +775,23 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                         <span>Input pada Baris Pecahan</span>
                       </Button>
                     ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenInput(item.id)}
-                      className={`w-full h-8 text-xs gap-1.5 transition-colors justify-center ${
-                        Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                          ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                          : "hover:bg-primary/10 hover:text-primary"
-                      }`}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      <span>
-                        {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                          ? "Ubah Realisasi"
-                          : "Input Realisasi"}
-                      </span>
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenInput(item.id)}
+                        className={`w-full h-8 text-xs gap-1.5 transition-colors justify-center ${
+                          Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                            ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                            : "hover:bg-primary/10 hover:text-primary"
+                        }`}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        <span>
+                          {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                            ? "Ubah Realisasi"
+                            : "Input Realisasi"}
+                        </span>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1038,23 +1038,23 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                             <span>Di Pecahan</span>
                           </Button>
                         ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenInput(item.id)}
-                          className={`h-8 px-2.5 text-xs gap-1.5 transition-colors ${
-                            Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                              ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                              : "hover:bg-primary/10 hover:text-primary"
-                          }`}
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                          <span>
-                            {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                              ? "Ubah"
-                              : "Input"}
-                          </span>
-                        </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenInput(item.id)}
+                            className={`h-8 px-3 text-xs gap-1.5 transition-colors ${
+                              Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                                ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                : "hover:bg-primary/10 hover:text-primary"
+                            }`}
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                            <span>
+                              {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                                ? "Ubah"
+                                : "Input"}
+                            </span>
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>

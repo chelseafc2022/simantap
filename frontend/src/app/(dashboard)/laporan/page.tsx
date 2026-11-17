@@ -49,7 +49,15 @@ import {
   Flame,
   LayoutGrid,
   Loader2,
+  Camera,
+  FileDown,
+  Eye,
+  User,
+  AlertCircle,
 } from "lucide-react"
+import { MonevDialog } from "../pembangunan/components/monev-dialog"
+import { MonevLapanganItem, MonevPaketInfo, monevFotoUrl } from "../pembangunan/lib/monev-types"
+import { cetakLaporanMonev } from "../pembangunan/lib/cetak-monev-pdf"
 
 export const BULAN_NAMES = [
   "Januari",
@@ -102,6 +110,9 @@ export default function LaporanDanEvaluasiPage() {
   const [activeTab, setActiveTab] = useState<string>("evaluasi")
   const [isExporting, setIsExporting] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
+  const [selectedTriwulanMonev, setSelectedTriwulanMonev] = useState<string>("ALL")
+  const [monevDialogOpen, setMonevDialogOpen] = useState(false)
+  const [selectedMonevItem, setSelectedMonevItem] = useState<any | null>(null)
 
   // Bind OPD & Sub Unit otomatis untuk non-super role
   useEffect(() => {
@@ -208,8 +219,57 @@ export default function LaporanDanEvaluasiPage() {
         params.search = debouncedSearch.trim()
       }
 
-      const res = await apiClient.get("/pembangunan/realisasi", { params })
-      return res.data
+      try {
+        const res = await apiClient.get("/pembangunan/realisasi", { params })
+        return res.data
+      } catch (error: any) {
+        // Fallback untuk backend jika belum direbuild (polaMonitoring belum di-whitelist)
+        const message = error?.response?.data?.message
+        const messages = Array.isArray(message) ? message : [message]
+        if (
+          params.polaMonitoring &&
+          error?.response?.status === 400 &&
+          messages.some(
+            (m: string) =>
+              typeof m === "string" && m.includes("polaMonitoring should not exist")
+          )
+        ) {
+          const { polaMonitoring: _, ...fallbackParams } = params
+          const allItems: any[] = []
+          let currentPage = 1
+          let totalPages = 1
+          let firstSummary: any = null
+
+          do {
+            const res = await apiClient.get("/pembangunan/realisasi", {
+              params: { ...fallbackParams, page: currentPage, limit: 100 },
+            })
+            const pageData = Array.isArray(res.data?.data) ? res.data.data : []
+            allItems.push(...pageData)
+            if (!firstSummary && res.data?.summary) {
+              firstSummary = res.data.summary
+            }
+            totalPages = Number(res.data?.meta?.totalPages) || 1
+            currentPage += 1
+          } while (currentPage <= totalPages)
+
+          const filtered = allItems.filter(
+            (item: any) => item.polaMonitoring === polaMonitoring
+          )
+
+          return {
+            data: filtered.slice((page - 1) * limit, page * limit),
+            summary: firstSummary,
+            meta: {
+              page,
+              limit,
+              total: filtered.length,
+              totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
+            },
+          }
+        }
+        throw error
+      }
     },
     placeholderData: keepPreviousData,
   })
@@ -276,6 +336,44 @@ export default function LaporanDanEvaluasiPage() {
       return res.data?.data || null
     },
     enabled: activeTab === "rekapOpd",
+  })
+
+  // 5. Fetch Rekap Laporan MONEV Lapangan
+  const {
+    data: rekapMonevData = [],
+    isLoading: isLoadingRekapMonev,
+    refetch: refetchRekapMonev,
+  } = useQuery<any[]>({
+    queryKey: [
+      "rekap-monev-lapangan",
+      tahun,
+      selectedOpd,
+      selectedSubUnit,
+      selectedTriwulanMonev,
+      debouncedSearch,
+    ],
+    queryFn: async () => {
+      const params: any = {
+        tahunAnggaran: tahun,
+      }
+      if (!canSelectOpd && userOpdId) {
+        params.opdId = userOpdId
+      } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
+        params.opdId = selectedOpd
+      }
+      if (selectedSubUnit !== "ALL" && selectedSubUnit !== "all") {
+        params.subUnitId = selectedSubUnit
+      }
+      if (selectedTriwulanMonev !== "ALL") {
+        params.triwulan = Number(selectedTriwulanMonev)
+      }
+      if (debouncedSearch && debouncedSearch.trim()) {
+        params.q = debouncedSearch.trim()
+      }
+      const res = await apiClient.get("/pembangunan/monev/rekap", { params })
+      return Array.isArray(res.data?.data) ? res.data.data : []
+    },
+    enabled: activeTab === "monev",
   })
 
   // Ambil list items & summary
@@ -393,9 +491,33 @@ export default function LaporanDanEvaluasiPage() {
     let reportSummary = summary
 
     do {
-      const res = await apiClient.get("/pembangunan/realisasi", {
-        params: { ...params, page: currentPage },
-      })
+      let res: any
+      try {
+        res = await apiClient.get("/pembangunan/realisasi", {
+          params: { ...params, page: currentPage },
+        })
+      } catch (error: any) {
+        const message = error?.response?.data?.message
+        const messages = Array.isArray(message) ? message : [message]
+        if (
+          params.polaMonitoring &&
+          error?.response?.status === 400 &&
+          messages.some(
+            (m: string) =>
+              typeof m === "string" && m.includes("polaMonitoring should not exist")
+          )
+        ) {
+          const { polaMonitoring: _, ...fallbackParams } = params
+          res = await apiClient.get("/pembangunan/realisasi", {
+            params: { ...fallbackParams, page: currentPage },
+          })
+          if (Array.isArray(res.data?.data)) {
+            res.data.data = res.data.data.filter((item: any) => item.polaMonitoring === polaMonitoring)
+          }
+        } else {
+          throw error
+        }
+      }
       const payload = res.data?.data
       const pageItems = Array.isArray(payload)
         ? payload
@@ -749,6 +871,15 @@ export default function LaporanDanEvaluasiPage() {
                 <BarChart3 className="w-3.5 h-3.5 shrink-0" />
                 <span>Rekap OPD</span>
               </TabsTrigger>
+              <TabsTrigger value="monev" className="text-xs gap-1.5 px-2.5 sm:px-3 whitespace-nowrap">
+                <Camera className="w-3.5 h-3.5 shrink-0 text-purple-600" />
+                <span>Laporan MONEV</span>
+                {rekapMonevData.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4 bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                    {rekapMonevData.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -760,7 +891,7 @@ export default function LaporanDanEvaluasiPage() {
         <TabsContent value="evaluasi" className="space-y-4 mt-0">
           <div className="flex flex-wrap gap-2" aria-label="Jenis evaluasi RFK">
             <Button variant={isFisik ? "default" : "outline"} onClick={() => { setPolaMonitoring("FISIK_KEUANGAN"); setStatusDeviasi("ALL"); setPage(1) }}>Fisik & Keuangan</Button>
-            <Button variant={!isFisik ? "default" : "outline"} onClick={() => { setPolaMonitoring("KEUANGAN"); setStatusDeviasi("ALL"); setPage(1) }}>Keuangan Saja</Button>
+            <Button variant={!isFisik ? "default" : "outline"} onClick={() => { setPolaMonitoring("KEUANGAN"); setStatusDeviasi("ALL"); setPage(1) }}>Keuangan</Button>
           </div>
           <Card className="border border-gray-200 dark:border-neutral-700 shadow-xs overflow-hidden bg-card/60 backdrop-blur-xs">
             {/* Tampilan kartu untuk layar mobile (di bawah 768px) */}
@@ -1127,7 +1258,7 @@ export default function LaporanDanEvaluasiPage() {
                           <TableCell className="px-2 py-3 text-center font-mono whitespace-nowrap border-r border-t border-gray-300 dark:border-neutral-700">{summary.persenSerapanKeuangan.toFixed(2)}%</TableCell>
                           <TableCell className="border-r border-t border-gray-300 dark:border-neutral-700 bg-muted/20" />
                           <TableCell className="px-3 py-3 text-[10px] font-medium border-t border-gray-300 dark:border-neutral-700 whitespace-nowrap">
-                            {isFisik ? `Aman ${summary.countStatus.aman} · Waspada ${summary.countStatus.perhatian} · Kritis ${summary.countStatus.kritis}` : "Keuangan saja"}
+                            {isFisik ? `Aman ${summary.countStatus.aman} · Waspada ${summary.countStatus.perhatian} · Kritis ${summary.countStatus.kritis}` : "Keuangan"}
                           </TableCell>
                         </TableRow>
                       </>
@@ -1369,9 +1500,6 @@ export default function LaporanDanEvaluasiPage() {
                               <div className="font-semibold text-foreground">
                                 {opd.namaOpd}
                               </div>
-                              <div className="text-[11px] text-muted-foreground">
-                                Kode: {opd.kodeOpd || "-"}
-                              </div>
                             </TableCell>
 
                             <TableCell className="text-center font-semibold font-mono text-foreground py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
@@ -1434,7 +1562,251 @@ export default function LaporanDanEvaluasiPage() {
             </div>
           </Card>
         </TabsContent>
+
+        {/* ======================================================== */}
+        {/* TAB 4: REKAPITULASI LAPORAN MONEV LAPANGAN               */}
+        {/* ======================================================== */}
+        <TabsContent value="monev" className="space-y-4 mt-0">
+          {/* Sub Toolbar Filter Triwulan */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border bg-muted/30">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-semibold mr-1 text-muted-foreground">Periode Triwulan:</span>
+              {[
+                { id: "ALL", label: "Semua Triwulan" },
+                { id: "1", label: "TW I (Jan-Mar)" },
+                { id: "2", label: "TW II (Apr-Jun)" },
+                { id: "3", label: "TW III (Jul-Sep)" },
+                { id: "4", label: "TW IV (Okt-Des)" },
+              ].map((tw) => (
+                <Button
+                  key={tw.id}
+                  variant={selectedTriwulanMonev === tw.id ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setSelectedTriwulanMonev(tw.id)}
+                >
+                  {tw.label}
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Total Hasil Monitoring:</span>
+              <Badge variant="outline" className="font-mono font-bold text-foreground">
+                {rekapMonevData.length} Laporan
+              </Badge>
+            </div>
+          </div>
+
+          {isLoadingRekapMonev ? (
+            <div className="py-20 text-center text-muted-foreground flex flex-col items-center justify-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+              <p className="text-xs">Memuat rekapitulasi laporan monitoring lapangan...</p>
+            </div>
+          ) : rekapMonevData.length === 0 ? (
+            <Card className="border border-dashed p-12 text-center space-y-3 bg-muted/10">
+              <Camera className="h-10 w-10 text-muted-foreground/50 mx-auto" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Belum Ada Laporan Monitoring Lapangan</p>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  Belum ada laporan monev yang tercatat pada filter tahun, OPD, atau periode triwulan yang dipilih.
+                </p>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {rekapMonevData.map((item, idx) => {
+                const paketInfo: MonevPaketInfo = item.paket
+                const tgl = new Date(item.tanggalMonev)
+                const twNo = !isNaN(tgl.getTime()) ? Math.floor(tgl.getMonth() / 3) + 1 : 1
+                const romawi = ["I", "II", "III", "IV"]
+
+                return (
+                  <Card
+                    key={item.id}
+                    className="border shadow-sm overflow-hidden hover:border-purple-500/40 transition-colors"
+                  >
+                    {/* Header Card Rekap Monev */}
+                    <div className="bg-muted/40 px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className="bg-purple-600 text-white font-mono text-[10px]">
+                          #{idx + 1}
+                        </Badge>
+                        <Badge variant="outline" className="font-semibold text-purple-700 dark:text-purple-300 border-purple-400/40 bg-purple-50/50 dark:bg-purple-950/20">
+                          Triwulan {romawi[twNo - 1]} ({tgl.getFullYear()})
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {tgl.toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <span className="text-muted-foreground font-mono">|</span>
+                        <span className="font-semibold text-foreground">
+                          {paketInfo.opd?.namaOpd || "OPD"}
+                        </span>
+                        {paketInfo.subUnit?.namaSubUnit && (
+                          <span className="text-muted-foreground text-[11px]">
+                            ({paketInfo.subUnit.namaSubUnit})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-300 border-emerald-400/50 bg-emerald-50 dark:bg-emerald-950/30"
+                        >
+                          Progres Fisik: ± {item.progresFisik}%
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => cetakLaporanMonev(paketInfo, item)}
+                          className="h-7 text-xs gap-1.5 text-emerald-700 border-emerald-500/40 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                          title="Cetak format Word / PDF Folio F4"
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                          <span>Cetak PDF (F4)</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-4 space-y-4">
+                      {/* Informasi Paket Kegiatan */}
+                      <div className="p-3 rounded-lg border bg-background text-xs grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <span className="text-muted-foreground block text-[10px] font-sans">NAMA PAKET</span>
+                          <span className="font-semibold line-clamp-1" title={paketInfo.namaPaket}>
+                            {paketInfo.namaPaket}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px] font-sans">NOMOR KONTRAK</span>
+                          <span className="font-mono text-[11px] truncate block">
+                            {paketInfo.nomorKontrak || "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block text-[10px] font-sans">PENYEDIA &amp; NILAI KONTRAK</span>
+                          <span className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                            Rp {new Intl.NumberFormat("id-ID").format(paketInfo.nilaiKontrak || 0)}
+                          </span>{" "}
+                          <span className="text-muted-foreground text-[11px]">
+                            ({paketInfo.pemenangRekanan || "Belum ada rekanan"})
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Galeri Foto Dokumentasi Lapangan */}
+                      {item.fotos && item.fotos.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-bold text-muted-foreground tracking-wider uppercase">
+                            Dokumentasi Pelaksanaan Monitoring ({item.fotos.length} Foto)
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                            {item.fotos.map((foto: any) => (
+                              <a
+                                key={foto.id}
+                                href={monevFotoUrl(foto)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group relative rounded-lg overflow-hidden border bg-muted aspect-video block"
+                                title="Klik untuk membuka ukuran penuh"
+                              >
+                                <img
+                                  src={monevFotoUrl(foto)}
+                                  alt={foto.namaFile}
+                                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] gap-1">
+                                  <Eye className="h-3 w-3" />
+                                  <span>Lihat</span>
+                                </div>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Konten 3 Paragraf Word */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                        <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1">
+                          <div className="font-bold underline text-[11px] text-foreground">
+                            KONDISI FISIK KEGIATAN
+                          </div>
+                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed font-serif text-[11px]">
+                            {item.kondisiFisik || "-"}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1">
+                          <div className="font-bold underline text-[11px] text-foreground">
+                            PERMASALAHAN
+                          </div>
+                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed font-serif text-[11px]">
+                            {item.permasalahan || "-"}
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-lg border bg-muted/20 space-y-1">
+                          <div className="font-bold underline text-[11px] text-foreground">
+                            SARAN
+                          </div>
+                          <div className="text-muted-foreground whitespace-pre-line leading-relaxed font-serif text-[11px]">
+                            {item.saran || "-"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Petugas Pembuat */}
+                      {item.createdBy && (
+                        <div className="pt-2 border-t flex items-center justify-between text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3 w-3" />
+                            <span>
+                              Petugas Monev:{" "}
+                              <strong className="text-foreground">
+                                {item.createdBy.namaLengkap || "Petugas Monev"}
+                              </strong>
+                              {item.createdBy.nip ? ` (NIP. ${item.createdBy.nip})` : ""}
+                            </span>
+                          </div>
+                          {isSuperRole && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[11px] text-purple-600 hover:text-purple-700"
+                              onClick={() => {
+                                setSelectedMonevItem(item.paket)
+                                setMonevDialogOpen(true)
+                              }}
+                            >
+                              Kelola Monev
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      {/* Dialog Kelola Monev jika dipicu dari menu Laporan */}
+      <MonevDialog
+        open={monevDialogOpen}
+        onOpenChange={(v) => {
+          setMonevDialogOpen(v)
+          if (!v) refetchRekapMonev()
+        }}
+        paketId={selectedMonevItem?.id || null}
+        initialPaket={selectedMonevItem}
+      />
     </div>
   )
 }

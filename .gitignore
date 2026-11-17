@@ -52,6 +52,12 @@ coverage/
 *.tar.gz
 *.tar
 
+# Company documents & private proposals
+doc_perusahaan/
+**/doc_perusahaan/
+Materi_MONALISA_KONSEL_Inspektorat.docx
+Paparan_MONALISA_KONSEL.pptx
+
 # Python cache & Office lock files
 __pycache__/
 *.py[cod]

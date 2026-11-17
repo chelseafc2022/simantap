@@ -5,8 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle, AlertTriangle, CalendarDays, CheckCircle2,
   Image as ImageIcon, FileText, ExternalLink, Loader2, Save, Trash2,
-  TrendingUp, Upload, X,
+  TrendingUp, Upload, X, Camera,
 } from "lucide-react"
+import { MonevDialog } from "../../pembangunan/components/monev-dialog"
 import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
@@ -135,6 +136,7 @@ export function InputRealisasiDialog({
   const [selectedMinggu, setSelectedMinggu] = useState(1)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [deskripsiFile, setDeskripsiFile] = useState("")
+  const [monevOpen, setMonevOpen] = useState(false)
 
   const { data: detailData, isLoading, isError, refetch } = useQuery({
     queryKey: ["paket-realisasi-detail", paketId],
@@ -345,12 +347,27 @@ export function InputRealisasiDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[94vh] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] sm:max-w-[92vw] 2xl:w-[1400px] 2xl:max-w-[1400px]">
         <DialogHeader className="border-b p-5">
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <CalendarDays className="h-5 w-5 text-emerald-600" />Realisasi Progres Mingguan
-          </DialogTitle>
-          <DialogDescription>
-            {paket?.namaPaket || "Memuat paket..."} · Rekap minggu terakhir tiap bulan otomatis masuk ke laporan TEPRA.
-          </DialogDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <CalendarDays className="h-5 w-5 text-emerald-600" />Realisasi Progres Mingguan
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                {paket?.namaPaket || "Memuat paket..."} · Rekap minggu terakhir tiap bulan otomatis masuk ke laporan TEPRA.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMonevOpen(true)}
+              className="h-8 gap-1.5 text-xs shrink-0 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-semibold"
+              title="Buka / Input Hasil Monitoring Lapangan (Tim MONEV)"
+            >
+              <Camera className="h-4 w-4 text-purple-600" />
+              <span>Monitoring Lapangan (MONEV)</span>
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-5">
@@ -737,7 +754,21 @@ export function InputRealisasiDialog({
         </div>
 
         <DialogFooter className="flex-row items-center justify-between border-t bg-muted/10 p-4 sm:justify-between">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMonevOpen(true)}
+              className="h-9 gap-1.5 text-xs border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium"
+              title="Buka / Input Hasil Monitoring Lapangan (Tim MONEV)"
+            >
+              <Camera className="h-3.5 w-3.5 text-purple-600" />
+              <span className="hidden sm:inline">Monitoring Lapangan (MONEV)</span>
+              <span className="sm:hidden">Monev</span>
+            </Button>
+          </div>
           {current && (
             <div className="flex items-center gap-2">
               {(Number(current.realisasiFisik || 0) > 0 || Number(current.realisasiKeuangan || 0) > 0) &&
@@ -786,6 +817,14 @@ export function InputRealisasiDialog({
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Dialog Monitoring & Evaluasi Lapangan (Tim MONEV) */}
+      <MonevDialog
+        open={monevOpen}
+        onOpenChange={setMonevOpen}
+        paketId={paketId}
+        initialPaket={paket}
+      />
     </Dialog>
   )
 }
