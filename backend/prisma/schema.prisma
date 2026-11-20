@@ -54,6 +54,7 @@ model User {
   realisasiVerifikasi RealisasiBulanan[] @relation("UserRealisasiVerifikasi")
   buktiFisikUpload     BuktiFisik[]       @relation("UserBuktiFisikUpload")
   buktiPencairanUpload BuktiPencairan[]   @relation("UserBuktiPencairanUpload")
+  monevLapangan        MonevLapangan[]    @relation("UserMonevLapangan")
   accessScopes         UserAccessScope[]
 
   @@index([opdId])
@@ -200,6 +201,7 @@ model PaketPembangunan {
   pencairanKeuangan PencairanKeuangan[]
   realisasiBulanan  RealisasiBulanan[]
   realisasiMingguan RealisasiMingguan[]
+  monevLapangan     MonevLapangan[]
 
   @@index([tahunAnggaran, opdId])
   @@index([subUnitId])
@@ -340,4 +342,40 @@ model BuktiPencairan {
 
   @@index([pencairanId])
   @@map("bukti_pencairan")
+}
+
+/// Hasil monitoring lapangan oleh Tim MONEV (dasar laporan PDF per paket)
+model MonevLapangan {
+  id             String   @id @default(uuid())
+  paketId        String   @map("paket_id")
+  tanggalMonev   DateTime @map("tanggal_monev")
+  progresFisik   Float    @default(0) @map("progres_fisik")
+  kondisiFisik   String   @map("kondisi_fisik")
+  permasalahan   String?
+  saran          String?
+  createdById    String?  @map("created_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  paket     PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  createdBy User?            @relation("UserMonevLapangan", fields: [createdById], references: [id], onDelete: SetNull)
+  fotos     MonevFoto[]
+
+  @@index([paketId])
+  @@map("monev_lapangan")
+}
+
+model MonevFoto {
+  id          String   @id @default(uuid())
+  monevId     String   @map("monev_id")
+  namaFile    String   @map("nama_file")
+  pathFile    String   @map("path_file")
+  mimeType    String?  @map("mime_type")
+  ukuranBytes Int?     @map("ukuran_bytes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  monev MonevLapangan @relation(fields: [monevId], references: [id], onDelete: Cascade)
+
+  @@index([monevId])
+  @@map("monev_foto")
 }

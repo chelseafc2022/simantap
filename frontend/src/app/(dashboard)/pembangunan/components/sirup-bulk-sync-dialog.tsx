@@ -348,10 +348,23 @@ export function SirupBulkSyncDialog({
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-xs">
                   <span>Paket Belum Tersinkron:</span>
-                  <span className="font-bold">
+                  <span
+                    className={`font-bold ${
+                      previewData.total === 0 ? "text-emerald-700" : ""
+                    }`}
+                  >
                     {previewData.total.toLocaleString("id-ID")} Paket
                   </span>
                 </div>
+                {previewData.total === 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium pt-1">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Seluruh paket RUP sudah berhasil tersinkron ke database
+                      MONALISA.
+                    </span>
+                  </div>
+                )}
                 {previewData.satkerCode && previewData.satkerCode !== "-" && (
                   <div className="text-[10.5px] text-blue-700/80 pt-0.5 border-t border-blue-200/50">
                     Kode Satker SIPD: <code>{previewData.satkerCode}</code>
@@ -402,11 +415,9 @@ export function SirupBulkSyncDialog({
               <>
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 <span>
-                  Sinkronkan{" "}
-                  {candidateCount > 0
-                    ? `${candidateCount.toLocaleString("id-ID")} Paket`
-                    : ""}{" "}
-                  Sekarang
+                  {candidateCount === 0
+                    ? "Semua Paket Sudah Tersinkron"
+                    : `Sinkronkan ${candidateCount.toLocaleString("id-ID")} Paket Sekarang`}
                 </span>
               </>
             )}

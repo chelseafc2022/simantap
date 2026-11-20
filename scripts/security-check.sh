@@ -56,8 +56,10 @@ ADDED_LINES=$(echo "$DIFF_CONTENT" | grep '^+[^+]')
 
 if [ -n "$ADDED_LINES" ]; then
     # A. Deteksi Raw IPv4 Server Nyata (bukan 127.0.0.1, bukan 0.0.0.0, bukan kode rekening titik banyak)
+    # Abaikan kode rekening/SIPD Kemendagri bertitik banyak (5+ segmen angka)
+    FILTERED_LINES=$(echo "$ADDED_LINES" | sed -E 's/[0-9]+(\.[0-9]+){4,}//g')
     # Mencari pola IP 4-oktet publik/server
-    SUSPICIOUS_IPS=$(echo "$ADDED_LINES" | grep -Eo '\b([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\b' | grep -v '127.0.0.1' | grep -v '0.0.0.0' | sort -u)
+    SUSPICIOUS_IPS=$(echo "$FILTERED_LINES" | grep -Eo '\b([1-9][0-9]?|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\b' | grep -v '127.0.0.1' | grep -v '0.0.0.0' | sort -u)
 
     if [ -n "$SUSPICIOUS_IPS" ]; then
         echo -e "${RED}❌ [DIBLOKIR] Alamat IP server / publik mentah terdeteksi di dalam source code:${NC}"

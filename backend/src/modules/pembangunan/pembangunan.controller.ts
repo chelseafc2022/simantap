@@ -42,6 +42,10 @@ import {
   UpsertRealisasiDto,
 } from './dto/upsert-realisasi.dto';
 import { UpsertRealisasiMingguanDto } from './dto/upsert-realisasi-mingguan.dto';
+import {
+  CreateMonevLapanganDto,
+  UpdateMonevLapanganDto,
+} from './dto/monev-lapangan.dto';
 import { PembangunanService } from './pembangunan.service';
 
 // Semua role yang bisa membaca data (read-only roles)
@@ -53,6 +57,31 @@ const ALL_ROLES = [
   RoleEnum.PIMPINAN_DAERAH,
   RoleEnum.MONEV,
 ];
+
+// Opsi upload foto dokumentasi monitoring lapangan (hanya gambar)
+const monevUploadOptions = {
+  storage: diskStorage({
+    destination: (_req, _file, cb) => {
+      const uploadDir = join(process.cwd(), 'uploads', 'monev');
+      if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });
+      cb(null, uploadDir);
+    },
+    filename: (_req, file, cb) => {
+      cb(null, `monev-${randomUUID()}${extname(file.originalname).toLowerCase()}`);
+    },
+  }),
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    cb: (error: Error | null, acceptFile: boolean) => void,
+  ) => {
+    if (!/\.(jpg|jpeg|png|webp)$/i.test(extname(file.originalname))) {
+      return cb(new Error('Foto monev harus berformat JPG, PNG, atau WEBP'), false);
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 },
+};
 
 @ApiTags('Paket Pembangunan (Menu 1, 2 & 3)')
 @ApiBearerAuth('bearer')
@@ -452,6 +481,80 @@ export class PembangunanController {
     @CurrentUser() user: any,
   ) {
     return this.pembangunanService.deleteBuktiFisik(buktiFisikId, user);
+  }
+
+
+  // ─── MONEV LAPANGAN (Tim MONEV & Administrator) ─────────────────────────
+  @Get('monev/rekap')
+  @Roles(...ALL_ROLES)
+  @ApiOperation({
+    summary:
+      'Rekapitulasi seluruh laporan monitoring lapangan untuk Menu Laporan & Evaluasi',
+  })
+  rekapMonevLapangan(
+    @Query('tahunAnggaran') tahunAnggaran: number,
+    @Query('opdId') opdId: string,
+    @Query('subUnitId') subUnitId: string,
+    @Query('triwulan') triwulan: number,
+    @Query('q') q: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.rekapMonevLapangan(
+      { tahunAnggaran, opdId, subUnitId, triwulan, q },
+      user,
+    );
+  }
+
+  @Get(':id/monev')
+  @Roles(...ALL_ROLES)
+  @ApiOperation({
+    summary: 'Daftar hasil monitoring lapangan (Tim MONEV) untuk satu paket',
+  })
+  listMonevLapangan(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.pembangunanService.listMonevLapangan(id, user);
+  }
+
+  @Post(':id/monev')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.MONEV)
+  @UseInterceptors(FilesInterceptor('files', 12, monevUploadOptions))
+  @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Simpan hasil monitoring lapangan: foto, kondisi fisik, permasalahan, saran',
+  })
+  createMonevLapangan(
+    @Param('id') id: string,
+    @Body() dto: CreateMonevLapanganDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.createMonevLapangan(id, dto, files, user);
+  }
+
+  @Patch(':id/monev/:monevId')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.MONEV)
+  @UseInterceptors(FilesInterceptor('files', 12, monevUploadOptions))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Perbarui hasil monitoring lapangan' })
+  updateMonevLapangan(
+    @Param('id') id: string,
+    @Param('monevId') monevId: string,
+    @Body() dto: UpdateMonevLapanganDto,
+    @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.updateMonevLapangan(id, monevId, dto, files, user);
+  }
+
+  @Delete(':id/monev/:monevId')
+  @Roles(RoleEnum.ADMINISTRATOR, RoleEnum.MONEV)
+  @ApiOperation({ summary: 'Hapus laporan monitoring lapangan' })
+  deleteMonevLapangan(
+    @Param('id') id: string,
+    @Param('monevId') monevId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.pembangunanService.deleteMonevLapangan(id, monevId, user);
   }
 
   // ─── Upload Bukti Dokumen Pencairan Keuangan oleh Bendahara ──────────────

@@ -24,6 +24,10 @@ import {
   UpsertRealisasiDto,
 } from './dto/upsert-realisasi.dto';
 import { UpsertRealisasiMingguanDto } from './dto/upsert-realisasi-mingguan.dto';
+import {
+  CreateMonevLapanganDto,
+  UpdateMonevLapanganDto,
+} from './dto/monev-lapangan.dto';
 
 @Injectable()
 export class PembangunanService {
@@ -3531,5 +3535,380 @@ export class PembangunanService {
       }
     }
     return ordered;
+  }
+
+  // =========================================================================
+  // MONEV LAPANGAN (Tim MONEV: foto, kondisi fisik, permasalahan, saran)
+  // =========================================================================
+
+  private static readonly MAX_FOTO_MONEV = 12;
+
+  private assertMonevWriter(user?: any) {
+    const roles = this.getUserRoles(user);
+    if (
+      !roles.includes(RoleEnum.ADMINISTRATOR) &&
+      !roles.includes(RoleEnum.MONEV)
+    ) {
+      throw new ForbiddenException(
+        'Hanya Administrator atau Tim MONEV yang dapat mengisi hasil monitoring lapangan',
+      );
+    }
+  }
+
+  private async removeUploadedFiles(files?: Express.Multer.File[]) {
+    for (const file of files || []) {
+      if (file?.path && existsSync(file.path)) {
+        await unlink(file.path).catch(() => {});
+      }
+    }
+  }
+
+  private mapMonev(item: any) {
+    return {
+      id: item.id,
+      paketId: item.paketId,
+      tanggalMonev: item.tanggalMonev,
+      progresFisik: item.progresFisik,
+      kondisiFisik: item.kondisiFisik,
+      permasalahan: item.permasalahan || '',
+      saran: item.saran || '',
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      createdBy: item.createdBy || null,
+      fotos: (item.fotos || []).map((f: any) => ({
+        id: f.id,
+        namaFile: f.namaFile,
+        mimeType: f.mimeType,
+        pathFile: `/uploads/monev/${f.namaFile}`,
+      })),
+    };
+  }
+
+  private async getLatestProgresFisik(paketId: string): Promise<number> {
+    const latest = await this.prisma.realisasiBulanan.findFirst({
+      where: { paketId, realisasiFisik: { gt: 0 } },
+      orderBy: { bulan: 'desc' },
+      select: { realisasiFisik: true },
+    });
+    return Number(latest?.realisasiFisik || 0);
+  }
+
+  /** Rekapitulasi seluruh laporan monev lapangan (untuk Menu Laporan & Evaluasi) */
+  async rekapMonevLapangan(
+    query: {
+      tahunAnggaran?: number;
+      opdId?: string;
+      subUnitId?: string;
+      triwulan?: number;
+      q?: string;
+    },
+    user?: any,
+  ) {
+    const scopeFilter = this.buildScopeFilter(user);
+    const andConditions: Prisma.PaketPembangunanWhereInput[] = [];
+
+    if (scopeFilter && Object.keys(scopeFilter).length > 0) {
+      andConditions.push(scopeFilter);
+    }
+
+    if (query.tahunAnggaran) {
+      andConditions.push({ tahunAnggaran: Number(query.tahunAnggaran) });
+    }
+
+    if (query.opdId && query.opdId !== 'ALL' && query.opdId !== 'all') {
+      andConditions.push({ opdId: query.opdId });
+    }
+
+    if (query.subUnitId && query.subUnitId !== 'ALL' && query.subUnitId !== 'all') {
+      andConditions.push({ subUnitId: query.subUnitId });
+    }
+
+    if (query.q && query.q.trim()) {
+      const q = query.q.trim();
+      andConditions.push({
+        OR: [
+          { namaPaket: { contains: q, mode: 'insensitive' } },
+          { pemenangRekanan: { contains: q, mode: 'insensitive' } },
+          { nomorKontrak: { contains: q, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const whereMonev: Prisma.MonevLapanganWhereInput = {};
+    if (andConditions.length > 0) {
+      whereMonev.paket = { AND: andConditions };
+    }
+
+    if (query.triwulan) {
+      const tw = Number(query.triwulan);
+      if (tw >= 1 && tw <= 4) {
+        const thn = Number(query.tahunAnggaran) || new Date().getFullYear();
+        const startMonth = (tw - 1) * 3;
+        const endMonth = startMonth + 2;
+        const startDate = new Date(Date.UTC(thn, startMonth, 1, 0, 0, 0));
+        const endDate = new Date(Date.UTC(thn, endMonth + 1, 0, 23, 59, 59, 999));
+        whereMonev.tanggalMonev = {
+          gte: startDate,
+          lte: endDate,
+        };
+      }
+    }
+
+    const rows = await this.prisma.monevLapangan.findMany({
+      where: whereMonev,
+      orderBy: { tanggalMonev: 'desc' },
+      include: {
+        paket: true,
+        fotos: { orderBy: { createdAt: 'asc' } },
+        createdBy: { select: { id: true, namaLengkap: true, nip: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      ...this.mapMonev(row),
+      paket: {
+        id: row.paket.id,
+        namaPaket: row.paket.namaPaket,
+        tahunAnggaran: row.paket.tahunAnggaran,
+        nomorKontrak: row.paket.nomorKontrak,
+        pemenangRekanan: row.paket.pemenangRekanan,
+        tanggalMulai: row.paket.tanggalMulai,
+        tanggalSelesai: row.paket.tanggalSelesai,
+        nilaiKontrak: Number(row.paket.nilaiKontrak) || 0,
+        lokasiKegiatan: row.paket.lokasiKegiatan,
+        polaMonitoring: row.paket.polaMonitoring,
+        opd: this.egovService.getOpdById(row.paket.opdId),
+        subUnit: this.egovService.getSubUnitById(row.paket.subUnitId),
+      },
+    }));
+  }
+
+  /** Daftar hasil monev lapangan sebuah paket + data paket untuk laporan PDF */
+  async listMonevLapangan(paketId: string, user?: any) {
+    const paket = await this.prisma.paketPembangunan.findUnique({
+      where: { id: paketId },
+    });
+    if (!paket)
+      throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+    this.checkOpdAccess(user, paket.opdId, paket.subUnitId);
+
+    const rows = await this.prisma.monevLapangan.findMany({
+      where: { paketId },
+      orderBy: { tanggalMonev: 'desc' },
+      include: {
+        fotos: { orderBy: { createdAt: 'asc' } },
+        createdBy: { select: { id: true, namaLengkap: true, nip: true } },
+      },
+    });
+
+    return {
+      paket: {
+        id: paket.id,
+        namaPaket: paket.namaPaket,
+        tahunAnggaran: paket.tahunAnggaran,
+        nomorKontrak: paket.nomorKontrak,
+        pemenangRekanan: paket.pemenangRekanan,
+        tanggalMulai: paket.tanggalMulai,
+        tanggalSelesai: paket.tanggalSelesai,
+        nilaiKontrak: Number(paket.nilaiKontrak) || 0,
+        lokasiKegiatan: paket.lokasiKegiatan,
+        polaMonitoring: paket.polaMonitoring,
+        opd: this.egovService.getOpdById(paket.opdId),
+        subUnit: this.egovService.getSubUnitById(paket.subUnitId),
+      },
+      data: rows.map((row) => this.mapMonev(row)),
+    };
+  }
+
+  async createMonevLapangan(
+    paketId: string,
+    dto: CreateMonevLapanganDto,
+    files: Express.Multer.File[],
+    user?: any,
+  ) {
+    try {
+      this.assertMonevWriter(user);
+      const paket = await this.prisma.paketPembangunan.findUnique({
+        where: { id: paketId },
+      });
+      if (!paket)
+        throw new NotFoundException(`Paket '${paketId}' tidak ditemukan`);
+      if (paket.polaMonitoring === 'KEUANGAN') {
+        throw new BadRequestException(
+          'Monev lapangan hanya untuk paket berpola Fisik & Keuangan',
+        );
+      }
+      if (paket.isIndukGelondongan) {
+        throw new BadRequestException(
+          'Monev dilakukan pada kontrak pecahan, bukan paket induk gelondongan',
+        );
+      }
+      if (files && files.length > PembangunanService.MAX_FOTO_MONEV) {
+        throw new BadRequestException(
+          `Maksimal ${PembangunanService.MAX_FOTO_MONEV} foto per laporan monev`,
+        );
+      }
+
+      const progresFisik =
+        dto.progresFisik !== undefined && dto.progresFisik !== null
+          ? Number(dto.progresFisik)
+          : await this.getLatestProgresFisik(paketId);
+      const created = await this.prisma.monevLapangan.create({
+        data: {
+          paketId,
+          tanggalMonev: dto.tanggalMonev
+            ? new Date(dto.tanggalMonev)
+            : new Date(),
+          progresFisik,
+          kondisiFisik: dto.kondisiFisik.trim(),
+          permasalahan: dto.permasalahan?.trim() || null,
+          saran: dto.saran?.trim() || null,
+          createdById: user?.id || null,
+          ...(files && files.length > 0
+            ? {
+                fotos: {
+                  create: files.map((file) => ({
+                    namaFile: file.filename,
+                    pathFile: file.path,
+                    mimeType: file.mimetype,
+                    ukuranBytes: file.size,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          fotos: { orderBy: { createdAt: 'asc' } },
+          createdBy: { select: { id: true, namaLengkap: true, nip: true } },
+        },
+      });
+
+      if (user?.id) {
+        await this.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'CREATE_MONEV_LAPANGAN',
+            resource: 'MONEV_LAPANGAN',
+            resourceId: created.id,
+            payload: { paketId, namaPaket: paket.namaPaket },
+          },
+        });
+      }
+
+      return {
+        message: 'Hasil monitoring lapangan berhasil disimpan',
+        data: this.mapMonev(created),
+      };
+    } catch (error) {
+      await this.removeUploadedFiles(files);
+      throw error;
+    }
+  }
+
+  async updateMonevLapangan(
+    paketId: string,
+    monevId: string,
+    dto: UpdateMonevLapanganDto,
+    files: Express.Multer.File[],
+    user?: any,
+  ) {
+    try {
+      this.assertMonevWriter(user);
+      const existing = await this.prisma.monevLapangan.findUnique({
+        where: { id: monevId },
+        include: { fotos: true },
+      });
+      if (!existing || existing.paketId !== paketId) {
+        throw new NotFoundException('Laporan monev tidak ditemukan pada paket ini');
+      }
+
+      const hapusIds = (dto.hapusFotoIds || '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const toDelete = existing.fotos.filter((f) => hapusIds.includes(f.id));
+      const sisa = existing.fotos.length - toDelete.length + (files?.length || 0);
+      if (sisa > PembangunanService.MAX_FOTO_MONEV) {
+        throw new BadRequestException(
+          `Maksimal ${PembangunanService.MAX_FOTO_MONEV} foto per laporan monev`,
+        );
+      }
+
+      const progresFisik =
+        dto.progresFisik !== undefined && dto.progresFisik !== null
+          ? Number(dto.progresFisik)
+          : Number(existing.progresFisik || 0);
+      const updated = await this.prisma.$transaction(async (tx) => {
+        if (toDelete.length > 0) {
+          await tx.monevFoto.deleteMany({
+            where: { id: { in: toDelete.map((f) => f.id) } },
+          });
+        }
+        if (files?.length) {
+          await tx.monevFoto.createMany({
+            data: files.map((file) => ({
+              monevId,
+              namaFile: file.filename,
+              pathFile: file.path,
+              mimeType: file.mimetype,
+              ukuranBytes: file.size,
+            })),
+          });
+        }
+        return tx.monevLapangan.update({
+          where: { id: monevId },
+          data: {
+            ...(dto.tanggalMonev
+              ? { tanggalMonev: new Date(dto.tanggalMonev) }
+              : {}),
+            ...(dto.kondisiFisik !== undefined
+              ? { kondisiFisik: dto.kondisiFisik.trim() }
+              : {}),
+            ...(dto.permasalahan !== undefined
+              ? { permasalahan: dto.permasalahan.trim() || null }
+              : {}),
+            ...(dto.saran !== undefined
+              ? { saran: dto.saran.trim() || null }
+              : {}),
+            progresFisik,
+          },
+          include: {
+            fotos: { orderBy: { createdAt: 'asc' } },
+            createdBy: { select: { id: true, namaLengkap: true, nip: true } },
+          },
+        });
+      });
+
+      for (const foto of toDelete) {
+        if (foto.pathFile && existsSync(foto.pathFile)) {
+          await unlink(foto.pathFile).catch(() => {});
+        }
+      }
+      return {
+        message: 'Laporan monitoring lapangan berhasil diperbarui',
+        data: this.mapMonev(updated),
+      };
+    } catch (error) {
+      await this.removeUploadedFiles(files);
+      throw error;
+    }
+  }
+
+  async deleteMonevLapangan(paketId: string, monevId: string, user?: any) {
+    this.assertMonevWriter(user);
+    const existing = await this.prisma.monevLapangan.findUnique({
+      where: { id: monevId },
+      include: { fotos: true },
+    });
+    if (!existing || existing.paketId !== paketId) {
+      throw new NotFoundException('Laporan monev tidak ditemukan pada paket ini');
+    }
+    await this.prisma.monevLapangan.delete({ where: { id: monevId } });
+    for (const foto of existing.fotos) {
+      if (foto.pathFile && existsSync(foto.pathFile)) {
+        await unlink(foto.pathFile).catch(() => {});
+      }
+    }
+    return { message: 'Laporan monitoring lapangan berhasil dihapus' };
   }
 }

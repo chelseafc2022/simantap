@@ -9,6 +9,7 @@ export interface SirupPaketItem {
   kodeRup: string;
   namaPaket: string;
   satker: string;
+  kodeSatker?: string;
   metode: string;
   pagu: number;
   sumberDana: string;
@@ -20,7 +21,51 @@ export interface SirupPaketItem {
   isPembangunan?: boolean;
 }
 
+export const KNOWN_SATKER_SIMPEG_MAP: Record<
+  string,
+  { opdId: string; subUnitId: string | null }
+> = {
+  // RSUD Konawe Selatan (Induk OPD: DINAS KESEHATAN, Sub Unit: RUMAH SAKIT UMUM DAERAH)
+  'RS KONAWE SELATAN': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'i33wtiawk2hhdo16',
+  },
+  '1.02.0.00.0.00.01.0001': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'i33wtiawk2hhdo16',
+  },
+  'BADAN LAYANAN UMUM DAERAH RSD': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'CASKREbQZF4v2MwJS',
+  },
+  '1.02.0.00.0.00.02.01': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'CASKREbQZF4v2MwJS',
+  },
+  'RUMAH SAKIT UMUM DAERAH': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'i33wtiawk2hhdo16',
+  },
+  '1.02.0.00.0.00.02.00': {
+    opdId: 'tuwRgWDzmfad28n8Z',
+    subUnitId: 'i33wtiawk2hhdo16',
+  },
+  // KORPRI (Induk OPD: BKPSDM)
+  'SEKRETARIAT KORPRI': {
+    opdId: 'i33wtjx0k2hch3qw',
+    subUnitId: null,
+  },
+  '5.03.0.00.0.00.02.0000': {
+    opdId: 'i33wtjx0k2hch3qw',
+    subUnitId: null,
+  },
+};
+
 export const SIRUP_SATKER_MAP: Record<string, string> = {
+  'RS KONAWE SELATAN': '1.02.0.00.0.00.01.0001',
+  'RUMAH SAKIT UMUM DAERAH': '1.02.0.00.0.00.02.00',
+  'BADAN LAYANAN UMUM DAERAH RSD': '1.02.0.00.0.00.02.01',
+  'SEKRETARIAT KORPRI': '5.03.0.00.0.00.02.0000',
   'BAGIAN PENGADAAN BARANG DAN JASA': '4.01.0.00.0.00.01.0005',
   'BADAN PENDAPATAN DAERAH': '5.02.0.00.0.00.02.0000',
   'DINAS PEMADAM KEBAKARAN DAN PENYELAMATAN': '1.05.0.00.0.00.02.0000',
@@ -150,6 +195,7 @@ export class SirupService {
       kodeRup: String(item.kodeRup || ''),
       namaPaket: item.namaPaket || '',
       satker: item.namaSatker || '',
+      kodeSatker: item.kodeSatker ? String(item.kodeSatker) : undefined,
       metode: this.normalizeMetode(item.metode || item.caraPengadaan || ''),
       pagu: Number(item.pagu || 0),
       sumberDana: this.normalizeSumberDana(
@@ -286,12 +332,52 @@ export class SirupService {
   /**
    * Cocokkan teks Satker SiRUP ke instansi & unit_kerja SIMPEG
    */
-  private async matchSatkerToSimpeg(satkerStr: string) {
+  private async matchSatkerToSimpeg(satkerStr: string, satkerCode?: string) {
     const raw = (satkerStr || '').split(' - ')[0].trim();
+    const cleanCode = (satkerCode || '').trim();
     const normalizedRaw = this.normalizeUnitName(raw);
+
+    // 0. Cek pemetaan satker khusus (RSUD, KORPRI, dll)
+    if (cleanCode && KNOWN_SATKER_SIMPEG_MAP[cleanCode]) {
+      return KNOWN_SATKER_SIMPEG_MAP[cleanCode];
+    }
+    if (KNOWN_SATKER_SIMPEG_MAP[normalizedRaw]) {
+      return KNOWN_SATKER_SIMPEG_MAP[normalizedRaw];
+    }
+    if (KNOWN_SATKER_SIMPEG_MAP[raw]) {
+      return KNOWN_SATKER_SIMPEG_MAP[raw];
+    }
 
     const opdOptions = await this.egovService.getOpdOptions();
     const subUnitOptions = await this.egovService.getSubUnitOptions('ALL');
+
+    // 0b. Fuzzy match untuk RS / RSU / RSUD / RSD
+    if (/\b(RS|RSU|RSUD|RSD|RUMAH SAKIT)\b/i.test(normalizedRaw)) {
+      const rsSub = subUnitOptions.find(
+        (u) =>
+          u.opdId === 'tuwRgWDzmfad28n8Z' &&
+          /RUMAH SAKIT|RSU|RSUD/i.test(u.namaSubUnit),
+      );
+      if (rsSub) {
+        return {
+          opdId: rsSub.opdId,
+          subUnitId: rsSub.id,
+        };
+      }
+    }
+
+    // 0c. Fuzzy match untuk KORPRI
+    if (/KORPRI/i.test(normalizedRaw)) {
+      const bkpsdm = opdOptions.find((o) =>
+        /KEPEGAWAIAN|BKPSDM/i.test(o.namaOpd),
+      );
+      if (bkpsdm) {
+        return {
+          opdId: bkpsdm.id,
+          subUnitId: null,
+        };
+      }
+    }
 
     // 1. Cek kecocokan langsung ke instansi
     let matchedOpd = opdOptions.find(
@@ -522,7 +608,10 @@ export class SirupService {
     const sourceSatkers = await this.rupSource.getSatkerOptions();
     const sourceSatker = sourceSatkers.find((satker) => satker.kode === clean);
     if (sourceSatker) {
-      const matched = await this.matchSatkerToSimpeg(sourceSatker.nama);
+      const matched = await this.matchSatkerToSimpeg(
+        sourceSatker.nama,
+        sourceSatker.kode,
+      );
       const parentOpd = matched.opdId
         ? this.egovService.getOpdById(matched.opdId)
         : null;
@@ -561,8 +650,6 @@ export class SirupService {
    */
   async getSatkerOptions() {
     const sourceSatkers = await this.rupSource.getSatkerOptions();
-    const opdOptions = await this.egovService.getOpdOptions();
-    const subUnits = await this.egovService.getSubUnitOptions('ALL');
     const result: Array<{
       id: string; // kode satker sumber; selalu unik untuk kebutuhan dropdown
       subUnitId: string | null;
@@ -575,27 +662,17 @@ export class SirupService {
     for (const sourceSatker of sourceSatkers) {
       const satkerName = sourceSatker.nama;
       const satkerCode = sourceSatker.kode;
-      const normalizedSatker = this.normalizeUnitName(satkerName);
-      const matched = subUnits.find(
-        (su) =>
-          this.normalizeUnitName(su.namaSubUnit) === normalizedSatker ||
-          this.normalizeUnitName(su.namaSubUnit).includes(normalizedSatker) ||
-          normalizedSatker.includes(this.normalizeUnitName(su.namaSubUnit)),
-      );
-
-      const matchedOpd = opdOptions.find(
-        (opd) => this.normalizeUnitName(opd.namaOpd) === normalizedSatker,
-      );
-
-      const opdId = matched?.opdId || matchedOpd?.id || '';
-      const parentOpd = opdId ? this.egovService.getOpdById(opdId) : null;
+      const matched = await this.matchSatkerToSimpeg(satkerName, satkerCode);
+      const parentOpd = matched.opdId
+        ? this.egovService.getOpdById(matched.opdId)
+        : null;
 
       result.push({
         id: satkerCode,
-        subUnitId: matched?.id || null,
+        subUnitId: matched.subUnitId || null,
         nama: satkerName,
         satkerCode,
-        opdId,
+        opdId: matched.opdId || '',
         parentOpdNama: parentOpd?.namaOpd,
       });
     }
@@ -740,9 +817,12 @@ export class SirupService {
       { opdId: string | null; subUnitId: string | null }
     >();
     for (const satkerName of satkerNames) {
+      const sampleItem = candidatePackages.find(
+        (p) => p.satker === satkerName,
+      );
       satkerMappings.set(
         satkerName,
-        await this.matchSatkerToSimpeg(satkerName),
+        await this.matchSatkerToSimpeg(satkerName, sampleItem?.kodeSatker),
       );
     }
 
