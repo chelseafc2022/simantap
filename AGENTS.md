@@ -13,7 +13,13 @@ Database eksternal E-Gov dan SIMPEG (`mysql.konaweselatankab.go.id`):
      - Melakukan kompilasi static export Next.js ke folder `frontend/out/` (termasuk membawa file `.htaccess` dari `frontend/public/`).
      - Mengompresi isi folder menjadi paket siap upload: `frontend/dist.zip`.
    - Laporkan lokasi path `dist.zip` kepada user agar siap diunggah ke `public_html` File Manager HestiaCP dan di-unzip.
-3. Setiap perubahan ikuti instruksi secara fokus tanpa menambah-nambahkan aksi yang tidak diminta.
+3. **STANDAR UPDATE BACKEND PRODUCTION (MANUAL COPY-PASTE OLEH USER)**:
+   - Server production backend diperbarui secara **MANUAL (Copy-Paste file)** oleh user (bukan via git pull otomatis di server).
+   - Setiap ada pembaruan backend, Agent **WAJIB SECARA PROAKTIF MEMBERIKAN PANDUAN COPY-PASTE SPESIFIK**:
+     a. Tunjukkan **daftar file persis yang berubah** beserta path-nya.
+     b. Berikan status: apakah ada perubahan database Prisma (`schema.prisma`) yang memerlukan `npx prisma generate` / migrasi atau tidak.
+     c. Tuliskan panduan langkah demi langkah: file apa yang harus di-copy/paste ke server, perintah build (`npm run build`), dan restart proses PM2 (`pm2 restart ...`).
+4. Setiap perubahan ikuti instruksi secara fokus tanpa menambah-nambahkan aksi yang tidak diminta.
 
 ---
 
