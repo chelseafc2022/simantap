@@ -17,6 +17,7 @@ export interface MonevLapanganItem {
   updatedAt: string
   createdBy?: { id: string; namaLengkap?: string; nip?: string } | null
   fotos: MonevFotoItem[]
+  kunjunganKe?: number
 }
 
 export interface MonevPaketInfo {

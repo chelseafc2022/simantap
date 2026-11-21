@@ -30,6 +30,8 @@ export interface CetakRealisasiItem {
   realisasiKeuangan: number
   persenKeuangan: number
   status: string
+  totalMonev?: number
+  hasMonev?: boolean
   opd?: {
     namaOpd: string
     singkatan?: string | null
@@ -118,8 +120,7 @@ export function cetakLaporanRealisasiPDF({
       <tr style="${isInduk ? "background-color: #eef2ff;" : ""}">
         <td style="border: 1px solid #000; text-align: center; padding: 4px;">${counter}</td>
         <td style="border: 1px solid #000; padding: 4px; ${isPecahan ? "padding-left: 16px;" : ""} text-align: left;">
-          <div style="font-weight: bold;">${isPecahan ? "↳ " : ""}${item.namaPaket}${isInduk && item.agregatPecahan ? ` <span style="font-size: 7pt; color: #3730a3;">[Induk - ${item.agregatPecahan.count} Kontrak]</span>` : ""}</div>
-          <div style="font-size: 7.5pt; color: #555;">${item.opd?.namaOpd || ""}${item.subUnit ? ` - ${item.subUnit.namaSubUnit}` : ""}</div>
+          <div style="font-weight: bold; line-height: 1.3;">${isPecahan ? "↳ " : ""}${item.namaPaket}${isInduk && item.agregatPecahan ? ` <span style="font-size: 7pt; color: #3730a3;">[Induk - ${item.agregatPecahan.count} Kontrak]</span>` : ""}</div>
         </td>
         <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace;">${isPecahan ? '<span style="font-family: sans-serif; color: #64748b; font-style: italic;">Ikut Induk</span>' : `Rp ${formatRupiah(item.nilaiPagu)}`}</td>
         <td style="border: 1px solid #000; text-align: right; padding: 4px; font-family: monospace; font-weight: bold;">Rp ${formatRupiah(displayKontrak)}</td>

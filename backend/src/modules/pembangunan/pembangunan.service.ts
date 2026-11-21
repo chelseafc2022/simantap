@@ -1274,6 +1274,11 @@ export class PembangunanService {
             },
           },
         },
+        _count: {
+          select: {
+            monevLapangan: true,
+          },
+        },
       },
     });
 
@@ -1376,6 +1381,8 @@ export class PembangunanService {
         catatanOperator,
         inputBy,
         updatedAt,
+        totalMonev: paket._count?.monevLapangan || 0,
+        hasMonev: (paket._count?.monevLapangan || 0) > 0,
       };
     });
 
@@ -1406,6 +1413,12 @@ export class PembangunanService {
           },
         };
       }
+      const childrenTotalMonev = children.reduce(
+        (acc, c) => acc + (c.totalMonev || 0),
+        0,
+      );
+      const totalMonev = (item.totalMonev || 0) + childrenTotalMonev;
+      const hasMonev = totalMonev > 0;
       const physChildren = children.filter((c) => c.polaMonitoring !== 'KEUANGAN');
       const avgTargetP =
         physChildren.length > 0
@@ -1440,6 +1453,8 @@ export class PembangunanService {
           avgRealisasiFisik: avgRealFisikP,
           avgDeviasiFisik: parseFloat((avgRealFisikP - avgTargetP).toFixed(2)),
         },
+        totalMonev,
+        hasMonev,
       };
     });
 

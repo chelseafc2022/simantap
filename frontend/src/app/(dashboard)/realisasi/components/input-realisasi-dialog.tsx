@@ -762,11 +762,11 @@ export function InputRealisasiDialog({
               size="sm"
               onClick={() => setMonevOpen(true)}
               className="h-9 gap-1.5 text-xs border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium"
-              title="Buka / Input Hasil Monitoring Lapangan (Tim MONEV)"
+              title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
             >
-              <Camera className="h-3.5 w-3.5 text-purple-600" />
-              <span className="hidden sm:inline">Monitoring Lapangan (MONEV)</span>
-              <span className="sm:hidden">Monev</span>
+              <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              <span className="hidden sm:inline">Hasil MONEV Tim Adpem (PDF)</span>
+              <span className="sm:hidden">Hasil Monev PDF</span>
             </Button>
           </div>
           {current && (
@@ -824,6 +824,7 @@ export function InputRealisasiDialog({
         onOpenChange={setMonevOpen}
         paketId={paketId}
         initialPaket={paket}
+        defaultView="pdf"
       />
     </Dialog>
   )

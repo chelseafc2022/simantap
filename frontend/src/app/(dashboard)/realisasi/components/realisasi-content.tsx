@@ -9,6 +9,7 @@ import { SearchableCombobox } from "@/components/searchable-combobox"
 import { isExcludedOpd } from "@/lib/utils"
 import { RealisasiStatCards } from "./realisasi-stat-cards"
 import { InputRealisasiDialog, BULAN_LIST } from "./input-realisasi-dialog"
+import { MonevDialog } from "../../pembangunan/components/monev-dialog"
 import { MiniDonut } from "@/components/ui/mini-donut"
 import { cetakLaporanRealisasiPDF, CetakRealisasiItem } from "../lib/cetak-pdf"
 import { Card, CardContent } from "@/components/ui/card"
@@ -48,6 +49,7 @@ import {
   AlertCircle,
   GitBranch,
   Lock,
+  FileText,
 } from "lucide-react"
 
 export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KEUANGAN" | "KEUANGAN" }) {
@@ -87,6 +89,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
   // Dialog state
   const [inputModalOpen, setInputModalOpen] = useState<boolean>(false)
   const [selectedPaketId, setSelectedPaketId] = useState<string | null>(null)
+  const [monevPaket, setMonevPaket] = useState<any | null>(null)
 
   // Lock selectedOpd & selectedSubUnit if non-super role
   useEffect(() => {
@@ -331,29 +334,124 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
     setPage(1)
   }
 
-  const handleCetakPDF = () => {
-    const activeBulanObj = BULAN_LIST.find((b) => b.no === bulan)
-    const selectedOpdObj = opdList.find((o: any) => o.id === selectedOpd)
-    const namaOpd = selectedOpd !== "ALL" && selectedOpd !== "all"
-      ? (selectedOpdObj?.namaOpd || userOpdNama || "Unit Kerja Terpilih")
-      : "Seluruh Perangkat Daerah (Konawe Selatan)"
+  const [isPrinting, setIsPrinting] = useState(false)
 
-    cetakLaporanRealisasiPDF({
-      tahunAnggaran,
-      bulanNama: activeBulanObj?.nama || `Bulan ${bulan}`,
-      bulanNo: bulan,
-      namaOpd,
-      items,
-      summary: summary || {
-        totalPagu: 0,
-        totalKontrak: 0,
-        totalRealisasiKeuangan: 0,
-        persenSerapanKeuangan: 0,
-        avgTargetFisik: 0,
-        avgRealisasiFisik: 0,
-        avgDeviasiFisik: 0,
-      },
-    })
+  const handleCetakPDF = async () => {
+    setIsPrinting(true)
+    try {
+      const activeBulanObj = BULAN_LIST.find((b) => b.no === bulan)
+      const selectedOpdObj = opdList.find((o: any) => o.id === selectedOpd)
+      const namaOpd =
+        selectedOpd !== "ALL" && selectedOpd !== "all"
+          ? selectedOpdObj?.namaOpd || userOpdNama || "Unit Kerja Terpilih"
+          : userOpdNama || "Seluruh Perangkat Daerah (Konawe Selatan)"
+
+      // Susun parameter filter sama persis seperti tabel realisasi
+      const baseParams: any = {
+        tahunAnggaran,
+        bulan,
+        polaMonitoring: selectedPola,
+      }
+      if (debouncedSearch) baseParams.search = debouncedSearch
+      if (!canSelectOpd && userOpdId) {
+        baseParams.opdId = userOpdId
+      } else if (selectedOpd !== "ALL" && selectedOpd !== "all") {
+        baseParams.opdId = selectedOpd
+      }
+      if (selectedSubUnit !== "all" && selectedSubUnit !== "ALL") {
+        baseParams.subUnitId = selectedSubUnit
+      }
+      if (selectedStatus !== "ALL" && selectedStatus !== "all") {
+        baseParams.statusDeviasi = selectedStatus
+      }
+
+      // Ambil SELURUH data paket (semua halaman) tanpa terpotong paginasi 10 item
+      let currentPage = 1
+      let totalPages = 1
+      const allItems: CetakRealisasiItem[] = []
+      let printSummary = summary
+
+      do {
+        const queryParams = { ...baseParams, page: currentPage, limit: 100 }
+        let res: any
+        try {
+          res = await apiClient.get("/pembangunan/realisasi", { params: queryParams })
+        } catch (fetchErr: any) {
+          // Fallback jika polaMonitoring tidak dikenali backend lama
+          const message = fetchErr?.response?.data?.message
+          const messages = Array.isArray(message) ? message : [message]
+          if (
+            baseParams.polaMonitoring &&
+            fetchErr?.response?.status === 400 &&
+            messages.some((m: string) => typeof m === "string" && m.includes("polaMonitoring should not exist"))
+          ) {
+            const { polaMonitoring: _, ...fallbackParams } = queryParams
+            res = await apiClient.get("/pembangunan/realisasi", { params: fallbackParams })
+          } else {
+            throw fetchErr
+          }
+        }
+
+        const pageItems: CetakRealisasiItem[] = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data?.data?.data)
+          ? res.data.data.data
+          : []
+        allItems.push(...pageItems)
+
+        const summaryObj = res.data?.summary || res.data?.data?.summary
+        if (summaryObj) {
+          printSummary = summaryObj
+        }
+        const metaObj = res.data?.meta || res.data?.data?.meta
+        totalPages = Math.max(1, Number(metaObj?.totalPages) || 1)
+        currentPage += 1
+      } while (currentPage <= totalPages)
+
+      cetakLaporanRealisasiPDF({
+        tahunAnggaran,
+        bulanNama: activeBulanObj?.nama || `Bulan ${bulan}`,
+        bulanNo: bulan,
+        namaOpd,
+        items: allItems.length > 0 ? allItems : items,
+        summary: printSummary || {
+          totalPagu: 0,
+          totalKontrak: 0,
+          totalRealisasiKeuangan: 0,
+          persenSerapanKeuangan: 0,
+          avgTargetFisik: 0,
+          avgRealisasiFisik: 0,
+          avgDeviasiFisik: 0,
+        },
+      })
+    } catch (err) {
+      console.error("Gagal mengambil seluruh data untuk cetak:", err)
+      const activeBulanObj = BULAN_LIST.find((b) => b.no === bulan)
+      const selectedOpdObj = opdList.find((o: any) => o.id === selectedOpd)
+      const namaOpd =
+        selectedOpd !== "ALL" && selectedOpd !== "all"
+          ? selectedOpdObj?.namaOpd || userOpdNama || "Unit Kerja Terpilih"
+          : userOpdNama || "Seluruh Perangkat Daerah (Konawe Selatan)"
+
+      cetakLaporanRealisasiPDF({
+        tahunAnggaran,
+        bulanNama: activeBulanObj?.nama || `Bulan ${bulan}`,
+        bulanNo: bulan,
+        namaOpd,
+        items,
+        summary: summary || {
+          totalPagu: 0,
+          totalKontrak: 0,
+          totalRealisasiKeuangan: 0,
+          persenSerapanKeuangan: 0,
+          avgTargetFisik: 0,
+          avgRealisasiFisik: 0,
+          avgDeviasiFisik: 0,
+        },
+      })
+    } finally {
+      setIsPrinting(false)
+    }
   }
 
   const activeBulanName = BULAN_LIST.find((b) => b.no === bulan)?.nama || `Bulan ${bulan}`
@@ -389,31 +487,18 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {/* Tombol Cetak Laporan RFK HANYA untuk Administrator / Tim Monev Daerah */}
-          {isSuperRole && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCetakPDF}
-              disabled={isLoading || items.length === 0}
-              // className="gap-2 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
-              className="gap-2 shadow-xs"
-            >
-              <Printer className="h-4 w-4" />
-              <span>Cetak Laporan RFK</span>
-            </Button>
-          )}
-
-          {/* <Button
+          {/* Tombol Cetak Laporan Realisasi PDF (Dapat diakses oleh Admin OPD & Tim Daerah) */}
+          <Button
             variant="outline"
             size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="gap-2 shadow-xs"
+            onClick={handleCetakPDF}
+            disabled={isLoading || isPrinting || items.length === 0}
+            className="gap-2 shadow-xs border-emerald-600/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-medium"
+            title="Cetak Seluruh Data Laporan Rekapitulasi Realisasi ke Format PDF"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Segarkan Data</span>
-          </Button> */}
+            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin text-emerald-600" /> : <Printer className="h-4 w-4" />}
+            <span>{isPrinting ? "Menyiapkan PDF..." : "Cetak PDF"}</span>
+          </Button>
         </div>
       </div>
 
@@ -627,6 +712,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
               const dispRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
               const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
               const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
+              const hasMonev = Boolean(item.hasMonev || (item.totalMonev && item.totalMonev > 0))
               return (
                 <div key={item.id} className={`p-4 space-y-3 hover:bg-muted/30 transition-colors ${isPecahan ? "pl-6 bg-indigo-500/[0.03] border-l-2 border-indigo-400/50" : isInduk ? "bg-indigo-500/[0.04]" : ""}`}>
                   {/* Header Card: No & Status Badge */}
@@ -767,7 +853,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                     {item.polaMonitoring !== "KEUANGAN" && <span className="font-semibold text-foreground">Kontrak: {formatRupiah(dispKontrak)}</span>}
                   </div>
 
-                  {/* Tombol Input / Ubah */}
+                  {/* Tombol Input / Ubah & Hasil Monev */}
                   <div className="pt-1 border-t border-dashed border-gray-200 dark:border-neutral-700">
                     {isInduk ? (
                       <Button variant="outline" size="sm" disabled className="w-full h-8 text-xs gap-1.5 opacity-80">
@@ -775,23 +861,43 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                         <span>Input pada Baris Pecahan</span>
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenInput(item.id)}
-                        className={`w-full h-8 text-xs gap-1.5 transition-colors justify-center ${
-                          Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                            ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                            : "hover:bg-primary/10 hover:text-primary"
-                        }`}
-                      >
-                        <Edit3 className="h-3.5 w-3.5" />
-                        <span>
-                          {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                            ? "Ubah Realisasi"
-                            : "Input Realisasi"}
-                        </span>
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenInput(item.id)}
+                          className={`flex-1 h-8 text-xs gap-1.5 transition-colors justify-center ${
+                            Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                              ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                              : "hover:bg-primary/10 hover:text-primary"
+                          }`}
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          <span>
+                            {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                              ? "Ubah Realisasi"
+                              : "Input Realisasi"}
+                          </span>
+                        </Button>
+                        {hasMonev && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMonevPaket(item)}
+                            className="h-8 px-2.5 text-xs gap-1.5 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 shrink-0 font-medium bg-purple-50/50 dark:bg-purple-950/20 shadow-xs"
+                            title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
+                          >
+                            <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                            <span>Monev PDF</span>
+                            {item.totalMonev && item.totalMonev > 1 ? (
+                              <Badge className="ml-0.5 px-1.5 py-0 text-[10px] bg-purple-600 hover:bg-purple-600 text-white font-bold h-4">
+                                {item.totalMonev}x
+                              </Badge>
+                            ) : null}
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -808,21 +914,21 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                 <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   No
                 </TableHead>
-                <TableHead className="w-[30%] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[32%] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Paket Pembangunan & Sub Unit
                 </TableHead>
-                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[18%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Pagu & Kontrak
                 </TableHead>
                 {!keuanganSaja && <>
-                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[18%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Kinerja Fisik
                 </TableHead>
                 </>}
-                <TableHead className="w-[18%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Realisasi Keuangan
                 </TableHead>
-                <TableHead className="w-20 text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-32 text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -871,6 +977,7 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                   const dispRealKeu = isInduk && item.agregatPecahan ? item.agregatPecahan.totalRealisasiKeuangan : item.realisasiKeuangan
                   const basisInduk = item.nilaiPagu > 0 ? item.nilaiPagu : dispKontrak
                   const dispPersenKeu = isInduk && basisInduk > 0 ? parseFloat(((dispRealKeu / basisInduk) * 100).toFixed(2)) : item.persenKeuangan
+                  const hasMonev = Boolean(item.hasMonev || (item.totalMonev && item.totalMonev > 0))
 
                   return (
                     <TableRow key={item.id} className={`hover:bg-muted/30 transition-colors border-b border-gray-200 dark:border-neutral-700 ${isPecahan ? "bg-indigo-500/[0.025]" : isInduk ? "bg-indigo-500/[0.04]" : ""}`}>
@@ -1038,23 +1145,43 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                             <span>Di Pecahan</span>
                           </Button>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenInput(item.id)}
-                            className={`h-8 px-3 text-xs gap-1.5 transition-colors ${
-                              Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                                ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                                : "hover:bg-primary/10 hover:text-primary"
-                            }`}
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>
-                              {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
-                                ? "Ubah"
-                                : "Input"}
-                            </span>
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenInput(item.id)}
+                              className={`h-8 px-2.5 text-xs gap-1.5 transition-colors ${
+                                Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                                  ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                  : "hover:bg-primary/10 hover:text-primary"
+                              }`}
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                              <span>
+                                {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
+                                  ? "Ubah"
+                                  : "Input"}
+                              </span>
+                            </Button>
+                            {hasMonev ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setMonevPaket(item)}
+                                className="h-8 px-2 text-xs gap-1 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium bg-purple-50/50 dark:bg-purple-950/20 shadow-xs"
+                                title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
+                              >
+                                <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                                <span className="hidden xl:inline">Hasil Monev</span>
+                                {item.totalMonev && item.totalMonev > 1 ? (
+                                  <Badge className="ml-0.5 px-1.5 py-0 text-[10px] bg-purple-600 hover:bg-purple-600 text-white font-bold h-4">
+                                    {item.totalMonev}x
+                                  </Badge>
+                                ) : null}
+                              </Button>
+                            ) : null}
+                          </div>
                         )}
                       </TableCell>
                     </TableRow>
@@ -1115,6 +1242,15 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
         onOpenChange={setInputModalOpen}
         paketId={selectedPaketId}
         activeBulan={bulan}
+      />
+
+      {/* Dialog Dokumen PDF Hasil MONEV (Langsung Tampil PDF untuk OPD) */}
+      <MonevDialog
+        open={!!monevPaket}
+        onOpenChange={(isOpen) => !isOpen && setMonevPaket(null)}
+        paketId={monevPaket?.id || null}
+        initialPaket={monevPaket}
+        defaultView="pdf"
       />
     </div>
   )

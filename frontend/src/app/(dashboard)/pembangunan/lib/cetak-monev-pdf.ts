@@ -66,7 +66,7 @@ async function toDataUrl(url: string): Promise<string> {
 
 function renderLaporan(
   paket: MonevPaketInfo,
-  monev: MonevLapanganItem,
+  monev: MonevLapanganItem & { kunjunganKe?: number },
   logoSrc: string,
   printedAt: string,
   pageIndex: number,
@@ -78,6 +78,7 @@ function renderLaporan(
   const tahun = valid ? tgl.getFullYear() : paket.tahunAnggaran
   const bulanLabel = valid ? BULAN[tgl.getMonth()] : "-"
   const tanggalMonevStr = valid ? tanggalIndo(monev.tanggalMonev) : "-"
+  const noKunjungan = monev.kunjunganKe ?? (pageIndex + 1)
 
   const skpd = (paket.opd?.namaOpd || "-").toUpperCase()
   const rows: Array<{ label: string; val: string; highlight?: "money" | "progress" }> = [
@@ -153,11 +154,13 @@ function renderLaporan(
     <div class="judul-banner">
       <div class="judul-utama">LAPORAN HASIL MONITORING PELAKSANAAN KEGIATAN APBD/DAK</div>
       <div class="judul-meta">
+        <span class="meta-pill">KUNJUNGAN KE-${noKunjungan}</span>
+        <span class="meta-dot">•</span>
         <span class="meta-pill">PERIODE TRIWULAN ${esc(triwulan)}</span>
         <span class="meta-dot">•</span>
         <span class="meta-pill">TAHUN ANGGARAN ${esc(tahun)}</span>
         <span class="meta-dot">•</span>
-        <span class="meta-date">Kunjungan: ${esc(tanggalMonevStr)}</span>
+        <span class="meta-date">Tanggal Kunjungan: ${esc(tanggalMonevStr)}</span>
       </div>
     </div>
 
@@ -231,7 +234,7 @@ function renderLaporan(
     <footer class="sheet-footer">
       <span><strong>MONALISA KONSEL</strong> · Bagian Administrasi Pembangunan Setda Kab. Konawe Selatan</span>
       <span>Dicetak: ${esc(printedAt)}</span>
-      <span>Halaman <strong>${pageIndex + 1}</strong> dari ${totalPages}</span>
+      <span>Kunjungan Ke-${noKunjungan} · Halaman <strong>${pageIndex + 1}</strong> dari ${totalPages}</span>
     </footer>
   </article>`
 }
@@ -240,22 +243,27 @@ function renderLaporan(
  * Cetak laporan hasil monitoring lapangan (format F4 / Folio) lewat jendela print browser
  * dengan Kop Resmi Sekretariat Daerah Kab. Konawe Selatan.
  */
-export async function cetakLaporanMonev(
+export async function buildLaporanMonevHtml(
   paket: MonevPaketInfo,
   laporan: MonevLapanganItem | MonevLapanganItem[],
-) {
+  options?: {
+    forPreview?: boolean
+    hideToolbar?: boolean
+  },
+): Promise<string> {
   const items = Array.isArray(laporan) ? laporan : [laporan]
-  if (items.length === 0) return false
+  if (items.length === 0) return ""
 
-  const win = window.open("", "_blank", "width=1100,height=850")
-  if (!win) {
-    alert("Pop-up browser diblokir. Izinkan pop-up untuk mencetak laporan.")
-    return false
-  }
+  const forPreview = !!options?.forPreview
+  const hideToolbar = !!options?.hideToolbar
 
-  // Konversi logo pemda & seluruh foto ke Base64 Data URL agar bebas kendala CORS di jendela print
-  const logoOriginUrl = new URL("/logo_konsel.webp", window.location.origin).href
-  const logoDataUrl = await toDataUrl(logoOriginUrl)
+  // Konversi logo pemda & seluruh foto ke Base64 Data URL agar bebas kendala CORS
+  const logoOriginUrl =
+    typeof window !== "undefined"
+      ? new URL("/logo_konsel.webp", window.location.origin).href
+      : "/logo_konsel.webp"
+  const logoDataUrl =
+    typeof window !== "undefined" ? await toDataUrl(logoOriginUrl) : "/logo_konsel.webp"
 
   const itemsProcessed: MonevLapanganItem[] = await Promise.all(
     items.map(async (item) => {
@@ -306,9 +314,17 @@ export async function cetakLaporanMonev(
   * {
     box-sizing: border-box;
   }
-  body {
+  html, body {
     margin: 0;
-    background: #e8edf0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body {
+    background: ${forPreview ? "#334155" : "#e8edf0"};
+    padding: ${forPreview ? "24px 16px" : "0"};
     color: #172e3c;
     font-family: "Bookman Old Style", "Times New Roman", Georgia, serif;
     font-size: 9.5pt;
@@ -322,7 +338,7 @@ export async function cetakLaporanMonev(
     position: sticky;
     top: 0;
     z-index: 10;
-    display: flex;
+    display: ${hideToolbar ? "none !important" : "flex"};
     justify-content: space-between;
     align-items: center;
     gap: 16px;
@@ -360,18 +376,54 @@ export async function cetakLaporanMonev(
     width: 215.9mm;
     max-width: 100%;
     min-height: auto;
-    margin: 12px auto;
+    margin: 16px auto;
     padding: 8mm 12mm;
     background: #ffffff;
-    box-shadow: 0 4px 22px rgba(21, 55, 71, 0.12);
+    box-shadow: 0 4px 22px rgba(21, 55, 71, 0.18);
     display: flex;
     flex-direction: column;
     page-break-inside: avoid;
     break-inside: avoid;
     page-break-after: always;
+    border-radius: 3px;
   }
   .sheet:last-of-type {
     page-break-after: auto;
+  }
+
+  /* Pembatas Antar Lembar Kunjungan pada Tampilan Pratinjau Layar */
+  .page-divider {
+    text-align: center;
+    margin: 24px auto 14px;
+    width: 215.9mm;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .page-divider::before,
+  .page-divider::after {
+    content: "";
+    flex: 1;
+    border-bottom: 1.5px dashed rgba(255, 255, 255, 0.35);
+  }
+  .page-divider span {
+    background: #0f172a;
+    color: #38bdf8;
+    padding: 4px 14px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  @media print {
+    .page-divider {
+      display: none !important;
+    }
   }
 
   /* Kop Surat Resmi Pemkab Konawe Selatan */
@@ -696,8 +748,10 @@ export async function cetakLaporanMonev(
 
   @media print {
     html, body {
-      background: #ffffff;
+      background: #ffffff !important;
       height: 100%;
+      padding: 0 !important;
+      overflow: visible !important;
     }
     .toolbar {
       display: none !important;
@@ -729,7 +783,18 @@ export async function cetakLaporanMonev(
     </div>
     <button id="btn-print" type="button">Cetak / Simpan PDF</button>
   </nav>
-  ${ordered.map((m, idx) => renderLaporan(paket, m, logoDataUrl, printedAt, idx, ordered.length)).join("\n")}
+  ${ordered
+    .map((m, idx) => {
+      const laporanHtml = renderLaporan(paket, m, logoDataUrl, printedAt, idx, ordered.length)
+      if (idx === 0) return laporanHtml
+      const noKunjungan = m.kunjunganKe ?? (idx + 1)
+      return `
+  <div class="page-divider">
+    <span>Lembar Kunjungan Ke-${noKunjungan} · Tanggal ${esc(tanggalIndo(m.tanggalMonev))} (Halaman ${idx + 1} dari ${ordered.length})</span>
+  </div>
+  ${laporanHtml}`
+    })
+    .join("\n")}
   <script>
     (function () {
       var btn = document.getElementById("btn-print");
@@ -742,10 +807,7 @@ export async function cetakLaporanMonev(
       var imgs = Array.prototype.slice.call(document.images);
       var pending = imgs.filter(function (i) { return !i.complete; });
       function go() {
-        setTimeout(function () {
-          window.focus();
-          window.print();
-        }, 300);
+        ${forPreview ? "/* preview mode: no auto print */" : "setTimeout(function () { window.focus(); window.print(); }, 300);"}
       }
       if (pending.length === 0) return go();
       var left = pending.length;
@@ -762,6 +824,27 @@ export async function cetakLaporanMonev(
 </body>
 </html>`
 
+  return html
+}
+
+/**
+ * Cetak laporan hasil monitoring lapangan (format F4 / Folio) lewat jendela print browser
+ * dengan Kop Resmi Sekretariat Daerah Kab. Konawe Selatan.
+ */
+export async function cetakLaporanMonev(
+  paket: MonevPaketInfo,
+  laporan: MonevLapanganItem | MonevLapanganItem[],
+) {
+  const items = Array.isArray(laporan) ? laporan : [laporan]
+  if (items.length === 0) return false
+
+  const win = window.open("", "_blank", "width=1100,height=850")
+  if (!win) {
+    alert("Pop-up browser diblokir. Izinkan pop-up untuk mencetak laporan.")
+    return false
+  }
+
+  const html = await buildLaporanMonevHtml(paket, items, { forPreview: false, hideToolbar: false })
   win.document.open()
   win.document.write(html)
   win.document.close()

@@ -124,10 +124,14 @@ export function cetakLaporanPdf({
           item.catatanOperator,
         ].filter(Boolean).join(' - ') : item.catatanOperator || 'Keuangan saja';
 
+    const subInfo = filterOpdNama
+      ? (item.metodePemilihan ? `Metode: ${escapeHtml(item.metodePemilihan)}` : "")
+      : `${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || "-")}`;
+
     return `
       <tr style="${isInduk ? 'background:#eef2ff;' : ''}">
         <td class="center">${isPecahan ? '↳ ' : ''}${index + 1}</td>
-        <td class="wrap" style="${isPecahan ? 'padding-left:14px;' : ''}"><strong>${isPecahan ? '↳ ' : ''}${escapeHtml(item.namaPaket)}${isInduk ? ` [Induk - ${item.agregatPecahan?.count || 0} Kontrak]` : ''}</strong><small>${escapeHtml(unit)} | ${escapeHtml(item.metodePemilihan || '-')}</small></td>
+        <td class="wrap" style="${isPecahan ? 'padding-left:14px;' : ''}"><strong>${isPecahan ? '↳ ' : ''}${escapeHtml(item.namaPaket)}${isInduk ? ` [Induk - ${item.agregatPecahan?.count || 0} Kontrak]` : ''}</strong>${subInfo ? `<small>${subInfo}</small>` : ''}</td>
         <td class="money">${isPecahan ? '<em>Ikut Induk</em>' : escapeHtml(formatRupiah(item.nilaiPagu || 0))}</td>
         ${isFisik ? `        <td class="money">${escapeHtml(formatRupiah(dispKontrak))}</td>
         <td class="wrap">${escapeHtml(isInduk ? `${item.agregatPecahan?.count || 0} Kontrak` : (item.nomorKontrak || '-'))}</td>

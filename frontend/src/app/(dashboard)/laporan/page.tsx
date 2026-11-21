@@ -666,32 +666,28 @@ export default function LaporanDanEvaluasiPage() {
             </SelectContent>
           </Select>
 
-          {/* Tombol Export Excel & Cetak PDF HANYA untuk Administrator / Tim Monev Daerah */}
-          {isSuperRole && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportExcel}
-                disabled={isLoadingRfk || isExporting}
-                className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
-              >
-                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-                Excel
-              </Button>
+          {/* Tombol Export Excel & Cetak PDF (Dapat diakses oleh Admin OPD & Tim Daerah) */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={isLoadingRfk || isExporting}
+            className="gap-1.5 shadow-xs border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-700 text-emerald-600 dark:text-emerald-400"
+          >
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            Excel
+          </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCetakPdf}
-                disabled={isLoadingRfk || isPrinting || items.length === 0}
-                className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
-              >
-                {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-                Cetak
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCetakPdf}
+            disabled={isLoadingRfk || isPrinting || items.length === 0}
+            className="gap-1.5 shadow-xs border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-700 text-orange-600 dark:text-orange-400"
+          >
+            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+            Cetak
+          </Button>
 
           <Button
             variant="outline"

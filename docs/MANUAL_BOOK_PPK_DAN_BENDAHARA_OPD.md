@@ -14,7 +14,7 @@
 2. **BAB II — Panduan Login & Navigasi Utama Sistem**
 3. **BAB III — Panduan Khusus PPK OPD (Input Paket, Target Kurva-S Mingguan, & Realisasi Fisik)**
 4. **BAB IV — Panduan Khusus Bendahara OPD (Input Realisasi Keuangan & Upload Bukti Dokumen)**
-5. **BAB V — Pencetakan Laporan & Tanya Jawab (FAQ) Kendala Umum**
+5. **BAB V — Pencetakan Laporan Realisasi, Dokumen Hasil MONEV Adpem, & Tanya Jawab (FAQ)**
 
 ---
 
@@ -33,6 +33,7 @@ Sistem **MONALISA KONSEL** menerapkan pemisahan kewenangan (*segregation of duti
 | 5 | Menginput **Realisasi Keuangan (Rp)** | ❌ **Terkunci** | ✅ **Bisa** | Kolom keuangan otomatis terkunci bagi akun PPK |
 | 6 | **Upload File Bukti / Dokumen (Foto, PDF, MP4)** | ✅ **Bisa** *(Wajib Foto/PDF Bukti Fisik)* | ✅ **Bisa** *(PDF SP2D, Kuitansi, Bukti Cair)* | Maksimal 5 file per periode (Maks. 10 MB/file) |
 | 7 | Mencetak Laporan PDF Realisasi | ✅ Bisa | ✅ Bisa | Cetak rekapitulasi kapan saja |
+| 8 | **Melihat & Mengunduh Dokumen Laporan Hasil MONEV Tim Adpem (PDF)** | ✅ **Bisa** | ✅ **Bisa** | Otomatis tampil tombol jika paket sudah di-monev oleh Tim Adpem Setda |
 
 > [!IMPORTANT]
 > **Aturan Kunci Sistem:**
@@ -394,14 +395,14 @@ Gunakan menu ini untuk paket belanja yang berpola **Monitoring Keuangan Saja** (
 
 ---
 
-## BAB V — PENCETAKAN LAPORAN & TANYA JAWAB (FAQ)
+## BAB V — PENCETAKAN LAPORAN, DOKUMEN HASIL MONEV ADPEM, & TANYA JAWAB (FAQ)
 
 ### 5.1 Mencetak Laporan Realisasi ke PDF
 Baik **PPK** maupun **Bendahara** dapat mencetak rekapitulasi realisasi kapan saja:
-1. Buka halaman **Realisasi -> Fisik & Keuangan** atau **Realisasi -> Keuangan**.
-2. Pastikan filter **Bulan** dan **Sub Unit Kerja** sudah sesuai dengan yang ingin dicetak.
-3. Klik tombol **`Cetak PDF`** (ikon printer) di pojok kanan atas halaman.
-4. Dokumen laporan siap dicetak atau disimpan sebagai file PDF untuk bahan rapat TEPRA / pelaporan pimpinan OPD.
+1. Buka menu **Laporan & Evaluasi** (`https://monalisa.konaweselatankab.go.id/laporan`) atau halaman **Realisasi** (Fisik & Keuangan / Keuangan).
+2. Pastikan filter **Tahun Anggaran**, **Bulan**, dan **Sub Unit Kerja** sudah sesuai dengan yang ingin dicetak.
+3. Klik tombol **`Cetak` / `Cetak PDF`** (ikon printer) di bagian atas halaman.
+4. Sistem otomatis memuat **seluruh data paket pekerjaan** milik Perangkat Daerah secara lengkap (tanpa terpotong batas halaman/paginasi 10 item). Dokumen laporan siap dicetak atau disimpan sebagai file PDF resmi untuk bahan rapat TEPRA / pelaporan pimpinan OPD.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -416,7 +417,50 @@ Baik **PPK** maupun **Bendahara** dapat mencetak rekapitulasi realisasi kapan sa
 
 ---
 
-### 5.2 Tanya Jawab (FAQ) Kendala Umum Pengguna OPD
+### 5.2 Melihat dan Mengunduh Dokumen Laporan Hasil MONEV Lapangan Tim Adpem Setda (Format PDF F4)
+
+Selain menginput progres bulanan dan mencetak rekapitulasi realisasi, PPK maupun Bendahara OPD dapat melihat dan mengunduh dokumen resmi **Laporan Hasil Monitoring dan Evaluasi Lapangan** yang diunggah oleh **Tim MONEV Bagian Administrasi Pembangunan Sekretariat Daerah Kabupaten Konawe Selatan**.
+
+#### A. Tombol Hasil MONEV di Tabel Realisasi
+1. Buka halaman **Realisasi -> Fisik & Keuangan**.
+2. Perhatikan kolom **Aksi** pada baris paket kegiatan Anda:
+   * Jika paket **belum pernah** dimonitoring oleh Tim Adpem, hanya tombol **`Input / Ubah`** yang tampil (tabel tetap rapi).
+   * Jika paket **telah dimonitoring lapangan oleh Tim Adpem**, sistem secara otomatis memunculkan tombol ungu **`Hasil Monev`** (dengan ikon dokumen).
+   * Apabila paket tersebut telah dimonitoring lebih dari 1 kali kunjungan (misal 2x atau lebih), tombol akan memiliki lencana jumlah kunjungan (contoh: **`Hasil Monev` `2x`**).
+3. Klik tombol **`Hasil Monev`** tersebut.
+
+#### B. Pratinjau Dokumen PDF Otomatis (Format F4 / Folio Resmi)
+1. Setelah tombol diklik, sistem langsung menampilkan jendela pratinjau dokumen laporan berstandar resmi **Kertas F4 / Folio**:
+   * Dilengkapi **Kop Surat Resmi Sekretariat Daerah Kabupaten Konawe Selatan**.
+   * Identitas paket, nomor kontrak, penyedia/rekanan, dan nilai kontrak.
+   * Dokumentasi visual foto lapangan beresolusi jelas dengan tanggal pemotretan.
+   * Uraian kondisi fisik, permasalahan lapangan, dan saran/rekomendasi Tim MONEV Adpem.
+2. **Kunjungan Berulang (Jika Paket Dimonitoring 2 Kali atau Lebih):**
+   * **Tergabung dalam 1 Dokumen (Default):** Seluruh laporan kunjungan otomatis digabungkan secara berurutan dalam satu tampilan dokumen utuh. Lembar Kunjungan **Monev Ke-1** berada di halaman atas, dan Lembar Kunjungan **Monev Ke-2** berada tepat di halaman bawahnya (cukup gulir/scroll layar ke bawah). Di antara lembar terdapat penanda pemisah halaman yang jelas.
+   * **Pilihan Tab Kunjungan Spesifik:** Di bilah atas pratinjau dokumen, tersedia tombol pill:
+     - **`Semua Digabung (1 Dokumen)`**: Untuk melihat seluruh laporan kunjungan secara berkesinambungan.
+     - **`Monev Ke-1`**: Untuk memfokuskan pratinjau hanya pada lembar kunjungan pertama (lengkap dengan tanggal kunjungan dan capaian progres fisik ±%).
+     - **`Monev Ke-2`**: Untuk memfokuskan pratinjau hanya pada lembar kunjungan kedua, dst.
+3. **Mencetak / Menyimpan Dokumen PDF:**
+   * Klik tombol hijau **`Cetak / Unduh PDF`** di pojok kanan atas dialog untuk mencetak atau menyimpannya langsung ke komputer sebagai file PDF.
+   * Atau klik tombol **`Tab Baru`** untuk membuka dokumen pada tab peramban tersendiri.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│                         [ TEMPAT SCREENSHOT 17 ]                             │
+│                                                                              │
+│   Pratinjau Dokumen PDF Hasil MONEV Lapangan Tim Adpem Setda (Format F4)     │
+│   (Tampilkan jendela modal PDF dengan Kop Surat Sekda, foto dokumentasi,     │
+│    tombol pill pilihan "Semua Digabung" / "Monev Ke-1" / "Monev Ke-2",       │
+│    serta tombol "Cetak / Unduh PDF")                                         │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 5.3 Tanya Jawab (FAQ) Kendala Umum Pengguna OPD
 
 | No | Pertanyaan / Kendala di Lapangan | Penyebab & Solusi |
 | :-: | :--- | :--- |
@@ -426,3 +470,4 @@ Baik **PPK** maupun **Bendahara** dapat mencetak rekapitulasi realisasi kapan sa
 | **4** | **PPK gagal menyimpan realisasi fisik dengan peringatan *"Realisasi fisik wajib disertai minimal satu foto bukti"*.** | **Solusi:** Klik tombol **Pilih Bukti** di panel sebelah kanan, pilih minimal 1 foto lapangan atau dokumen PDF progres minggu tersebut, lalu klik **Simpan Minggu Ini**. |
 | **5** | **Muncul keterangan *"Periode input bulan ini sudah ditutup oleh Administrator"*.** | **Penyebab:** Batas waktu (*cut-off*) pelaporan bulan tersebut telah berakhir.<br>**Solusi:** Hubungi Administrator / Tim MONEV Bagian Pembangunan Setda Kab. Konawe Selatan apabila memerlukan pembukaan kunci (*unlock*) periode. |
 | **6** | **Bagaimana jika dalam 1 bulan ada lebih dari 1 kali pencairan SP2D pada paket Keuangan?** | **Solusi:** Pada menu **Realisasi -> Keuangan**, Bendahara cukup menginput setiap SP2D satu per satu di tab **Tambah Pencairan**. Sistem otomatis menjumlahkan seluruh transaksi di bulan tersebut dan menghitung nilai kumulatifnya. |
+| **7** | **Mengapa pada beberapa paket kegiatan tidak muncul tombol ungu "Hasil Monev"?** | **Penjelasan:** Tombol "Hasil Monev" hanya dimunculkan secara otomatis jika paket pekerjaan tersebut sudah pernah dikunjungi dan diinput laporannya oleh Tim MONEV Bagian Administrasi Pembangunan Setda. Jika belum pernah dikunjungi, tombol tidak akan tampil agar tabel realisasi tetap rapi dan ringkas. |
