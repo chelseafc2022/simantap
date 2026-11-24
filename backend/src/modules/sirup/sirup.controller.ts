@@ -28,6 +28,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { MakSyncService } from './mak-sync.service';
 import { SirupService } from './sirup.service';
 
 export class SyncOpdDto {
@@ -64,7 +65,10 @@ export class ResetPaketDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sirup')
 export class SirupController {
-  constructor(private readonly sirupService: SirupService) {}
+  constructor(
+    private readonly sirupService: SirupService,
+    private readonly makSyncService: MakSyncService,
+  ) {}
 
   @Get('summary')
   @Roles(
@@ -229,6 +233,16 @@ export class SirupController {
     @Query('tahun') tahun?: string,
   ) {
     return this.sirupService.getPaketByKodeRup(kodeRup, tahun);
+  }
+
+  @Post('sync-mak')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary:
+      'Salin kode MAK dari RUP ke paket MONALISA (read-only dari RUP, khusus Administrator)',
+  })
+  async syncMak(@Body() dto: ResetPaketDto) {
+    return this.makSyncService.syncTahun(dto.tahun || 2026);
   }
 
   @Post('reset-paket')

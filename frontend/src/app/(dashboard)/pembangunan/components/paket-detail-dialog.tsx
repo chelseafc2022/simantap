@@ -161,7 +161,7 @@ export function PaketDetailDialog({
     queryFn: async () => {
       if (!paket?.id) return null
       const res = await apiClient.get(`/pembangunan/${paket.id}/realisasi`)
-      return res.data
+      return res.data?.data || res.data
     },
     enabled: open && !!paket?.id,
     staleTime: 60 * 1000,
@@ -217,13 +217,15 @@ export function PaketDetailDialog({
   const efisiensiPersen =
     paguNum > 0 ? ((efisiensiRp / paguNum) * 100).toFixed(2) : "0.00"
 
+  const realisasiData = detailData?.data || detailData
+
   // Data mingguan riil dari server
   const weeklyTimeline: WeeklyItemDetail[] =
-    detailData?.weeklyTimeline || []
+    realisasiData?.weeklyTimeline || []
 
   // Data 12 bulan (gabungan server atau fallback paket props)
   const monthlyTimeline: MonthlyTimelineItem[] =
-    detailData?.timeline ||
+    realisasiData?.timeline ||
     Array.from({ length: 12 }, (_, i) => {
       const bulan = i + 1
       const targetItem = paket.targetBulanan?.find((t) => t.bulan === bulan)
@@ -291,6 +293,12 @@ export function PaketDetailDialog({
                     RUP: {paket.kodeRupKontrak}
                   </Badge>
                 )}
+
+                {paket.mak?.map((m: { mak: string }) => (
+                  <Badge key={m.mak} variant="outline" className="font-mono text-[10px]" title="Mata Anggaran Kegiatan (MAK)">
+                    MAK: {m.mak}
+                  </Badge>
+                ))}
 
                 {paket.metodePemilihan && (
                   <Badge variant="outline" className="text-xs text-muted-foreground">

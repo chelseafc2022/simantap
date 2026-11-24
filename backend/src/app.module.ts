@@ -26,6 +26,7 @@ import { QueueModule } from './core/queue/queue.module';
 import { RedisModule } from './core/redis/redis.module';
 
 import { AuthModule } from './modules/auth/auth.module';
+// import { ExternalApiModule } from './modules/external-api/external-api.module';
 import { PembangunanModule } from './modules/pembangunan/pembangunan.module';
 import { SirupModule } from './modules/sirup/sirup.module';
 import { UsersModule } from './modules/users/users.module';
@@ -73,6 +74,7 @@ import { UsersModule } from './modules/users/users.module';
     UsersModule,
     PembangunanModule,
     SirupModule,
+    // ExternalApiModule, // DITAHAN: menunggu koordinasi MoU Inspektorat
   ],
   providers: [
     // Rate Limiting Guard

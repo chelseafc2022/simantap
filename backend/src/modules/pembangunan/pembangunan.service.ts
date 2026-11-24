@@ -344,6 +344,7 @@ export class PembangunanService {
         OR: [
           { namaPaket: { contains: q, mode: 'insensitive' } },
           { kodeRupKontrak: { contains: q, mode: 'insensitive' } },
+          { mak: { some: { mak: { contains: q } } } },
           { nomorKontrak: { contains: q, mode: 'insensitive' } },
           { pemenangRekanan: { contains: q, mode: 'insensitive' } },
           { lokasiKegiatan: { contains: q, mode: 'insensitive' } },
@@ -389,11 +390,33 @@ export class PembangunanService {
     };
     const startedWhere = { AND: [where, started] };
     const pendingWhere = { AND: [where, { NOT: started }] };
-    const [total, startedTotal] = await Promise.all([
+    const [total, startedTotal, aggregateTotals, childKontrakAgg] = await Promise.all([
       this.prisma.paketPembangunan.count({ where }),
       this.prisma.paketPembangunan.count({ where: startedWhere }),
+      this.prisma.paketPembangunan.aggregate({
+        where,
+        _sum: {
+          nilaiPagu: true,
+          nilaiKontrak: true,
+        },
+      }),
+      this.prisma.paketPembangunan.aggregate({
+        where: {
+          tahunAnggaran: (where as any).tahunAnggaran || 2026,
+          parentPaket: where,
+        },
+        _sum: {
+          nilaiKontrak: true,
+        },
+      }),
     ]);
+    const totalPaguNumber = Number(aggregateTotals._sum.nilaiPagu || 0);
+    const totalKontrakNumber =
+      Number(aggregateTotals._sum.nilaiKontrak || 0) +
+      Number(childKontrakAgg._sum.nilaiKontrak || 0);
+
     const include = {
+      mak: { orderBy: { createdAt: 'asc' as const } },
       targetBulanan: { orderBy: { bulan: 'asc' as const } },
       targetMingguan: { orderBy: [{ bulan: 'asc' as const }, { mingguKe: 'asc' as const }] },
       realisasiBulanan: { orderBy: { bulan: 'asc' as const } },
@@ -443,6 +466,8 @@ export class PembangunanService {
         limit,
         total,
         totalPages,
+        totalPagu: totalPaguNumber,
+        totalKontrak: totalKontrakNumber,
       },
     };
   }
@@ -454,6 +479,7 @@ export class PembangunanService {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id },
       include: {
+        mak: { orderBy: { createdAt: 'asc' } },
         targetBulanan: {
           orderBy: { bulan: 'asc' },
         },

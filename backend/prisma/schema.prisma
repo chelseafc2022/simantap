@@ -202,6 +202,7 @@ model PaketPembangunan {
   realisasiBulanan  RealisasiBulanan[]
   realisasiMingguan RealisasiMingguan[]
   monevLapangan     MonevLapangan[]
+  mak               PaketMak[]
 
   @@index([tahunAnggaran, opdId])
   @@index([subUnitId])
@@ -378,4 +379,55 @@ model MonevFoto {
 
   @@index([monevId])
   @@map("monev_foto")
+}
+
+/// Kode MAK (sub kegiatan + rekening belanja SIPD) per paket, disalin READ-ONLY dari RUP.
+/// Satu paket dapat memiliki beberapa MAK. Kode disimpan utuh (tidak dipecah).
+model PaketMak {
+  id         String   @id @default(uuid())
+  paketId    String   @map("paket_id")
+  mak        String
+  pagu       Decimal  @default(0) @db.Decimal(18, 2)
+  sumberDana String?  @map("sumber_dana")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  paket PaketPembangunan @relation(fields: [paketId], references: [id], onDelete: Cascade)
+
+  @@index([paketId])
+  @@index([mak])
+  @@map("paket_mak")
+}
+
+/// Klien API eksternal read-only (mis. aplikasi pengawasan Inspektorat).
+/// API key hanya disimpan dalam bentuk hash SHA-256.
+model ApiClient {
+  id          String    @id @default(uuid())
+  nama        String
+  keyPrefix   String    @map("key_prefix")
+  keyHash     String    @unique @map("key_hash")
+  allowedIps  String?   @map("allowed_ips")
+  isActive    Boolean   @default(true) @map("is_active")
+  expiresAt   DateTime? @map("expires_at")
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  logs ApiAccessLog[]
+
+  @@map("api_clients")
+}
+
+model ApiAccessLog {
+  id         String   @id @default(uuid())
+  clientId   String   @map("client_id")
+  method     String
+  path       String
+  statusCode Int?     @map("status_code")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  client ApiClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt])
+  @@map("api_access_logs")
 }

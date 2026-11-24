@@ -241,25 +241,32 @@ export default function PaketPembangunanPage() {
     }))
   }, [subUnitResponse])
 
-  // Calculate totals for stats
-  const totalPagu = paketList.reduce(
-    (acc, cur) => acc + (typeof cur.nilaiPagu === "string" ? parseFloat(cur.nilaiPagu) : cur.nilaiPagu || 0),
-    0,
-  )
-  const totalKontrak = paketList.reduce((acc, cur) => {
-    const children = cur.pecahanPakets || []
-    if (children.length > 0) {
-      return (
-        acc +
-        children.reduce(
-          (sum, child) =>
-            sum + (typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0),
+  // Calculate totals for stats: prioritaskan agregat penuh dari backend (meta.totalPagu & meta.totalKontrak)
+  const totalPagu =
+    (meta as any)?.totalPagu !== undefined
+      ? Number((meta as any).totalPagu)
+      : paketList.reduce(
+          (acc, cur) => acc + (typeof cur.nilaiPagu === "string" ? parseFloat(cur.nilaiPagu) : cur.nilaiPagu || 0),
           0,
         )
-      )
-    }
-    return acc + (typeof cur.nilaiKontrak === "string" ? parseFloat(cur.nilaiKontrak) : cur.nilaiKontrak || 0)
-  }, 0)
+
+  const totalKontrak =
+    (meta as any)?.totalKontrak !== undefined
+      ? Number((meta as any).totalKontrak)
+      : paketList.reduce((acc, cur) => {
+          const children = cur.pecahanPakets || []
+          if (children.length > 0) {
+            return (
+              acc +
+              children.reduce(
+                (sum, child) =>
+                  sum + (typeof child.nilaiKontrak === "string" ? parseFloat(child.nilaiKontrak) : child.nilaiKontrak || 0),
+                0,
+              )
+            )
+          }
+          return acc + (typeof cur.nilaiKontrak === "string" ? parseFloat(cur.nilaiKontrak) : cur.nilaiKontrak || 0)
+        }, 0)
 
   const formatRupiah = (val: number | string | undefined | null) => {
     const num = typeof val === "string" ? parseFloat(val) : val || 0
@@ -646,19 +653,6 @@ export default function PaketPembangunanPage() {
                               {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
                             </span>
                     </button>
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-                      {paket.kodeRupKontrak && (
-                        <span className="font-mono bg-muted/80 px-1.5 py-0.5 rounded text-[10px]">
-                          RUP: {paket.kodeRupKontrak}
-                        </span>
-                      )}
-                      {paket.lokasiKegiatan && (
-                        <span className="flex items-center gap-1 text-[11px]">
-                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span className="truncate max-w-[200px]">{paket.lokasiKegiatan}</span>
-                        </span>
-                      )}
-                    </div>
                   </div>
 
                   {/* Sub Unit Kerja */}
@@ -923,19 +917,6 @@ export default function PaketPembangunanPage() {
                                 {paket.polaMonitoring === "KEUANGAN" ? "Keuangan" : "Fisik mingguan + keuangan"}
                               </span>
                             </button>
-                            <div className="flex min-w-0 items-center gap-1.5 overflow-hidden text-xs text-muted-foreground">
-                              {paket.kodeRupKontrak && (
-                                <span className="shrink-0 rounded bg-muted/80 px-1.5 py-0.5 font-mono text-[10px]" title={`Kode RUP: ${paket.kodeRupKontrak}`}>
-                                  RUP: {paket.kodeRupKontrak}
-                                </span>
-                              )}
-                              {paket.lokasiKegiatan && (
-                                <span className="flex items-center gap-1 truncate shrink min-w-0 text-[11px]" title={paket.lokasiKegiatan}>
-                                  <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                                  <span className="truncate">{paket.lokasiKegiatan}</span>
-                                </span>
-                              )}
-                            </div>
                           </div>
                         </TableCell>
 

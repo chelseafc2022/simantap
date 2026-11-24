@@ -42,15 +42,12 @@ import {
   Layers,
   ArrowRight,
   ArrowLeft,
-  Search,
-  DownloadCloud,
   SlidersHorizontal,
   Info,
   GitBranch,
   Lock,
 } from "lucide-react"
 import { toast } from "sonner"
-import { SirupSearchDialog, SirupItem } from "./sirup-search-dialog"
 import { formatContractDate, generateContractWeeks } from "@/lib/contract-weeks"
 
 export interface OpdOption {
@@ -90,6 +87,7 @@ export interface PaketItem {
   opdId: string
   subUnitId?: string | null
   kodeRupKontrak?: string | null
+  mak?: { mak: string; pagu?: string | number; sumberDana?: string | null }[]
   namaPaket: string
   lokasiKegiatan?: string | null
   metodePemilihan?: string | null
@@ -255,10 +253,6 @@ export function PaketFormDialog({
   const [tanggalSelesai, setTanggalSelesai] = useState<string>("")
   const [pemenangRekanan, setPemenangRekanan] = useState<string>("")
   const [keterangan, setKeterangan] = useState<string>("")
-
-  // State untuk Integrasi SiRUP LKPP
-  const [sirupDialogOpen, setSirupDialogOpen] = useState(false)
-  const [isFetchingSirup, setIsFetchingSirup] = useState(false)
 
   // Fetch Sub Unit Kerja based on selected OPD
   const { data: subUnitsResponse, isLoading: isLoadingSubUnits } = useQuery({
@@ -468,67 +462,6 @@ export function PaketFormDialog({
       return false
     }
     return true
-  }
-
-  // Terapkan data hasil penarikan SiRUP LKPP ke state form
-  const applySirupData = (item: SirupItem) => {
-    setKodeRupKontrak(item.kodeRup)
-    const itemTahun = Number(item.tahun)
-    if (Number.isInteger(itemTahun) && itemTahun > 0) setTahunAnggaran(itemTahun)
-    if (item.namaPaket) setNamaPaket(item.namaPaket)
-    if (Number.isFinite(Number(item.pagu))) setNilaiPagu(String(item.pagu))
-    if (item.lokasi && !lokasiKegiatan) setLokasiKegiatan(item.lokasi)
-    if (item.metode) setMetodePemilihan(item.metode)
-    if (item.jenisPengadaan) setJenisPengadaan(item.jenisPengadaan)
-    if (item.sumberDana) setSumberDana(item.sumberDana)
-
-    // Auto-match OPD jika pengguna memiliki hak memilih OPD
-    if (canSelectOpd && item.satker) {
-      const satkerLower = item.satker.toLowerCase()
-      const matchedOpd = opdList.find(
-        (o) =>
-          satkerLower.includes(o.namaOpd.toLowerCase()) ||
-          o.namaOpd.toLowerCase().includes(satkerLower) ||
-          (o.singkatan && satkerLower.includes(o.singkatan.toLowerCase()))
-      )
-      if (matchedOpd) {
-        setOpdId(matchedOpd.id)
-      }
-    }
-
-    toast.success("Berhasil menarik data paket dari SiRUP LKPP!", {
-      description: `${item.namaPaket.substring(0, 50)}... (Pagu: ${formatRupiah(item.pagu)})`,
-    })
-  }
-
-  // Tarik data spesifik menggunakan Kode RUP yang dimasukkan
-  const handleFetchSirupByKode = async () => {
-    const kode = kodeRupKontrak.trim()
-    if (!kode) {
-      toast.error("Masukkan Kode RUP terlebih dahulu")
-      return
-    }
-
-    setIsFetchingSirup(true)
-    try {
-      const res = await apiClient.get(`/sirup/paket/${encodeURIComponent(kode)}`, {
-        params: { tahun: tahunAnggaran },
-      })
-      const payload = res.data?.data
-      if (payload?.data) {
-        applySirupData(payload.data)
-      } else {
-        toast.error("Paket RUP tidak ditemukan di server LKPP", {
-          description: "Pastikan kode RUP sudah terdaftar pada T.A. yang dipilih.",
-        })
-      }
-    } catch (err: unknown) {
-      toast.error("Gagal menarik data dari SiRUP", {
-        description: getErrorMessage(err, "Periksa koneksi internet."),
-      })
-    } finally {
-      setIsFetchingSirup(false)
-    }
   }
 
   const handleTargetChange = (bulan: number, mingguKe: number, value: string) => {
@@ -996,42 +929,46 @@ export function PaketFormDialog({
                       <Label htmlFor="kodeRupKeuangan" className="text-xs font-medium">
                         Kode RUP SiRUP LKPP
                       </Label>
-                      <button
-                        type="button"
-                        onClick={() => setSirupDialogOpen(true)}
-                        disabled={!canEditInfo}
-                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
-                      >
-                        <Search className="h-3 w-3" />
-                        Cari di SiRUP
-                      </button>
                     </div>
-                    <div className="flex gap-1.5">
-                      <Input
-                        id="kodeRupKeuangan"
-                        placeholder="Contoh: 58616940"
-                        value={kodeRupKontrak}
-                        onChange={(e) => setKodeRupKontrak(e.target.value)}
-                        disabled={!canEditInfo}
-                        className="font-mono text-sm h-9 flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isFetchingSirup || !kodeRupKontrak.trim() || !canEditInfo}
-                        onClick={handleFetchSirupByKode}
-                        className="h-9 px-2.5 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0 font-medium"
-                        title="Tarik data otomatis dari SiRUP LKPP"
-                      >
-                        {isFetchingSirup ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
-                        Tarik
-                      </Button>
-                    </div>
+                    <Input
+                      id="kodeRupKeuangan"
+                      placeholder="Contoh: 58616940"
+                      value={kodeRupKontrak}
+                      onChange={(e) => setKodeRupKontrak(e.target.value)}
+                      disabled={!canEditInfo}
+                      className="font-mono text-sm h-9"
+                    />
                     <div className="text-[11px] text-muted-foreground h-4">
                       Integrasi SiRUP (opsional)
                     </div>
                   </div>
+
+                  {/* Kode MAK (Read-only dari RUP) */}
+                  {initialData && (
+                    <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
+                      <Label className="text-xs font-medium">
+                        Kode MAK (Mata Anggaran Kegiatan)
+                      </Label>
+                      {initialData.mak && initialData.mak.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/30 p-2">
+                          {initialData.mak.map((m, idx) => (
+                            <Badge
+                              key={`${m.mak}-${idx}`}
+                              variant="secondary"
+                              className="font-mono text-xs font-normal"
+                              title={m.pagu ? `Pagu MAK: ${formatRupiah(Number(m.pagu))}` : undefined}
+                            >
+                              {m.mak}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                          Belum ada kode MAK dari RUP
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Keterangan */}
                   <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
@@ -1073,38 +1010,15 @@ export function PaketFormDialog({
                         <Label htmlFor="kodeRupKontrak" className="text-xs font-medium">
                           Kode RUP SiRUP LKPP
                         </Label>
-                        <button
-                          type="button"
-                          onClick={() => setSirupDialogOpen(true)}
-                          disabled={!canEditInfo}
-                          className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-700 font-medium transition-colors disabled:opacity-50"
-                        >
-                          <Search className="h-3 w-3" />
-                          Cari di SiRUP
-                        </button>
                       </div>
-                      <div className="flex gap-1.5">
-                        <Input
-                          id="kodeRupKontrak"
-                          placeholder="Contoh: 58616940"
-                          value={kodeRupKontrak}
-                          onChange={(e) => setKodeRupKontrak(e.target.value)}
-                          disabled={!canEditInfo}
-                          className="font-mono text-sm h-9 flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isFetchingSirup || !kodeRupKontrak.trim() || !canEditInfo}
-                          onClick={handleFetchSirupByKode}
-                          className="h-9 px-2.5 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 shrink-0 font-medium"
-                          title="Tarik data otomatis dari SiRUP LKPP"
-                        >
-                          {isFetchingSirup ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadCloud className="h-3.5 w-3.5" />}
-                          Tarik
-                        </Button>
-                      </div>
+                      <Input
+                        id="kodeRupKontrak"
+                        placeholder="Contoh: 58616940"
+                        value={kodeRupKontrak}
+                        onChange={(e) => setKodeRupKontrak(e.target.value)}
+                        disabled={!canEditInfo}
+                        className="font-mono text-sm h-9"
+                      />
                     </div>
 
                     {/* Nomor Kontrak */}
@@ -1144,6 +1058,33 @@ export function PaketFormDialog({
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Kode MAK (Read-only dari RUP) */}
+                    {initialData && (
+                      <div className="sm:col-span-2 lg:col-span-12 space-y-1.5">
+                        <Label className="text-xs font-medium">
+                          Kode MAK (Mata Anggaran Kegiatan)
+                        </Label>
+                        {initialData.mak && initialData.mak.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 rounded-md border bg-muted/30 p-2">
+                            {initialData.mak.map((m, idx) => (
+                              <Badge
+                                key={`${m.mak}-${idx}`}
+                                variant="secondary"
+                                className="font-mono text-xs font-normal"
+                                title={m.pagu ? `Pagu MAK: ${formatRupiah(Number(m.pagu))}` : undefined}
+                              >
+                                {m.mak}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                            Belum ada kode MAK dari RUP
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Metode Pemilihan */}
                     <div className="sm:col-span-1 lg:col-span-4 space-y-1.5">
@@ -1686,14 +1627,6 @@ export function PaketFormDialog({
           </div>
         </DialogFooter>
       </DialogContent>
-
-      {/* Modal Pencarian Langsung SiRUP LKPP */}
-      <SirupSearchDialog
-        open={sirupDialogOpen}
-        onOpenChange={setSirupDialogOpen}
-        onSelectPaket={applySirupData}
-        currentTahun={tahunAnggaran}
-      />
     </Dialog>
   )
 }

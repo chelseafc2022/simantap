@@ -21,6 +21,13 @@ export interface RupSourcePaketRow {
   status: string | null;
 }
 
+export interface RupSourceMakRow {
+  kodeRup: string;
+  mak: string;
+  pagu: string | number | null;
+  sumberDana: string | null;
+}
+
 export interface RupSourceSatkerRow {
   kode: string;
   nama: string;
@@ -252,5 +259,29 @@ export class RupSourceService implements OnModuleDestroy {
        ORDER BY nama ASC, kode ASC`,
     );
     return rows;
+  }
+
+  /**
+   * Ambil baris MAK (rup_sumber_dana) untuk daftar kode RUP. Hanya SELECT.
+   * Baris dengan MAK kosong atau '-' diabaikan.
+   */
+  async getMakByKodeRup(kodeRupList: string[]): Promise<RupSourceMakRow[]> {
+    const kodes = [...new Set(kodeRupList.filter(Boolean))];
+    if (kodes.length === 0) return [];
+
+    const database = this.databaseName;
+    const placeholders = kodes.map(() => '?').join(',');
+    return this.select<Array<mysql.RowDataPacket & RupSourceMakRow>>(
+      `SELECT
+         kode_rup AS kodeRup,
+         mak AS mak,
+         pagu AS pagu,
+         sumber_dana AS sumberDana
+       FROM \`${database}\`.rup_sumber_dana
+       WHERE kode_rup IN (${placeholders})
+         AND mak IS NOT NULL AND mak <> '' AND mak <> '-'
+       ORDER BY kode_rup ASC, id ASC`,
+      kodes,
+    );
   }
 }

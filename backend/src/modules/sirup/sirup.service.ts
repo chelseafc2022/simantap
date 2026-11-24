@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService } from '../../core/egov/egov.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { MakSyncService } from './mak-sync.service';
 import { RupSourcePaketRow, RupSourceService } from './rup-source.service';
 
 export interface SirupPaketItem {
@@ -128,6 +129,7 @@ export class SirupService {
     private readonly prisma: PrismaService,
     private readonly egovService: EgovService,
     private readonly rupSource: RupSourceService,
+    private readonly makSync: MakSyncService,
   ) {}
 
   /**
@@ -930,6 +932,16 @@ export class SirupService {
     const createdCount = toCreate.length;
     const updatedCount = 0;
     const skippedCount = candidatePackages.length - preparedPackages.length;
+
+    // Salin MAK dari RUP (non-fatal: kegagalan MAK tidak menggagalkan sinkron paket)
+    try {
+      await this.makSync.syncPaketByKodeRup(
+        options.tahun,
+        preparedPackages.map(({ item }) => item.kodeRup),
+      );
+    } catch (error: any) {
+      this.logger.warn(`Sinkron MAK gagal: ${error?.message}`);
+    }
 
     // Bersihkan cache Redis terkait paket agar query frontend langsung segar
     await this.redisService.delByPattern('*paket*');
