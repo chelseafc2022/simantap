@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery, keepPreviousData } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { useDebounce } from "use-debounce"
 import { useAuth } from "@/hooks/use-auth"
 import { apiClient } from "@/lib/api-client"
@@ -51,10 +52,12 @@ import {
   CheckCircle2,
   XCircle,
   QrCode,
+  Clock,
 } from "lucide-react"
 
 export default function UsersManagementPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { user, isLoading: isAuthLoading } = useAuth()
   const userRoles: string[] = [
     ...(user?.role ? [user.role] : []),
@@ -65,6 +68,9 @@ export default function UsersManagementPage() {
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<string>("monalisa_users")
+  const [usersViewMode, setUsersViewMode] = useState<"list" | "opd_recap">("list")
+  const [opdRecapFilter, setOpdRecapFilter] = useState<"ALL" | "INCOMPLETE" | "NO_ADMIN" | "NO_BENDAHARA" | "COMPLETE" | "EMPTY">("ALL")
+  const [opdRecapSearch, setOpdRecapSearch] = useState("")
 
   // Search & Filter state
   const [search, setSearch] = useState("")
@@ -174,6 +180,128 @@ export default function UsersManagementPage() {
   const instansiList = instansiResponse || []
   const unitKerjaList = unitKerjaResponse || []
 
+  const {
+    data: opdRecapResponse,
+    isLoading: isLoadingOpdRecap,
+    refetch: refetchOpdRecap,
+  } = useQuery<{
+    summary: {
+      totalOpd: number
+      lengkap: number
+      belumLengkap: number
+      withAdminPpk: number
+      withoutAdminPpk: number
+      withBendahara: number
+      withoutBendahara: number
+      emptyOpd: number
+    }
+    data: Array<{
+      opdId: string
+      namaOpd: string
+      hasAdminPpk: boolean
+      adminPpkCount: number
+      hasBendahara: boolean
+      bendaharaCount: number
+      isComplete: boolean
+      totalUsers: number
+      roleCounts: Record<string, number>
+      users: Array<{
+        id: string
+        nip: string
+        namaLengkap: string
+        roles: string[]
+      }>
+    }>
+  }>({
+    queryKey: ["users-opd-recap"],
+    queryFn: async () => {
+      const res = await apiClient.get("/users/opd-recap")
+      return {
+        summary: res.data?.summary || {
+          totalOpd: 0,
+          lengkap: 0,
+          belumLengkap: 0,
+          withAdminPpk: 0,
+          withoutAdminPpk: 0,
+          withBendahara: 0,
+          withoutBendahara: 0,
+          emptyOpd: 0,
+        },
+        data: Array.isArray(res.data?.data) ? res.data.data : [],
+      }
+    },
+    enabled: isAdministrator,
+  })
+
+  const filteredOpdRecap = useMemo(() => {
+    const rows = opdRecapResponse?.data || []
+    const q = opdRecapSearch.trim().toLowerCase()
+    return rows.filter((item) => {
+      if (q && !item.namaOpd.toLowerCase().includes(q)) return false
+      if (opdRecapFilter === "INCOMPLETE") return !item.isComplete
+      if (opdRecapFilter === "NO_ADMIN") return !item.hasAdminPpk
+      if (opdRecapFilter === "NO_BENDAHARA") return !item.hasBendahara
+      if (opdRecapFilter === "COMPLETE") return item.isComplete
+      if (opdRecapFilter === "EMPTY") return item.totalUsers === 0
+      return true
+    })
+  }, [opdRecapResponse, opdRecapFilter, opdRecapSearch])
+
+  const {
+    data: pendingRequests = [],
+    isLoading: isLoadingPending,
+    isFetching: isFetchingPending,
+    refetch: refetchPending,
+  } = useQuery<
+    Array<{
+      id: string
+      nip: string
+      namaLengkap: string
+      jabatan: string | null
+      namaOpd: string
+      namaUnitKerja: string | null
+      requestedRoles: string[]
+      createdAt: string
+    }>
+  >({
+    queryKey: ["self-register-requests"],
+    queryFn: async () => {
+      const res = await apiClient.get("/users/self-register-requests")
+      return res.data?.data || []
+    },
+    enabled: isAdministrator,
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/users/self-register-requests/${id}/approve`, {})
+    },
+    onSuccess: () => {
+      toast.success("Registrasi disetujui dan role pegawai telah diaktifkan.")
+      queryClient.invalidateQueries({ queryKey: ["self-register-requests"] })
+      queryClient.invalidateQueries({ queryKey: ["monalisa-users"] })
+      queryClient.invalidateQueries({ queryKey: ["egov-directory"] })
+      queryClient.invalidateQueries({ queryKey: ["users-opd-recap"] })
+    },
+    onError: () => {
+      toast.error("Gagal menyetujui pengajuan registrasi.")
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/users/self-register-requests/${id}/reject`, {})
+    },
+    onSuccess: () => {
+      toast.success("Pengajuan registrasi ditolak.")
+      queryClient.invalidateQueries({ queryKey: ["self-register-requests"] })
+      queryClient.invalidateQueries({ queryKey: ["egov-directory"] })
+    },
+    onError: () => {
+      toast.error("Gagal menolak pengajuan registrasi.")
+    },
+  })
+
   // Options for SearchableCombobox (typeable filter)
   const instansiOptions = useMemo(() => {
     return instansiList
@@ -204,9 +332,9 @@ export default function UsersManagementPage() {
       <Badge
         variant="outline"
         title={displayLabel}
-        className={`text-[10px] px-1.5 py-0.5 font-medium whitespace-nowrap shrink-0 ${roleConfig.badgeClass}`}
+        className={`text-[10px] px-1.5 py-0.5 font-medium max-w-[185px] truncate ${roleConfig.badgeClass}`}
       >
-        {displayLabel}
+        <span className="truncate">{displayLabel}</span>
       </Badge>
     )
   }
@@ -289,6 +417,18 @@ export default function UsersManagementPage() {
                 {directoryMeta.total}
               </Badge>
             </TabsTrigger>
+            <TabsTrigger value="pending_requests" className="gap-1.5 text-xs whitespace-nowrap">
+              <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>Menunggu Konfirmasi</span>
+              <Badge
+                variant={pendingRequests.length > 0 ? "default" : "secondary"}
+                className={`text-[10px] px-1.5 py-0 ml-1 ${
+                  pendingRequests.length > 0 ? "bg-amber-600 text-white" : ""
+                }`}
+              >
+                {pendingRequests.length}
+              </Badge>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -307,13 +447,16 @@ export default function UsersManagementPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              if (activeTab === "monalisa_users") refetchUsers()
+              if (activeTab === "monalisa_users") {
+                refetchUsers()
+                refetchOpdRecap()
+              } else if (activeTab === "pending_requests") refetchPending()
               else refetchDirectory()
             }}
-            disabled={isFetchingUsers || isFetchingDirectory}
+            disabled={isFetchingUsers || isFetchingDirectory || isFetchingPending}
             className="text-xs h-8 gap-1.5"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUsers || isFetchingDirectory ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUsers || isFetchingDirectory || isFetchingPending ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Segarkan Data</span>
           </Button>
         </div>
@@ -323,6 +466,204 @@ export default function UsersManagementPage() {
         {/* TAB 1: PENGGUNA AKTIF MONALISA KONSEL                     */}
         {/* ========================================================= */}
         <TabsContent value="monalisa_users" className="space-y-4 m-0">
+          {/* Sub-switch: Daftar Pengguna vs Rekap per OPD */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex rounded-lg border bg-muted/50 p-1">
+              <button
+                type="button"
+                onClick={() => setUsersViewMode("list")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  usersViewMode === "list"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <UsersIcon className="h-3.5 w-3.5" />
+                <span>Daftar Pengguna</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUsersViewMode("opd_recap")}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  usersViewMode === "opd_recap"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Rekap per OPD</span>
+                {(opdRecapResponse?.summary?.belumLengkap ?? 0) > 0 && (
+                  <Badge className="ml-0.5 bg-amber-600 text-white text-[10px] px-1.5 py-0">
+                    {opdRecapResponse?.summary?.belumLengkap} Belum Lengkap
+                  </Badge>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {usersViewMode === "opd_recap" ? (
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="p-4 sm:p-5 border-b border-border/50 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base font-semibold">
+                      Rekap Kesiapan Admin PPK &amp; Bendahara per OPD
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Menampilkan seluruh OPD beserta status ketersediaan Admin PPK, Bendahara, dan role lain yang sudah terdaftar.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    <Badge variant="outline">
+                      Total OPD: {opdRecapResponse?.summary?.totalOpd ?? 0}
+                    </Badge>
+                    <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20">
+                      Lengkap (PPK &amp; Bendahara): {opdRecapResponse?.summary?.lengkap ?? 0}
+                    </Badge>
+                    <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                      Belum Ada Admin PPK: {opdRecapResponse?.summary?.withoutAdminPpk ?? 0}
+                    </Badge>
+                    <Badge className="bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20">
+                      Belum Ada Bendahara: {opdRecapResponse?.summary?.withoutBendahara ?? 0}
+                    </Badge>
+                    <Badge variant="secondary">
+                      Belum Ada User: {opdRecapResponse?.summary?.emptyOpd ?? 0}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari nama OPD..."
+                      value={opdRecapSearch}
+                      onChange={(e) => setOpdRecapSearch(e.target.value)}
+                      className="pl-8 h-9 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        { key: "ALL", label: "Semua OPD" },
+                        { key: "INCOMPLETE", label: "Belum Lengkap" },
+                        { key: "NO_ADMIN", label: "Belum Ada PPK" },
+                        { key: "NO_BENDAHARA", label: "Belum Ada Bendahara" },
+                        { key: "COMPLETE", label: "Lengkap" },
+                        { key: "EMPTY", label: "Belum Ada User" },
+                      ] as const
+                    ).map((f) => (
+                      <Button
+                        key={f.key}
+                        type="button"
+                        size="sm"
+                        variant={opdRecapFilter === f.key ? "default" : "outline"}
+                        onClick={() => setOpdRecapFilter(f.key)}
+                        className={`h-9 text-xs ${
+                          opdRecapFilter === f.key ? "bg-emerald-600 hover:bg-emerald-700" : ""
+                        }`}
+                      >
+                        {f.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isLoadingOpdRecap ? (
+                  <div className="flex items-center justify-center py-12 text-xs text-muted-foreground gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Memuat rekap OPD...</span>
+                  </div>
+                ) : filteredOpdRecap.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-muted-foreground">
+                    Tidak ada OPD yang cocok dengan filter.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead className="w-12 text-center text-xs">No</TableHead>
+                          <TableHead className="text-xs min-w-[230px]">Unit Kerja (OPD)</TableHead>
+                          <TableHead className="text-xs min-w-[210px]">Status Admin PPK &amp; Bendahara</TableHead>
+                          <TableHead className="text-xs min-w-[280px]">Pengguna &amp; Role yang Sudah Ada</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOpdRecap.map((opd, idx) => (
+                          <TableRow key={opd.opdId}>
+                            <TableCell className="text-center font-mono text-xs text-muted-foreground align-top py-3">
+                              {idx + 1}
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold text-foreground align-top py-3">
+                              {opd.namaOpd}
+                            </TableCell>
+                            <TableCell className="align-top py-3">
+                              <div className="flex flex-col items-start gap-1">
+                                {opd.hasAdminPpk ? (
+                                  <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px] gap-1">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span>Ada Admin PPK ({opd.adminPpkCount})</span>
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20 text-[11px] gap-1">
+                                    <ShieldAlert className="h-3 w-3" />
+                                    <span>Belum Ada Admin PPK</span>
+                                  </Badge>
+                                )}
+                                {opd.hasBendahara ? (
+                                  <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[11px] gap-1">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span>Ada Bendahara ({opd.bendaharaCount})</span>
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[11px] gap-1">
+                                    <ShieldAlert className="h-3 w-3" />
+                                    <span>Belum Ada Bendahara</span>
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="align-top py-3">
+                              {opd.users.length === 0 ? (
+                                <span className="text-xs text-muted-foreground italic">
+                                  Belum ada pengguna terdaftar
+                                </span>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(opd.roleCounts).map(([roleCode, cnt]) => (
+                                      <span key={roleCode} className="inline-flex items-center gap-1">
+                                        {getRoleBadge(roleCode)}
+                                        <span className="text-[10px] font-mono text-muted-foreground">
+                                          ({cnt})
+                                        </span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground space-y-0.5">
+                                    {opd.users.map((u) => (
+                                      <div key={u.id} className="truncate">
+                                        • <span className="text-foreground font-medium">{u.namaLengkap}</span>{" "}
+                                        <span className="font-mono text-[10px]">
+                                          ({u.roles.map((r) => MONALISA_ROLES.find((m) => m.value === r)?.shortLabel || r).join(", ")})
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="p-4 sm:p-5 border-b border-border/50 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -608,7 +949,7 @@ export default function UsersManagementPage() {
                     <TableRow className="hover:bg-transparent border-b border-gray-200 dark:border-neutral-700">
                       <TableHead className="text-xs font-semibold min-w-[170px] border-r border-b border-gray-200 dark:border-neutral-700">Pegawai ASN</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[210px] border-r border-b border-gray-200 dark:border-neutral-700">Jabatan & Sub Unit</TableHead>
-                      <TableHead className="text-xs font-semibold min-w-[150px] border-r border-b border-gray-200 dark:border-neutral-700">Peran (Role MONALISA KONSEL)</TableHead>
+                      <TableHead className="text-xs font-semibold w-[195px] max-w-[200px] border-r border-b border-gray-200 dark:border-neutral-700">Peran (Role)</TableHead>
                       <TableHead className="text-xs font-semibold text-center min-w-[85px] border-r border-b border-gray-200 dark:border-neutral-700">Status</TableHead>
                       <TableHead className="text-xs font-semibold min-w-[120px] border-r border-b border-gray-200 dark:border-neutral-700">Terakhir Login</TableHead>
                       <TableHead className="text-xs font-semibold text-right min-w-[160px] pr-4 border-b border-gray-200 dark:border-neutral-700">Aksi</TableHead>
@@ -677,7 +1018,7 @@ export default function UsersManagementPage() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="py-3 align-top min-w-[150px] border-r border-b border-gray-200 dark:border-neutral-700">
+                          <TableCell className="py-3 align-top w-[195px] max-w-[200px] border-r border-b border-gray-200 dark:border-neutral-700">
                             {(user.roles && user.roles.length > 0) || user.role ? (
                               <div className="flex flex-wrap gap-1 items-center">
                                 {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r: string) => (
@@ -796,6 +1137,7 @@ export default function UsersManagementPage() {
               </div>
             </CardContent>
           </Card>
+          )}
         </TabsContent>
 
         {/* ========================================================= */}
@@ -1160,6 +1502,84 @@ export default function UsersManagementPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ========================================================= */}
+        {/* TAB 3: MENUNGGU KONFIRMASI REGISTRASI MANDIRI             */}
+        {/* ========================================================= */}
+        <TabsContent value="pending_requests" className="space-y-4 m-0">
+          <Card className="shadow-xs border-gray-200 dark:border-neutral-700">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <span>Pengajuan Registrasi Mandiri (QR / Tautan)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoadingPending ? (
+                <div className="flex items-center justify-center py-12 text-xs text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Memuat pengajuan registrasi...</span>
+                </div>
+              ) : pendingRequests.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  Tidak ada pengajuan registrasi yang menunggu konfirmasi.
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {pendingRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-muted/30"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="font-semibold text-sm text-foreground">
+                          {req.namaLengkap}
+                        </div>
+                        <div className="text-xs font-mono text-muted-foreground">
+                          NIP: {req.nip}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {req.namaUnitKerja ? `${req.namaUnitKerja} · ` : ""}
+                          {req.namaOpd}
+                          {req.jabatan ? ` · ${req.jabatan}` : ""}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[11px] text-muted-foreground">Role diajukan:</span>
+                          {req.requestedRoles.map((r) => (
+                            <span key={r}>{getRoleBadge(r)}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={rejectMutation.isPending || approveMutation.isPending}
+                          onClick={() => rejectMutation.mutate(req.id)}
+                          className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30 gap-1"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span>Tolak</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={approveMutation.isPending || rejectMutation.isPending}
+                          onClick={() => approveMutation.mutate(req.id)}
+                          className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Setujui Role</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

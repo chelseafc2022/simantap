@@ -74,10 +74,10 @@ export function SelfRegisterQrDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5 text-emerald-600" />
+            <QrCode className="h-5 w-5 text-emerald-600 shrink-0" />
             <span>QR Registrasi Mandiri OPD</span>
           </DialogTitle>
           <DialogDescription>
@@ -85,7 +85,7 @@ export function SelfRegisterQrDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-4 py-2">
+        <div className="flex w-full min-w-0 flex-col items-center gap-4 py-2">
           <div
             ref={svgWrapperRef}
             className="rounded-2xl border bg-white p-5 shadow-xs"
@@ -105,8 +105,11 @@ export function SelfRegisterQrDialog({
             <Badge variant="secondary" className="text-[11px]">Kepala OPD</Badge>
           </div>
 
-          <div className="flex w-full items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
-            <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+          <div className="flex w-full min-w-0 items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+            <span
+              className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
+              title={registerUrl}
+            >
               {registerUrl}
             </span>
             <Button

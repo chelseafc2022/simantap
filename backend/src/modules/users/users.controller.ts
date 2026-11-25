@@ -147,6 +147,51 @@ export class UsersController {
     return this.usersService.updateRoleMatrix(id, body, adminUserId);
   }
 
+  @Get('opd-recap')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Rekap pengguna aktif & status Admin PPK per OPD',
+  })
+  getOpdRecap() {
+    return this.usersService.getOpdUsersRecap();
+  }
+
+  @Get('self-register-requests')
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Daftar pengajuan registrasi mandiri yang menunggu konfirmasi Administrator',
+  })
+  getSelfRegisterRequests() {
+    return this.usersService.getSelfRegisterRequests();
+  }
+
+  @Post('self-register-requests/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Setujui pengajuan registrasi mandiri dan aktifkan role pegawai',
+  })
+  approveSelfRegister(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+    @Body() body?: { roles?: RoleEnum[] },
+  ) {
+    return this.usersService.approveSelfRegister(id, adminId, body?.roles);
+  }
+
+  @Post('self-register-requests/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleEnum.ADMINISTRATOR)
+  @ApiOperation({
+    summary: 'Tolak pengajuan registrasi mandiri',
+  })
+  rejectSelfRegister(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+  ) {
+    return this.usersService.rejectSelfRegister(id, adminId);
+  }
+
   @Get(':id')
   @Roles(RoleEnum.ADMINISTRATOR)
   @ApiOperation({ summary: 'Mendapatkan data detail pengguna berdasarkan ID' })

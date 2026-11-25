@@ -1253,32 +1253,55 @@ export class UsersService implements OnModuleInit {
     // Ambil semua NIP dari halaman ini
     const nips = result.data.map((p) => p.nip);
 
-    // Cek user yang sudah terdaftar di MONALISA KONSEL
-    const localUsers = await this.prisma.user.findMany({
-      where: { nip: { in: nips } },
-      select: {
-        id: true,
-        nip: true,
-        role: true,
-        roles: true,
-        status: true,
-        opdId: true,
-        subUnitId: true,
-        accessScopes: {
-          select: {
-            role: true,
-            opdId: true,
-            subUnitId: true,
+    // Cek user yang sudah terdaftar di MONALISA KONSEL dan pengajuan yang menunggu konfirmasi
+    const [localUsers, pendingLogs] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { nip: { in: nips } },
+        select: {
+          id: true,
+          nip: true,
+          role: true,
+          roles: true,
+          status: true,
+          opdId: true,
+          subUnitId: true,
+          accessScopes: {
+            select: {
+              role: true,
+              opdId: true,
+              subUnitId: true,
+            },
           },
         },
-      },
-    });
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          resource: 'SELF_REGISTER',
+          action: 'SELF_REGISTER_PENDING',
+          resourceId: { in: nips },
+        },
+        select: {
+          id: true,
+          resourceId: true,
+          payload: true,
+        },
+      }),
+    ]);
 
     const userMap = new Map(localUsers.map((u) => [u.nip, u]));
+    const pendingMap = new Map<string, string[]>();
+    for (const log of pendingLogs) {
+      if (!log.resourceId) continue;
+      const p = log.payload as { requestedRoles?: string[] } | null;
+      if (Array.isArray(p?.requestedRoles) && p.requestedRoles.length > 0) {
+        pendingMap.set(log.resourceId, p.requestedRoles);
+      }
+    }
 
     // Gabungkan status akses
     const enrichedData = result.data.map((p) => {
       const local = userMap.get(p.nip);
+      const pendingRoles = pendingMap.get(p.nip) || [];
       const ppkScope = local?.accessScopes.find(
         (scope) => scope.role === RoleEnum.ADMIN_PPK,
       );
@@ -1293,7 +1316,12 @@ export class UsersService implements OnModuleInit {
             : local?.role
               ? [local.role]
               : [],
-        simantapStatus: local ? local.status : 'BELUM_DIBERI_AKSES',
+        simantapPendingRoles: pendingRoles,
+        simantapStatus: local
+          ? local.status
+          : pendingRoles.length > 0
+            ? 'MENUNGGU_KONFIRMASI'
+            : 'BELUM_DIBERI_AKSES',
         simantapUserId: local?.id || null,
         simantapOpdId: local?.opdId || null,
         simantapSubUnitId: local?.subUnitId || null,
@@ -1315,9 +1343,9 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Registrasi mandiri pegawai (setelah scan QR Code).
-   * Hanya mengizinkan role lingkup OPD (ADMIN_PPK, BENDAHARA, KEPALA_OPD)
-   * dan menolak jika pegawai sudah terdaftar aktif memiliki role.
+   * Registrasi mandiri pegawai (setelah scan QR Code / link).
+   * Pengajuan TIDAK langsung mengaktifkan role, melainkan masuk antrean
+   * konfirmasi Administrator (action: SELF_REGISTER_PENDING).
    */
   async selfRegister(dto: SelfRegisterDto) {
     const cleanNip = dto.nip.trim();
@@ -1358,10 +1386,287 @@ export class UsersService implements OnModuleInit {
       );
     }
 
-    return this.setRole({
-      nip: cleanNip,
-      roles: requestedRoles,
+    const existingPending = await this.prisma.auditLog.findFirst({
+      where: {
+        resource: 'SELF_REGISTER',
+        action: 'SELF_REGISTER_PENDING',
+        resourceId: cleanNip,
+      },
     });
+    if (existingPending) {
+      const p = existingPending.payload as { requestedRoles?: string[] } | null;
+      throw new BadRequestException(
+        `Pengajuan registrasi Anda sudah masuk dan sedang menunggu konfirmasi Administrator (Role: ${(p?.requestedRoles || []).join(', ')}).`,
+      );
+    }
+
+    const egovProfile = await this.egovService.getPegawaiByNip(cleanNip);
+    if (!egovProfile) {
+      throw new NotFoundException(
+        `Data pegawai dengan NIP '${cleanNip}' tidak ditemukan pada database E-Gov/SIMPEG.`,
+      );
+    }
+
+    const pendingRecord = await this.prisma.auditLog.create({
+      data: {
+        action: 'SELF_REGISTER_PENDING',
+        resource: 'SELF_REGISTER',
+        resourceId: cleanNip,
+        payload: {
+          status: 'PENDING',
+          nip: cleanNip,
+          namaLengkap: egovProfile.namaLengkap,
+          jabatan: egovProfile.jabatan || null,
+          opdId: egovProfile.instansiId ? String(egovProfile.instansiId) : null,
+          namaOpd: egovProfile.opd || null,
+          subUnitId: egovProfile.unitKerjaId
+            ? String(egovProfile.unitKerjaId)
+            : null,
+          namaUnitKerja: egovProfile.unitKerja || null,
+          requestedRoles,
+        },
+      },
+    });
+
+    return {
+      id: pendingRecord.id,
+      status: 'MENUNGGU_KONFIRMASI',
+      nip: cleanNip,
+      namaLengkap: egovProfile.namaLengkap,
+      requestedRoles,
+      message:
+        'Pengajuan registrasi berhasil dikirim dan menunggu konfirmasi Administrator.',
+    };
+  }
+
+  /**
+   * Daftar pengajuan registrasi mandiri yang menunggu konfirmasi Administrator
+   */
+  async getSelfRegisterRequests() {
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        resource: 'SELF_REGISTER',
+        action: 'SELF_REGISTER_PENDING',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return logs.map((log) => {
+      const p = (log.payload || {}) as Record<string, any>;
+      return {
+        id: log.id,
+        nip: p.nip || log.resourceId || '',
+        namaLengkap: p.namaLengkap || '-',
+        jabatan: p.jabatan || null,
+        opdId: p.opdId || null,
+        namaOpd: p.namaOpd || '-',
+        subUnitId: p.subUnitId || null,
+        namaUnitKerja: p.namaUnitKerja || null,
+        requestedRoles: Array.isArray(p.requestedRoles)
+          ? (p.requestedRoles as RoleEnum[])
+          : [],
+        createdAt: log.createdAt,
+      };
+    });
+  }
+
+  /**
+   * Administrator menyetujui pengajuan registrasi mandiri & menetapkan role
+   */
+  async approveSelfRegister(
+    requestId: string,
+    adminId?: string,
+    overrideRoles?: RoleEnum[],
+  ) {
+    const log = await this.prisma.auditLog.findUnique({
+      where: { id: requestId },
+    });
+    if (
+      !log ||
+      log.resource !== 'SELF_REGISTER' ||
+      log.action !== 'SELF_REGISTER_PENDING'
+    ) {
+      throw new NotFoundException(
+        'Pengajuan registrasi tidak ditemukan atau sudah diproses.',
+      );
+    }
+
+    const p = (log.payload || {}) as Record<string, any>;
+    const nip = String(p.nip || log.resourceId || '').trim();
+    const rolesToAssign =
+      overrideRoles && overrideRoles.length > 0
+        ? overrideRoles
+        : Array.isArray(p.requestedRoles) && p.requestedRoles.length > 0
+          ? (p.requestedRoles as RoleEnum[])
+          : [RoleEnum.ADMIN_PPK];
+
+    const result = await this.setRole({ nip, roles: rolesToAssign }, adminId);
+
+    await this.prisma.auditLog.update({
+      where: { id: requestId },
+      data: {
+        action: 'SELF_REGISTER_APPROVED',
+        payload: {
+          ...p,
+          status: 'APPROVED',
+          approvedRoles: rolesToAssign,
+          approvedById: adminId || null,
+          approvedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return result;
+  }
+
+  /**
+   * Administrator menolak pengajuan registrasi mandiri
+   */
+  async rejectSelfRegister(requestId: string, adminId?: string) {
+    const log = await this.prisma.auditLog.findUnique({
+      where: { id: requestId },
+    });
+    if (
+      !log ||
+      log.resource !== 'SELF_REGISTER' ||
+      log.action !== 'SELF_REGISTER_PENDING'
+    ) {
+      throw new NotFoundException(
+        'Pengajuan registrasi tidak ditemukan atau sudah diproses.',
+      );
+    }
+
+    const p = (log.payload || {}) as Record<string, any>;
+    await this.prisma.auditLog.update({
+      where: { id: requestId },
+      data: {
+        action: 'SELF_REGISTER_REJECTED',
+        payload: {
+          ...p,
+          status: 'REJECTED',
+          rejectedById: adminId || null,
+          rejectedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return {
+      id: requestId,
+      message: 'Pengajuan registrasi mandiri telah ditolak.',
+    };
+  }
+
+  /**
+   * Rekap kesiapan pengguna aktif per OPD:
+   * - Apakah OPD sudah memiliki Admin PPK atau belum
+   * - Daftar role & pengguna yang sudah terdaftar di tiap OPD
+   */
+  async getOpdUsersRecap() {
+    const [instansiList, activeUsers] = await Promise.all([
+      this.egovService.getInstansiList(),
+      this.prisma.user.findMany({
+        where: { status: 'AKTIF' },
+        select: {
+          id: true,
+          nip: true,
+          namaLengkap: true,
+          role: true,
+          roles: true,
+          opdId: true,
+          accessScopes: {
+            select: {
+              role: true,
+              opdId: true,
+            },
+          },
+        },
+        orderBy: { namaLengkap: 'asc' },
+      }),
+    ]);
+
+    const items = instansiList.map((ins) => {
+      const opdId = String(ins.id);
+      const matchedUsers = new Map<
+        string,
+        { id: string; nip: string; namaLengkap: string; roles: string[] }
+      >();
+
+      for (const u of activeUsers) {
+        const baseRoles: string[] =
+          u.roles && u.roles.length > 0 ? u.roles : u.role ? [u.role] : [];
+        const scopeRoles: string[] = u.accessScopes
+          .filter((s) => s.opdId === opdId)
+          .map((s) => String(s.role));
+
+        const isHomeOpd = u.opdId === opdId;
+        if (!isHomeOpd && scopeRoles.length === 0) continue;
+
+        const effectiveRoles = Array.from(
+          new Set([...(isHomeOpd ? baseRoles : []), ...scopeRoles]),
+        );
+
+        matchedUsers.set(u.id, {
+          id: u.id,
+          nip: u.nip,
+          namaLengkap: u.namaLengkap,
+          roles: effectiveRoles,
+        });
+      }
+
+      const users = Array.from(matchedUsers.values());
+      const roleCounts: Record<string, number> = {};
+      for (const u of users) {
+        for (const r of u.roles) {
+          roleCounts[r] = (roleCounts[r] || 0) + 1;
+        }
+      }
+
+      const adminPpkCount = roleCounts[RoleEnum.ADMIN_PPK] || 0;
+      const bendaharaCount = roleCounts[RoleEnum.BENDAHARA] || 0;
+      const hasAdminPpk = adminPpkCount > 0;
+      const hasBendahara = bendaharaCount > 0;
+      const isComplete = hasAdminPpk && hasBendahara;
+
+      return {
+        opdId,
+        namaOpd: ins.instansi,
+        hasAdminPpk,
+        adminPpkCount,
+        hasBendahara,
+        bendaharaCount,
+        isComplete,
+        totalUsers: users.length,
+        roleCounts,
+        users,
+      };
+    });
+
+    items.sort((a, b) => {
+      if (a.isComplete !== b.isComplete) return a.isComplete ? 1 : -1;
+      return a.namaOpd.localeCompare(b.namaOpd);
+    });
+
+    const lengkap = items.filter((i) => i.isComplete).length;
+    const belumLengkap = items.length - lengkap;
+    const withAdminPpk = items.filter((i) => i.hasAdminPpk).length;
+    const withoutAdminPpk = items.length - withAdminPpk;
+    const withBendahara = items.filter((i) => i.hasBendahara).length;
+    const withoutBendahara = items.length - withBendahara;
+    const emptyOpd = items.filter((i) => i.totalUsers === 0).length;
+
+    return {
+      summary: {
+        totalOpd: items.length,
+        lengkap,
+        belumLengkap,
+        withAdminPpk,
+        withoutAdminPpk,
+        withBendahara,
+        withoutBendahara,
+        emptyOpd,
+      },
+      data: items,
+    };
   }
 
   /**

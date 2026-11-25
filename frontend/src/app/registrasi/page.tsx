@@ -37,6 +37,7 @@ interface PegawaiItem {
   hasSimantapAccess: boolean
   simantapRole: string | null
   simantapRoles: string[]
+  simantapPendingRoles?: string[]
   simantapStatus: string
 }
 
@@ -152,8 +153,8 @@ export default function SelfRegisterPage() {
       if (selectedPegawai) {
         setRegisteredResult({ pegawai: selectedPegawai, roles: selectedRoles })
       }
-      toast.success("Registrasi role berhasil!", {
-        description: "Silakan login ke MONALISA KONSEL menggunakan akun E-Gov/SIMPEG Anda.",
+      toast.success("Pengajuan registrasi terkirim!", {
+        description: "Menunggu konfirmasi Administrator sebelum akun diaktifkan.",
       })
     },
     onError: (err: unknown) => {
@@ -179,6 +180,10 @@ export default function SelfRegisterPage() {
       ((selectedPegawai.simantapRoles && selectedPegawai.simantapRoles.length > 0) ||
         selectedPegawai.hasSimantapAccess),
   )
+  const alreadyPending = Boolean(
+    selectedPegawai?.simantapPendingRoles &&
+      selectedPegawai.simantapPendingRoles.length > 0,
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50/70 via-background to-background dark:from-emerald-950/20 px-4 py-8">
@@ -203,10 +208,10 @@ export default function SelfRegisterPage() {
               </div>
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-foreground">
-                  Registrasi Role Berhasil
+                  Pengajuan Registrasi Terkirim
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Akun Anda sudah aktif di MONALISA KONSEL.
+                  Pengajuan Anda sedang <strong>menunggu konfirmasi Administrator</strong>. Setelah disetujui, Anda dapat langsung login ke MONALISA KONSEL.
                 </p>
               </div>
               <div className="rounded-lg border bg-muted/30 p-4 text-left text-xs space-y-1.5">
@@ -223,9 +228,9 @@ export default function SelfRegisterPage() {
                   <span>{registeredResult.pegawai.namaOpd || "-"}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Role Aktif: </span>
-                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                    {formatRoleNames(registeredResult.roles)}
+                  <span className="text-muted-foreground">Role Diajukan: </span>
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">
+                    {formatRoleNames(registeredResult.roles)} (Menunggu Konfirmasi Admin)
                   </span>
                 </div>
               </div>
@@ -339,6 +344,10 @@ export default function SelfRegisterPage() {
                       const hasRole =
                         (p.simantapRoles && p.simantapRoles.length > 0) ||
                         p.hasSimantapAccess
+                      const isPending =
+                        !hasRole &&
+                        p.simantapPendingRoles &&
+                        p.simantapPendingRoles.length > 0
                       return (
                         <button
                           key={p.nip}
@@ -368,6 +377,13 @@ export default function SelfRegisterPage() {
                                 className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[10px]"
                               >
                                 Sudah Ada Role: {formatRoleNames(p.simantapRoles)}
+                              </Badge>
+                            ) : isPending ? (
+                              <Badge
+                                variant="secondary"
+                                className="bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[10px]"
+                              >
+                                Menunggu Konfirmasi: {formatRoleNames(p.simantapPendingRoles || [])}
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -419,6 +435,25 @@ export default function SelfRegisterPage() {
                         </p>
                         <p className="text-amber-700 dark:text-amber-300">
                           Silakan langsung login menggunakan akun E-Gov/SIMPEG Anda, atau hubungi Administrator jika memerlukan perubahan role.
+                        </p>
+                      </div>
+                    </div>
+                  ) : alreadyPending ? (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 p-4 flex items-start gap-3"
+                    >
+                      <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="text-xs space-y-1 text-blue-900 dark:text-blue-200">
+                        <div className="font-semibold text-sm">
+                          Pengajuan Sedang Menunggu Konfirmasi Admin
+                        </div>
+                        <p>
+                          Pegawai ini sudah mengajukan role:{" "}
+                          <strong>{formatRoleNames(selectedPegawai.simantapPendingRoles || [])}</strong>.
+                        </p>
+                        <p className="text-blue-700 dark:text-blue-300">
+                          Silakan tunggu Administrator menyetujui pengajuan Anda di menu Manajemen User.
                         </p>
                       </div>
                     </div>
