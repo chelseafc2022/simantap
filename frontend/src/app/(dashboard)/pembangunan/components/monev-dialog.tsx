@@ -90,7 +90,7 @@ export function MonevDialog({
 
   // State tampilan: OPD (PPK/Bendahara) SELALU "pdf". Admin/Monev bisa beralih.
   const [activeTab, setActiveTab] = React.useState<"pdf" | "kelola">("pdf")
-  const isPdfView = !canManage || defaultView === "pdf" || activeTab === "pdf"
+  const isPdfView = !canManage || activeTab === "pdf"
 
   const [selectedReportId, setSelectedReportId] = React.useState<string>("ALL")
   const [previewHtml, setPreviewHtml] = React.useState<string>("")
