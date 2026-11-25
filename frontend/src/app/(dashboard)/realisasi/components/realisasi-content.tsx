@@ -914,10 +914,10 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                 <TableHead className="w-12 text-center text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   No
                 </TableHead>
-                <TableHead className="w-[32%] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[31%] text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Paket Pembangunan & Sub Unit
                 </TableHead>
-                <TableHead className="w-[18%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[17%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Pagu & Kontrak
                 </TableHead>
                 {!keuanganSaja && <>
@@ -925,10 +925,10 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                   Kinerja Fisik
                 </TableHead>
                 </>}
-                <TableHead className="w-[20%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-[19%] text-right text-xs font-semibold py-3.5 border-r border-b border-gray-200 dark:border-neutral-700">
                   Realisasi Keuangan
                 </TableHead>
-                <TableHead className="w-32 text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">
+                <TableHead className="w-36 text-center text-xs font-semibold py-3.5 border-b border-gray-200 dark:border-neutral-700">
                   Aksi
                 </TableHead>
               </TableRow>
@@ -1138,25 +1138,25 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                       </TableCell>
 
                       {/* Aksi */}
-                      <TableCell className="text-center py-3.5 border-b border-gray-200 dark:border-neutral-700">
+                      <TableCell className="text-center py-3 px-2.5 border-b border-gray-200 dark:border-neutral-700">
                         {isInduk ? (
-                          <Button variant="outline" size="sm" disabled className="h-8 px-2.5 text-[11px] gap-1 opacity-75">
-                            <Lock className="h-3 w-3" />
+                          <Button variant="outline" size="sm" disabled className="h-8 w-full max-w-[120px] px-2 text-[11px] gap-1 opacity-75">
+                            <Lock className="h-3 w-3 shrink-0" />
                             <span>Di Pecahan</span>
                           </Button>
                         ) : (
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="mx-auto flex w-full max-w-[120px] flex-col items-stretch justify-center gap-1.5">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleOpenInput(item.id)}
-                              className={`h-8 px-2.5 text-xs gap-1.5 transition-colors ${
+                              className={`h-7 w-full px-2 text-xs gap-1.5 transition-colors ${
                                 Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
                                   ? "border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
                                   : "hover:bg-primary/10 hover:text-primary"
                               }`}
                             >
-                              <Edit3 className="h-3.5 w-3.5" />
+                              <Edit3 className="h-3.5 w-3.5 shrink-0" />
                               <span>
                                 {Number(item.realisasiFisik || 0) > 0 || Number(item.realisasiKeuangan || 0) > 0
                                   ? "Ubah"
@@ -1169,13 +1169,13 @@ export function RealisasiContent({ polaMonitoring }: { polaMonitoring: "FISIK_KE
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setMonevPaket(item)}
-                                className="h-8 px-2 text-xs gap-1 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium bg-purple-50/50 dark:bg-purple-950/20 shadow-xs"
+                                className="h-7 w-full px-2 text-xs gap-1 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium bg-purple-50/50 dark:bg-purple-950/20 shadow-xs"
                                 title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
                               >
-                                <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                                <span className="hidden xl:inline">Hasil Monev</span>
+                                <FileText className="h-3.5 w-3.5 shrink-0 text-purple-600 dark:text-purple-400" />
+                                <span className="truncate">Hasil Monev</span>
                                 {item.totalMonev && item.totalMonev > 1 ? (
-                                  <Badge className="ml-0.5 px-1.5 py-0 text-[10px] bg-purple-600 hover:bg-purple-600 text-white font-bold h-4">
+                                  <Badge className="ml-0.5 px-1 py-0 text-[10px] bg-purple-600 hover:bg-purple-600 text-white font-bold h-4 shrink-0">
                                     {item.totalMonev}x
                                   </Badge>
                                 ) : null}

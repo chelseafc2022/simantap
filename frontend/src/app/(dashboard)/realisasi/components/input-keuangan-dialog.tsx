@@ -52,6 +52,8 @@ interface Props {
   paket: {
     id: string
     namaPaket: string
+    kodeRupKontrak?: string | null
+    mak?: { mak: string; pagu?: number; sumberDana?: string | null }[]
     nilaiPagu: number
     nilaiKontrak?: number
     parentId?: string | null
@@ -340,6 +342,25 @@ export function InputKeuanganDialog({
         <DialogHeader className="shrink-0 border-b p-4 pr-10 text-left sm:px-6">
           <DialogTitle>Realisasi Keuangan Bulanan</DialogTitle>
           <DialogDescription className="line-clamp-2 break-words">{paket.namaPaket} · TA {paket.tahunAnggaran}</DialogDescription>
+          {(paket.kodeRupKontrak || (paket.mak && paket.mak.length > 0)) && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {paket.kodeRupKontrak && (
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  RUP: {paket.kodeRupKontrak}
+                </Badge>
+              )}
+              {paket.mak?.map((m) => (
+                <Badge
+                  key={m.mak}
+                  variant="outline"
+                  className="font-mono text-[10px]"
+                  title={m.pagu ? `Pagu MAK: ${rupiah(m.pagu)}` : "Mata Anggaran Kegiatan (MAK)"}
+                >
+                  MAK: {m.mak}
+                </Badge>
+              ))}
+            </div>
+          )}
         </DialogHeader>
 
         {/* Pemilihan Bulan Pelaporan */}

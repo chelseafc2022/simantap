@@ -32,6 +32,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Bersihkan token & session lokal secara instan (optimistic logout)
     tokenStorage.clear();
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('MONALISA_RQ_CACHE_V1');
+      } catch {}
+    }
     setUser(null);
 
     // 2. Beritahu backend di latar belakang (timeout singkat agar tidak pernah blocking)

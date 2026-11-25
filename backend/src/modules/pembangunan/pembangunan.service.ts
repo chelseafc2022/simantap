@@ -3,17 +3,21 @@ import { CreatePencairanDto } from './dto/create-pencairan.dto';
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, StatusVerifikasi, type PencairanKeuangan } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'crypto';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService, isExcludedOpd } from '../../core/egov/egov.service';
+import type { RedisService } from '../../core/redis/redis.service';
 import { CreatePaketDto } from './dto/create-paket.dto';
 import { QueryPaketDto } from './dto/query-paket.dto';
 import { QueryRealisasiDto } from './dto/query-realisasi.dto';
@@ -36,7 +40,22 @@ export class PembangunanService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly egovService: EgovService,
+    @Optional() @Inject('REDIS_CACHE_SERVICE') private readonly redisService?: RedisService,
   ) {}
+
+  private buildCacheKey(prefix: string, payload: unknown): string {
+    const hash = createHash('sha1').update(JSON.stringify(payload)).digest('hex');
+    return `${prefix}:${hash}`;
+  }
+
+  private async invalidateRealisasiCache(): Promise<void> {
+    if (!this.redisService) return;
+    await Promise.all([
+      this.redisService.delByPattern('realisasi:*'),
+      this.redisService.delByPattern('laporan:*'),
+      this.redisService.delByPattern('*paket*'),
+    ]);
+  }
 
   private validateMonitoring(
     pola: string,
@@ -1037,6 +1056,7 @@ export class PembangunanService {
         },
       });
 
+      void this.invalidateRealisasiCache();
       return {
         ...updated,
         opd: this.egovService.getOpdById(updated?.opdId),
@@ -1093,6 +1113,7 @@ export class PembangunanService {
       }
     });
 
+    void this.invalidateRealisasiCache();
     return { message: `Paket '${existing.namaPaket}' berhasil dihapus` };
   }
 
@@ -1277,49 +1298,133 @@ export class PembangunanService {
 
     const where: Prisma.PaketPembangunanWhereInput = { AND: andConditions };
 
-    // Ambil seluruh paket yang sesuai kriteria filter untuk perhitungan aggregat & deviasi
-    const pakets = await this.prisma.paketPembangunan.findMany({
-      where,
-      orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
-      include: {
-        targetBulanan: {
-          orderBy: { bulan: 'asc' },
-        },
-        targetMingguan: {
-          select: { bulan: true },
-        },
-        realisasiBulanan: {
-          orderBy: { bulan: 'asc' },
-          include: {
-            inputBy: {
-              select: {
-                id: true,
-                namaLengkap: true,
-                nip: true,
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            monevLapangan: true,
-          },
-        },
-      },
+    const cacheKey = this.buildCacheKey('realisasi:rekap', {
+      page: Number(page),
+      limit: Number(limit),
+      search: search?.trim() || '',
+      tahunAnggaran: Number(tahunAnggaran),
+      activeBulan,
+      opdId: opdId || '',
+      subUnitId: subUnitId || '',
+      metodePemilihan: metodePemilihan || '',
+      statusDeviasi: statusDeviasi || '',
+      polaMonitoring: polaMonitoring || '',
+      scope: scopeFilter,
     });
+    const cached = await this.redisService?.get(cacheKey);
+    if (cached) {
+      return cached as never;
+    }
+
+    // Query paralel ramping: hindari nested include 3.177 paket x 12 bulan
+    const [pakets, targetRows, realisasiRows, targetMingguanRows, monevCounts] =
+      await Promise.all([
+        this.prisma.paketPembangunan.findMany({
+          where,
+          orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
+          select: {
+            id: true,
+            parentId: true,
+            isIndukGelondongan: true,
+            polaMonitoring: true,
+            namaPaket: true,
+            tanggalMulai: true,
+            tanggalSelesai: true,
+            nilaiPagu: true,
+            nilaiKontrak: true,
+            opdId: true,
+            subUnitId: true,
+          },
+        }),
+        typeof this.prisma.targetBulanan?.findMany === 'function'
+          ? this.prisma.targetBulanan.findMany({
+              where: {
+                bulan: activeBulan,
+                targetFisik: { gt: 0 },
+                paket: where,
+              },
+              select: { paketId: true, targetFisik: true },
+            })
+          : Promise.resolve(null),
+        typeof this.prisma.realisasiBulanan?.findMany === 'function'
+          ? this.prisma.realisasiBulanan.findMany({
+              where: {
+                bulan: { lte: activeBulan },
+                paket: where,
+              },
+              orderBy: { bulan: 'asc' },
+              select: {
+                paketId: true,
+                bulan: true,
+                realisasiFisik: true,
+                realisasiKeuangan: true,
+                catatanOperator: true,
+                updatedAt: true,
+                inputBy: {
+                  select: {
+                    id: true,
+                    namaLengkap: true,
+                    nip: true,
+                  },
+                },
+              },
+            })
+          : Promise.resolve(null),
+        typeof this.prisma.targetMingguan?.findMany === 'function'
+          ? this.prisma.targetMingguan.findMany({
+              where: { paket: where },
+              distinct: ['paketId', 'bulan'],
+              select: { paketId: true, bulan: true },
+            })
+          : Promise.resolve(null),
+        typeof this.prisma.monevLapangan?.groupBy === 'function'
+          ? this.prisma.monevLapangan.groupBy({
+              by: ['paketId'],
+              where: { paket: where },
+              _count: { id: true },
+            })
+          : Promise.resolve([]),
+      ]);
+
+    const targetByPaket = new Map<string, number>(
+      (targetRows || []).map((t) => [t.paketId, Number(t.targetFisik) || 0]),
+    );
+    const realisasiByPaket = new Map<string, NonNullable<typeof realisasiRows>>();
+    for (const r of realisasiRows || []) {
+      const list = realisasiByPaket.get(r.paketId) || [];
+      list.push(r);
+      realisasiByPaket.set(r.paketId, list);
+    }
+    const targetMingguanByPaket = new Map<string, number[]>();
+    for (const tm of targetMingguanRows || []) {
+      const list = targetMingguanByPaket.get(tm.paketId) || [];
+      list.push(tm.bulan);
+      targetMingguanByPaket.set(tm.paketId, list);
+    }
+    const monevByPaket = new Map<string, number>(
+      monevCounts.map((m) => [m.paketId, m._count.id]),
+    );
 
     // Proses kalkulasi target vs realisasi bulan berjalan
     const processedBase = pakets.map((paket) => {
-      const targetItem = paket.targetBulanan.find(
-        (t) => t.bulan === activeBulan,
-      );
-      const realisasiItem = paket.realisasiBulanan.find(
-        (r) => r.bulan === activeBulan,
+      const paketRealisasi =
+        realisasiRows !== null
+          ? realisasiByPaket.get(paket.id) || []
+          : ((paket as any).realisasiBulanan || []);
+      const realisasiItem = paketRealisasi.find(
+        (r: any) => r.bulan === activeBulan,
       );
 
       const nilaiPagu = Number(paket.nilaiPagu) || 0;
       const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
-      const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
+      const targetFisik =
+        targetRows !== null
+          ? (targetByPaket.get(paket.id) ?? 0)
+          : Number(
+              ((paket as any).targetBulanan || []).find(
+                (t: any) => t.bulan === activeBulan,
+              )?.targetFisik ?? 0,
+            );
       let realisasiFisik = realisasiItem
         ? Number(realisasiItem.realisasiFisik)
         : 0;
@@ -1332,9 +1437,9 @@ export class PembangunanService {
 
       // Otomatis Kumulatif: jika bulan aktif belum diisi (0), bawa nilai capaian terakhir dari bulan sebelumnya
       if (realisasiFisik === 0) {
-        const pastFisik = paket.realisasiBulanan
-          .filter((r) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0)
-          .sort((a, b) => b.bulan - a.bulan)[0];
+        const pastFisik = paketRealisasi
+          .filter((r: any) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0)
+          .sort((a: any, b: any) => b.bulan - a.bulan)[0];
         if (pastFisik) {
           realisasiFisik = Number(pastFisik.realisasiFisik) || 0;
           if (!catatanOperator) catatanOperator = pastFisik.catatanOperator || null;
@@ -1344,11 +1449,11 @@ export class PembangunanService {
       }
 
       if (realisasiKeuangan === 0) {
-        const pastKeu = paket.realisasiBulanan
+        const pastKeu = paketRealisasi
           .filter(
-            (r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
+            (r: any) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
           )
-          .sort((a, b) => b.bulan - a.bulan)[0];
+          .sort((a: any, b: any) => b.bulan - a.bulan)[0];
         if (pastKeu) {
           realisasiKeuangan = Number(pastKeu.realisasiKeuangan) || 0;
         }
@@ -1378,22 +1483,16 @@ export class PembangunanService {
         status = 'KRITIS';
       }
 
+      const totalMonevPaket = monevByPaket.get(paket.id) || 0;
+
       return {
         id: paket.id,
         parentId: paket.parentId,
         isIndukGelondongan: paket.isIndukGelondongan,
         polaMonitoring: paket.polaMonitoring,
-        kelompokPaket: paket.kelompokPaket,
         namaPaket: paket.namaPaket,
-        kodeRupKontrak: paket.kodeRupKontrak,
-        nomorKontrak: paket.nomorKontrak,
-        lokasiKegiatan: paket.lokasiKegiatan,
-        metodePemilihan: paket.metodePemilihan,
-        jenisPengadaan: paket.jenisPengadaan,
-        sumberDana: paket.sumberDana,
         tanggalMulai: paket.tanggalMulai,
         tanggalSelesai: paket.tanggalSelesai,
-        pemenangRekanan: paket.pemenangRekanan,
         nilaiPagu,
         nilaiKontrak,
         opd: this.egovService.getOpdById(paket.opdId),
@@ -1407,8 +1506,8 @@ export class PembangunanService {
         catatanOperator,
         inputBy,
         updatedAt,
-        totalMonev: paket._count?.monevLapangan || 0,
-        hasMonev: (paket._count?.monevLapangan || 0) > 0,
+        totalMonev: totalMonevPaket,
+        hasMonev: totalMonevPaket > 0,
       };
     });
 
@@ -1620,17 +1719,51 @@ export class PembangunanService {
     });
     const sorted = this.orderPaketsByParent(sortedRaw);
 
-    // Paginasi array hasil
+    // Paginasi array hasil, lalu lengkapi atribut tampilan hanya untuk baris halaman aktif
     const skip = (Number(page) - 1) * Number(limit);
-    const paginatedData = sorted.slice(skip, skip + Number(limit));
+    const paginatedSlice = sorted.slice(skip, skip + Number(limit));
+    const paginatedIds = paginatedSlice.map((item) => item.id);
+    const detailRows =
+      paginatedIds.length > 0
+        ? await this.prisma.paketPembangunan.findMany({
+            where: { id: { in: paginatedIds } },
+            select: {
+              id: true,
+              kelompokPaket: true,
+              kodeRupKontrak: true,
+              nomorKontrak: true,
+              lokasiKegiatan: true,
+              metodePemilihan: true,
+              jenisPengadaan: true,
+              sumberDana: true,
+              pemenangRekanan: true,
+            },
+          })
+        : [];
+    const detailById = new Map(detailRows.map((d) => [d.id, d]));
+    const paginatedData = paginatedSlice.map((item) => {
+      const detail = detailById.get(item.id);
+      return {
+        ...item,
+        kelompokPaket: detail?.kelompokPaket ?? 'PEMBANGUNAN_MODAL',
+        kodeRupKontrak: detail?.kodeRupKontrak ?? null,
+        nomorKontrak: detail?.nomorKontrak ?? null,
+        lokasiKegiatan: detail?.lokasiKegiatan ?? null,
+        metodePemilihan: detail?.metodePemilihan ?? null,
+        jenisPengadaan: detail?.jenisPengadaan ?? null,
+        sumberDana: detail?.sumberDana ?? null,
+        pemenangRekanan: detail?.pemenangRekanan ?? null,
+      };
+    });
     const totalPages = Math.ceil(sorted.length / Number(limit)) || 1;
 
     const availableMonths = Array.from(
       new Set(
         pakets.flatMap((paket) => {
           if (paket.polaMonitoring === 'KEUANGAN') return Array.from({ length: 12 }, (_, i) => i + 1);
-          if (paket.targetMingguan.length > 0) {
-            return paket.targetMingguan.map((item) => item.bulan);
+          const tmMonths = targetMingguanByPaket.get(paket.id) || [];
+          if (tmMonths.length > 0) {
+            return tmMonths;
           }
           if (!paket.tanggalMulai || !paket.tanggalSelesai) return [];
           const start = new Date(paket.tanggalMulai);
@@ -1647,7 +1780,7 @@ export class PembangunanService {
       ),
     ).sort((a, b) => a - b);
 
-    return {
+    const result = {
       data: paginatedData,
       summary: {
         activeBulan,
@@ -1670,6 +1803,8 @@ export class PembangunanService {
         totalPages,
       },
     };
+    await this.redisService?.set(cacheKey, result, 120);
+    return result;
   }
 
   /**
@@ -1679,6 +1814,8 @@ export class PembangunanService {
     const paket = await this.prisma.paketPembangunan.findUnique({
       where: { id: paketId },
       include: {
+        _count: { select: { monevLapangan: true } },
+        mak: { orderBy: { createdAt: 'asc' } },
         targetBulanan: { orderBy: { bulan: 'asc' } },
         targetMingguan: {
           orderBy: [{ bulan: 'asc' }, { mingguKe: 'asc' }],
@@ -1905,6 +2042,12 @@ export class PembangunanService {
         namaPaket: paket.namaPaket,
         tahunAnggaran: paket.tahunAnggaran,
         kodeRupKontrak: paket.kodeRupKontrak,
+        mak:
+          (paket as any).mak?.map((m: any) => ({
+            mak: m.mak,
+            pagu: Number(m.pagu),
+            sumberDana: m.sumberDana,
+          })) || [],
         nomorKontrak: paket.nomorKontrak,
         pemenangRekanan: paket.pemenangRekanan,
         lokasiKegiatan: paket.lokasiKegiatan,
@@ -1917,6 +2060,8 @@ export class PembangunanService {
         subUnit: this.egovService.getSubUnitById(paket.subUnitId),
         tanggalMulai: paket.tanggalMulai,
         tanggalSelesai: paket.tanggalSelesai,
+        totalMonev: (paket as any)._count?.monevLapangan || 0,
+        hasMonev: ((paket as any)._count?.monevLapangan || 0) > 0,
       },
       timeline,
       weeklyTimeline,
@@ -2041,6 +2186,7 @@ export class PembangunanService {
       });
 
       await this.syncMonthlyRealisasiFromWeekly(tx, paketId, bulan, user?.id);
+      void this.invalidateRealisasiCache();
       return record;
     });
   }
@@ -2189,7 +2335,10 @@ export class PembangunanService {
         return record;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+    ).then(async (res) => {
+      await this.invalidateRealisasiCache();
+      return res;
+    });
   }
 
   async ubahPencairan(
@@ -2250,7 +2399,10 @@ export class PembangunanService {
           catatanSebelum: record?.catatan ?? current.catatanOperator, catatanSesudah: dto?.catatan.trim() ?? null },
       } });
       return { message: dto ? 'Realisasi diperbarui' : 'Pencairan dihapus' };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (res) => {
+      await this.invalidateRealisasiCache();
+      return res;
+    });
   }
 
   async hapusRealisasiMingguan(paketId: string, bulan: number, mingguKe: number, user?: any) {
@@ -2285,7 +2437,10 @@ export class PembangunanService {
           sesudah: { realisasiFisik: fisik, realisasiKeuangan: keuangan.toString() } },
       } });
       return { message: 'Realisasi sesuai kewenangan Anda dihapus. Target dan bukti tetap tersimpan.' };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (res) => {
+      await this.invalidateRealisasiCache();
+      return res;
+    });
   }
 
   async upsertRealisasi(paketId: string, dto: UpsertRealisasiDto, user?: any) {
@@ -2404,6 +2559,7 @@ export class PembangunanService {
       },
     });
 
+    void this.invalidateRealisasiCache();
     if (user?.id) {
       await this.prisma.auditLog.create({
         data: {
@@ -2628,37 +2784,109 @@ export class PembangunanService {
       });
     }
 
-    const pakets = await this.prisma.paketPembangunan.findMany({
-      where: { AND: andConditions },
-      orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
-      include: {
-        targetBulanan: {
-          orderBy: { bulan: 'asc' },
-        },
-        realisasiBulanan: {
-          orderBy: { bulan: 'asc' },
-        },
-      },
+    const whereMatriks: Prisma.PaketPembangunanWhereInput = {
+      AND: andConditions,
+    };
+
+    const matriksCacheKey = this.buildCacheKey('laporan:matriks', {
+      tahunAnggaran: activeTahun,
+      activeBulan,
+      opdId: opdId || '',
+      subUnitId: subUnitId || '',
+      metodePemilihan: metodePemilihan || '',
+      statusDeviasi: statusDeviasi || '',
+      search: search?.trim() || '',
+      scope: scopeFilter,
     });
+    const cachedMatriks = await this.redisService?.get(matriksCacheKey);
+    if (cachedMatriks) {
+      return cachedMatriks as never;
+    }
+
+    const [pakets, targetRows, realisasiRows] = await Promise.all([
+      this.prisma.paketPembangunan.findMany({
+        where: whereMatriks,
+        orderBy: [{ opdId: 'asc' }, { namaPaket: 'asc' }],
+        select: {
+          id: true,
+          parentId: true,
+          isIndukGelondongan: true,
+          opdId: true,
+          subUnitId: true,
+          namaPaket: true,
+          polaMonitoring: true,
+          kelompokPaket: true,
+          kodeRupKontrak: true,
+          nomorKontrak: true,
+          lokasiKegiatan: true,
+          metodePemilihan: true,
+          jenisPengadaan: true,
+          sumberDana: true,
+          nilaiPagu: true,
+          nilaiKontrak: true,
+          tanggalMulai: true,
+          tanggalSelesai: true,
+          pemenangRekanan: true,
+        },
+      }),
+      this.prisma.targetBulanan.findMany({
+        where: { targetFisik: { gt: 0 }, paket: whereMatriks },
+        select: { paketId: true, bulan: true, targetFisik: true },
+      }),
+      this.prisma.realisasiBulanan.findMany({
+        where: { paket: whereMatriks },
+        select: {
+          paketId: true,
+          bulan: true,
+          realisasiFisik: true,
+          realisasiKeuangan: true,
+        },
+      }),
+    ]);
+
+    const targetMapByPaket = new Map<string, Map<number, number>>();
+    for (const t of targetRows) {
+      let m = targetMapByPaket.get(t.paketId);
+      if (!m) {
+        m = new Map();
+        targetMapByPaket.set(t.paketId, m);
+      }
+      m.set(t.bulan, Number(t.targetFisik) || 0);
+    }
+
+    const realMapByPaket = new Map<
+      string,
+      Map<number, { realisasiFisik: number; realisasiKeuangan: number }>
+    >();
+    for (const r of realisasiRows) {
+      let m = realMapByPaket.get(r.paketId);
+      if (!m) {
+        m = new Map();
+        realMapByPaket.set(r.paketId, m);
+      }
+      m.set(r.bulan, {
+        realisasiFisik: Number(r.realisasiFisik) || 0,
+        realisasiKeuangan: Number(r.realisasiKeuangan) || 0,
+      });
+    }
 
     const items = pakets.map((paket) => {
       const nilaiPagu = Number(paket.nilaiPagu) || 0;
       const nilaiKontrak = Number(paket.nilaiKontrak) || 0;
+      const tMap = targetMapByPaket.get(paket.id);
+      const rMap = realMapByPaket.get(paket.id);
 
       let cumulativeFisik = 0;
       let cumulativeKeuangan = 0;
 
       const timeline = Array.from({ length: 12 }, (_, idx) => {
         const b = idx + 1;
-        const targetItem = paket.targetBulanan.find((t) => t.bulan === b);
-        const realisasiItem = paket.realisasiBulanan.find((r) => r.bulan === b);
+        const realisasiItem = rMap?.get(b);
 
-        const targetFisik = targetItem ? Number(targetItem.targetFisik) : 0;
-        let realisasiFisik = realisasiItem
-          ? Number(realisasiItem.realisasiFisik)
-          : 0;
+        const targetFisik = tMap?.get(b) ?? 0;
+        let realisasiFisik = realisasiItem ? realisasiItem.realisasiFisik : 0;
         let realisasiKeuangan = realisasiItem
-          ? Number(realisasiItem.realisasiKeuangan)
+          ? realisasiItem.realisasiKeuangan
           : 0;
 
         // Otomatis Kumulatif: jika bulan berikutnya belum diisi (0), teruskan nilai kumulatif terakhir
@@ -2811,12 +3039,14 @@ export class PembangunanService {
 
     const ordered = this.orderPaketsByParent(filtered);
 
-    return {
+    const matriksResult = {
       tahunAnggaran: activeTahun,
       bulanEvaluasi: activeBulan,
       totalPaket: ordered.filter((i) => !i.hasChildren).length,
       items: ordered,
     };
+    await this.redisService?.set(matriksCacheKey, matriksResult, 180);
+    return matriksResult;
   }
 
   /**
@@ -2833,25 +3063,76 @@ export class PembangunanService {
     const activeTahun = Number(tahunAnggaran);
     const activeBulan = Math.min(12, Math.max(1, Number(bulan)));
 
+    const scopeFilter = this.buildScopeFilter(user);
     const whereConditions: Prisma.PaketPembangunanWhereInput = {
       tahunAnggaran: activeTahun,
-      ...this.buildScopeFilter(user),
+      ...scopeFilter,
       ...(opdId && opdId !== 'ALL' && opdId !== 'all' ? { opdId } : {}),
       ...(subUnitId && subUnitId !== 'ALL' && subUnitId !== 'all'
         ? { subUnitId }
         : {}),
     };
 
-    const pakets = await this.prisma.paketPembangunan.findMany({
-      where: whereConditions,
-      include: {
-        targetBulanan: { where: { bulan: activeBulan } },
-        realisasiBulanan: {
-          where: { bulan: { lte: activeBulan } },
-          orderBy: { bulan: 'desc' },
-        },
-      },
+    const rekapCacheKey = this.buildCacheKey('laporan:rekap-opd', {
+      tahunAnggaran: activeTahun,
+      activeBulan,
+      opdId: opdId || '',
+      subUnitId: subUnitId || '',
+      scope: scopeFilter,
     });
+    const cachedRekap = await this.redisService?.get(rekapCacheKey);
+    if (cachedRekap) {
+      return cachedRekap as never;
+    }
+
+    const [pakets, targetRows, realisasiRows] = await Promise.all([
+      this.prisma.paketPembangunan.findMany({
+        where: whereConditions,
+        select: {
+          id: true,
+          parentId: true,
+          opdId: true,
+          polaMonitoring: true,
+          nilaiPagu: true,
+          nilaiKontrak: true,
+        },
+      }),
+      typeof this.prisma.targetBulanan?.findMany === 'function'
+        ? this.prisma.targetBulanan.findMany({
+            where: {
+              bulan: activeBulan,
+              targetFisik: { gt: 0 },
+              paket: whereConditions,
+            },
+            select: { paketId: true, targetFisik: true },
+          })
+        : Promise.resolve(null),
+      typeof this.prisma.realisasiBulanan?.findMany === 'function'
+        ? this.prisma.realisasiBulanan.findMany({
+            where: {
+              bulan: { lte: activeBulan },
+              paket: whereConditions,
+            },
+            orderBy: { bulan: 'desc' },
+            select: {
+              paketId: true,
+              bulan: true,
+              realisasiFisik: true,
+              realisasiKeuangan: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const targetByPaket = new Map<string, number>(
+      (targetRows || []).map((t) => [t.paketId, Number(t.targetFisik) || 0]),
+    );
+    const realisasiByPaket = new Map<string, NonNullable<typeof realisasiRows>>();
+    for (const r of realisasiRows || []) {
+      const list = realisasiByPaket.get(r.paketId) || [];
+      list.push(r);
+      realisasiByPaket.set(r.paketId, list);
+    }
 
     // Grouping berdasarkan opdId
     const opdGroups = new Map<string, typeof pakets>();
@@ -2894,13 +3175,20 @@ export class PembangunanService {
       let countBelumMulai = 0;
 
       for (const p of executablePakets) {
-        const target = p.targetBulanan[0]
-          ? Number(p.targetBulanan[0].targetFisik)
-          : 0;
+        const target =
+          targetRows !== null
+            ? (targetByPaket.get(p.id) ?? 0)
+            : Number(
+                ((p as any).targetBulanan || []).find(
+                  (t: any) => t.bulan === activeBulan,
+                )?.targetFisik ?? 0,
+              );
+        const pRealisasi =
+          realisasiRows !== null
+            ? realisasiByPaket.get(p.id) || []
+            : ((p as any).realisasiBulanan || []);
 
-        const exactRealisasi = p.realisasiBulanan.find(
-          (r) => r.bulan === activeBulan,
-        );
+        const exactRealisasi = pRealisasi.find((r: any) => r.bulan === activeBulan);
         let realFisik = exactRealisasi
           ? Number(exactRealisasi.realisasiFisik)
           : 0;
@@ -2910,8 +3198,8 @@ export class PembangunanService {
 
         // Otomatis Kumulatif: jika bulan aktif belum diisi (0), bawa nilai capaian terakhir dari bulan sebelumnya
         if (realFisik === 0) {
-          const pastFisik = p.realisasiBulanan.find(
-            (r) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0,
+          const pastFisik = pRealisasi.find(
+            (r: any) => r.bulan < activeBulan && Number(r.realisasiFisik) > 0,
           );
           if (pastFisik) {
             realFisik = Number(pastFisik.realisasiFisik) || 0;
@@ -2919,8 +3207,8 @@ export class PembangunanService {
         }
 
         if (realKeu === 0) {
-          const pastKeu = p.realisasiBulanan.find(
-            (r) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
+          const pastKeu = pRealisasi.find(
+            (r: any) => r.bulan < activeBulan && Number(r.realisasiKeuangan) > 0,
           );
           if (pastKeu) {
             realKeu = Number(pastKeu.realisasiKeuangan) || 0;
@@ -2993,11 +3281,13 @@ export class PembangunanService {
       };
     }).filter((item): item is NonNullable<typeof item> => item !== null);
 
-    return {
+    const rekapResult = {
       tahunAnggaran: activeTahun,
       bulanEvaluasi: activeBulan,
       rekap,
     };
+    await this.redisService?.set(rekapCacheKey, rekapResult, 180);
+    return rekapResult;
   }
 
   /**
@@ -3340,6 +3630,7 @@ export class PembangunanService {
       });
     }
 
+    void this.invalidateRealisasiCache();
     if (user?.id) {
       await this.prisma.auditLog.create({
         data: {
@@ -3391,6 +3682,7 @@ export class PembangunanService {
       update: updateData,
     });
 
+    void this.invalidateRealisasiCache();
     if (user?.id) {
       await this.prisma.auditLog.create({
         data: {
@@ -3509,6 +3801,7 @@ export class PembangunanService {
       });
     }
 
+    void this.invalidateRealisasiCache();
     if (user?.id) {
       await this.prisma.auditLog.create({
         data: {

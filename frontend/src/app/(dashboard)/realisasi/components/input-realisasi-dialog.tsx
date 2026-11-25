@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   AlertCircle, AlertTriangle, CalendarDays, CheckCircle2,
   Image as ImageIcon, FileText, ExternalLink, Loader2, Save, Trash2,
-  TrendingUp, Upload, X, Camera,
+  TrendingUp, Upload, X,
 } from "lucide-react"
 import { MonevDialog } from "../../pembangunan/components/monev-dialog"
 import {
@@ -129,6 +129,7 @@ export function InputRealisasiDialog({
   const canEditFisik = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK"].includes(role))
   const canEditKeuangan = roles.some((role) => ["ADMINISTRATOR", "BENDAHARA"].includes(role))
   const canUploadFoto = roles.some((role) => ["ADMINISTRATOR", "ADMIN_PPK", "BENDAHARA"].includes(role))
+  const canManageMonev = roles.some((role) => ["ADMINISTRATOR", "MONEV"].includes(role))
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [weeklyState, setWeeklyState] = useState<WeeklyItem[]>([])
@@ -355,18 +356,26 @@ export function InputRealisasiDialog({
               <DialogDescription className="mt-1">
                 {paket?.namaPaket || "Memuat paket..."} · Rekap minggu terakhir tiap bulan otomatis masuk ke laporan TEPRA.
               </DialogDescription>
+              {(paket?.kodeRupKontrak || (paket?.mak && paket.mak.length > 0)) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {paket?.kodeRupKontrak && (
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      RUP: {paket.kodeRupKontrak}
+                    </Badge>
+                  )}
+                  {paket?.mak?.map((m: { mak: string; pagu?: number }) => (
+                    <Badge
+                      key={m.mak}
+                      variant="outline"
+                      className="font-mono text-[10px]"
+                      title={m.pagu ? `Pagu MAK: ${formatRupiah(m.pagu)}` : "Mata Anggaran Kegiatan (MAK)"}
+                    >
+                      MAK: {m.mak}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setMonevOpen(true)}
-              className="h-8 gap-1.5 text-xs shrink-0 border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-semibold"
-              title="Buka / Input Hasil Monitoring Lapangan (Tim MONEV)"
-            >
-              <Camera className="h-4 w-4 text-purple-600" />
-              <span>Monitoring Lapangan (MONEV)</span>
-            </Button>
           </div>
         </DialogHeader>
 
@@ -756,18 +765,24 @@ export function InputRealisasiDialog({
         <DialogFooter className="flex-row items-center justify-between border-t bg-muted/10 p-4 sm:justify-between">
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Tutup</Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setMonevOpen(true)}
-              className="h-9 gap-1.5 text-xs border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium"
-              title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
-            >
-              <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-              <span className="hidden sm:inline">Hasil MONEV Tim Adpem (PDF)</span>
-              <span className="sm:hidden">Hasil Monev PDF</span>
-            </Button>
+            {(canManageMonev || paket?.hasMonev || (paket?.totalMonev ?? 0) > 0) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMonevOpen(true)}
+                className="h-9 gap-1.5 text-xs border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 font-medium"
+                title="Buka / Unduh Dokumen PDF Hasil Monitoring Lapangan Tim MONEV Adpem"
+              >
+                <FileText className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                <span className="hidden sm:inline">
+                  {paket?.hasMonev || (paket?.totalMonev ?? 0) > 0
+                    ? "Hasil MONEV Tim Adpem (PDF)"
+                    : "Monitoring Lapangan (MONEV)"}
+                </span>
+                <span className="sm:hidden">Hasil Monev</span>
+              </Button>
+            )}
           </div>
           {current && (
             <div className="flex items-center gap-2">

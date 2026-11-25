@@ -944,7 +944,11 @@ export class SirupService {
     }
 
     // Bersihkan cache Redis terkait paket agar query frontend langsung segar
-    await this.redisService.delByPattern('*paket*');
+    await Promise.all([
+      this.redisService.delByPattern('*paket*'),
+      this.redisService.delByPattern('realisasi:*'),
+      this.redisService.delByPattern('laporan:*'),
+    ]);
 
     return {
       success: true,
