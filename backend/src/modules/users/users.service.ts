@@ -1,10 +1,18 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { RoleEnum } from '../../common/enums/role.enum';
 import { PrismaService } from '../../core/database/prisma.service';
 import { EgovService, EGOV_AUTH_SENTINEL } from '../../core/egov/egov.service';
 import { QueryPegawaiDirectoryDto } from './dto/query-pegawai.dto';
 import { QueryUserDto } from './dto/query-user.dto';
+import { SelfRegisterDto } from './dto/self-register.dto';
 import { SetRoleDto } from './dto/set-role.dto';
 
 @Injectable()
@@ -1304,6 +1312,56 @@ export class UsersService implements OnModuleInit {
         totalPages: result.totalPages,
       },
     };
+  }
+
+  /**
+   * Registrasi mandiri pegawai (setelah scan QR Code).
+   * Hanya mengizinkan role lingkup OPD (ADMIN_PPK, BENDAHARA, KEPALA_OPD)
+   * dan menolak jika pegawai sudah terdaftar aktif memiliki role.
+   */
+  async selfRegister(dto: SelfRegisterDto) {
+    const cleanNip = dto.nip.trim();
+    const allowedSelfRoles: RoleEnum[] = [
+      RoleEnum.ADMIN_PPK,
+      RoleEnum.BENDAHARA,
+      RoleEnum.KEPALA_OPD,
+    ];
+
+    const requestedRoles =
+      dto.roles && dto.roles.length > 0
+        ? Array.from(new Set(dto.roles))
+        : dto.role
+          ? [dto.role]
+          : [RoleEnum.ADMIN_PPK];
+
+    if (requestedRoles.some((r) => !allowedSelfRoles.includes(r))) {
+      throw new ForbiddenException(
+        'Registrasi mandiri hanya diperbolehkan untuk role Admin PPK, Bendahara, atau Kepala OPD.',
+      );
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { nip: cleanNip },
+      select: { id: true, status: true, role: true, roles: true },
+    });
+
+    const existingRoles =
+      existing?.roles && existing.roles.length > 0
+        ? existing.roles
+        : existing?.role
+          ? [existing.role]
+          : [];
+
+    if (existing && existing.status === 'AKTIF' && existingRoles.length > 0) {
+      throw new BadRequestException(
+        `Pegawai ini sudah terdaftar dan memiliki role: ${existingRoles.join(', ')}. Hubungi Administrator jika perlu perubahan hak akses.`,
+      );
+    }
+
+    return this.setRole({
+      nip: cleanNip,
+      roles: requestedRoles,
+    });
   }
 
   /**

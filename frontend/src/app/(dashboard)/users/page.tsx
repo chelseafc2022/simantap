@@ -9,6 +9,7 @@ import { apiClient } from "@/lib/api-client"
 import { StatCards } from "./components/stat-cards"
 import { MONALISA_ROLES, SetRoleDialog, TargetPegawai } from "./components/set-role-dialog"
 import { RevokeRoleDialog } from "./components/revoke-role-dialog"
+import { SelfRegisterQrDialog } from "./components/self-register-qr-dialog"
 import { SearchableCombobox } from "./components/searchable-combobox"
 import { isExcludedOpd } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -49,6 +50,7 @@ import {
   Users as UsersIcon,
   CheckCircle2,
   XCircle,
+  QrCode,
 } from "lucide-react"
 
 export default function UsersManagementPage() {
@@ -79,6 +81,7 @@ export default function UsersManagementPage() {
   // Dialog states
   const [setRoleOpen, setSetRoleOpen] = useState(false)
   const [revokeRoleOpen, setRevokeRoleOpen] = useState(false)
+  const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [targetPegawai, setTargetPegawai] = useState<TargetPegawai | null>(null)
 
   // 1. Fetch MONALISA KONSEL local users
@@ -289,6 +292,17 @@ export default function UsersManagementPage() {
           </TabsList>
         </div>
 
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setQrDialogOpen(true)}
+            className="text-xs h-8 gap-1.5 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            <span>QR Registrasi Mandiri</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -297,11 +311,12 @@ export default function UsersManagementPage() {
               else refetchDirectory()
             }}
             disabled={isFetchingUsers || isFetchingDirectory}
-            className="text-xs h-8 gap-1.5 self-end sm:self-auto shrink-0"
+            className="text-xs h-8 gap-1.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetchingUsers || isFetchingDirectory ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Segarkan Data</span>
           </Button>
+        </div>
         </div>
 
         {/* ========================================================= */}
@@ -1162,6 +1177,12 @@ export default function UsersManagementPage() {
         open={revokeRoleOpen}
         onOpenChange={setRevokeRoleOpen}
         target={targetPegawai}
+      />
+
+      {/* QR Self Registration Modal */}
+      <SelfRegisterQrDialog
+        open={qrDialogOpen}
+        onOpenChange={setQrDialogOpen}
       />
     </div>
   )
